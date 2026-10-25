@@ -1,8 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Браузерная игра Tower Defense на Next.js, React и Phaser.
 
 ## Getting Started
 
-First, run the development server:
+Установите зависимости и запустите сервер разработки:
 
 ```bash
 npm run dev
@@ -14,23 +14,50 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Откройте [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Управление
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Клик по свободной клетке — построить выбранную башню.
+- Клик по построенной башне — выбрать её: справа появятся характеристики и кнопка улучшения.
+- `U` — улучшить выбранную башню за золото (до 5 уровня).
+- `1`–`4` — выбрать тип башни (лучник, магия, пушка, лёд).
+- `Пробел` — запустить первую волну. Дальше волны идут автоматически: после короткой паузы начинается следующая.
+- `R` — начать заново после поражения (или кнопка «Играть заново»).
 
-## Learn More
+Параметры башен (урон, радиус, перезарядка, DPS) показаны в правой панели. Каждый уровень улучшения добавляет +30% урона, +8% радиуса и ускоряет перезарядку на 10%; цена растёт с уровнем.
 
-To learn more about Next.js, take a look at the following resources:
+## Проверки
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Те же проверки выполняет GitHub Actions (`.github/workflows/ci.yml`).
 
-## Deploy on Vercel
+Рекорды хранятся локально в браузере (`localStorage`); сервер и учётные записи не требуются.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Структура проекта
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/                      Next.js App Router: страница и глобальные стили
+components/game/          React-обёртка над Phaser, иконки и карточка башни
+features/game/
+  config/game.config.ts   Баланс: башни, враги, стартовые ресурсы, константы
+  domain/game-rules.ts    Чистые правила игры (без Phaser) + тесты
+  domain/game-state.ts    Состояние игры и снимок для React-панели
+  engine/board/           Отрисовка поля, дороги и ландшафта
+  engine/map/game-map.ts  Маршрут врагов
+  engine/rendering/       Внешний вид врагов и башен
+  engine/systems/         Логика волн, врагов и башен
+  engine/ui/              Мост в React и уведомление о новой волне
+  engine/game-context.ts  Общий контекст, который получают системы
+  engine/scenes/MainScene.ts  Тонкая сцена-клей: создаёт системы и связывает ввод
+  types/game.types.ts     Типы игровых сущностей
+```
+
+Связь Phaser ↔ React идёт через браузерные события: `td:state`, `td:select-tower`, `td:start-wave`, `td:upgrade-tower`, `td:deselect-tower`, `td:restart`, `td:game-over`.
+

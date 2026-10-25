@@ -1,0 +1,11 @@
+.env
+node_modules
+.next
+dist
+*.log
+.git
+.github
+.nyc_output
+coverage
+public/game/path/castle.png
+public/game/background.png
