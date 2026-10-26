@@ -320,17 +320,17 @@ export default function HomePage() {
 			</section>
 
 			{/* Status above bar — dark text with strong shadow */}
-			<div className="absolute bottom-[72px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+			<div className="absolute bottom-[92px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
 				<div className="flex justify-center">
-					<div className="rounded-full bg-[#0f0a05]/75 border border-[#3a2a1a]/40 px-5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
-						<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_6px_rgba(0,0,0,1),0_1px_0_#000]">{game.status}</p>
+					<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
+						<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
 					</div>
 				</div>
 			</div>
 
-			{/* Bottom compact centered semi-transparent bar */}
+			{/* Bottom compact pixel-art bar */}
 			<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-[640px] px-2">
-				<div className="flex h-[56px] items-center gap-1.5 rounded-2xl border-2 border-[#3a2a1a]/60 bg-[#0f0a05]/60 backdrop-blur-xl px-2 shadow-[0_8px_32px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)]">
+				<div className="flex h-[56px] items-center gap-1.5 rounded-none border-[3px] border-[#5c3a1a] bg-[#0f0a05]/85 px-2 shadow-[4px_4px_0_#2a1d0a,0_0_0_#000]">
 				{/* Tower cards mini */}
 				<div className="flex gap-1.5 overflow-x-auto">
 					{towers.map((tower) => {
@@ -341,11 +341,11 @@ export default function HomePage() {
 								type="button"
 								onClick={() => selectTower(tower.id)}
 								aria-pressed={selected}
-								className={`group relative flex h-[56px] w-[72px] shrink-0 flex-col items-center justify-center rounded-none border-2 p-1 text-center transition-all duration-75 ${selected ? 'border-amber-300 bg-gradient-to-b from-[#302315] to-[#1a1208] shadow-[0_0_10px_rgba(212,160,60,0.25)]' : 'border-[#3a2a18] bg-gradient-to-b from-[#171109] to-[#0d0804] hover:border-amber-700/60 hover:bg-[#1a1208]'} focus:outline-none`}
+								className={`group relative flex h-[48px] w-[68px] shrink-0 flex-col items-center justify-center rounded-none border-[3px] p-1 text-center transition-all duration-75 ${selected ? 'border-amber-300 bg-[#1a0f05] shadow-[3px_3px_0_#5c2d0e]' : 'border-[#2a1d0a] bg-[#0d0802] hover:border-amber-600 hover:bg-[#140c05]'} focus:outline-none`}
 							>
-								<Image src={tower.image} width={28} height={28} alt={tower.name} className="mb-0.5 drop-shadow-md" />
-								<span className={`text-[8px] font-black uppercase tracking-[0.1em] leading-none ${selected ? 'text-amber-200' : 'text-amber-100/80'}`}>{tower.name}</span>
-								<span className="text-[7px] font-black tabular-nums text-[#b5a17b]">{tower.cost}g</span>
+								<Image src={tower.image} width={26} height={26} alt={tower.name} className="mb-0.5 drop-shadow-[2px_2px_0_#000]" />
+								<span className={`text-[7px] font-black uppercase tracking-[0.08em] leading-none ${selected ? 'text-amber-200' : 'text-amber-100/70'}`}>{tower.name}</span>
+								<span className="text-[6px] font-black tabular-nums text-[#b5a17b]/80">{tower.cost}g</span>
 							</button>
 						)
 					})}
@@ -356,13 +356,13 @@ export default function HomePage() {
 
 				{/* Resources */}
 				<div className="flex shrink-0 gap-2">
-					<div className="flex h-[56px] w-[72px] flex-col items-center justify-center rounded-none border-2 border-[#4a3728]/60 bg-gradient-to-b from-[#2a1d0a] to-[#1a1208] px-2 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]">
-						<span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8a7340]">◆</span>
-						<span className="text-sm font-black text-amber-300 tabular-nums tracking-wider">{game.gold}</span>
+					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#4a3728]/80 bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
+						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">◆</span>
+						<span className="text-xs font-black text-amber-300 tabular-nums tracking-wider">{game.gold}</span>
 					</div>
-					<div className="flex h-[56px] w-[72px] flex-col items-center justify-center rounded-none border-2 border-[#3a2a1a]/60 bg-gradient-to-b from-[#2a1d0a] to-[#1a1208] px-2 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]">
-						<span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8a7340]">♥</span>
-						<span className="text-sm font-black text-red-300 tabular-nums tracking-wider">{game.lives}</span>
+					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#3a2a1a] bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
+						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">♥</span>
+						<span className="text-xs font-black text-red-300 tabular-nums tracking-wider">{game.lives}</span>
 					</div>
 				</div>
 
@@ -371,15 +371,10 @@ export default function HomePage() {
 					type="button"
 					onClick={game.gameOver ? restartGame : startWave}
 					disabled={waveButtonDisabled}
-					className="h-[56px] shrink-0 rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-4 text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] shadow-[0_2px_4px_rgba(0,0,0,0.5),0_0_8px_rgba(212,160,60,0.15)] transition-all hover:from-[#9b6a3e] hover:to-[#6a3a1e] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+					className="h-[48px] shrink-0 rounded-none border-[3px] border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-3 text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] shadow-[3px_3px_0_#3a1d0a] transition-all hover:from-[#9b6a3e] hover:to-[#6a3a1e] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
 				>
 					{game.gameOver ? 'ЗАНОВО' : game.waveActive ? 'ВОЛНА' : game.wave === 0 ? 'СТАРТ' : `ВОЛНА ${game.wave + 1}`}
 				</button>
-
-				{/* Status */}
-				<div className="flex h-[56px] flex-1 items-center px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#b5a17b] truncate">
-					{game.status}
-				</div>
 			</div>
 			</div>
 
