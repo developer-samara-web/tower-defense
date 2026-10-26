@@ -44,8 +44,7 @@ export function bindCameraControls(
 	let lastPointerX = 0
 	let lastPointerY = 0
 
-	// Для pinch-zoom на мобильных: отслеживаем активные указатели.
-	const activePointers = new Map<number, Phaser.Input.Pointer>()
+	// Для pinch-zoom: считаем указатели напрямую через менеджер ввода.
 	let lastPinchDist = 0
 
 	// Минимальный зум зависит от размера окна: нельзя отдалить карту
@@ -71,7 +70,6 @@ export function bindCameraControls(
 	const DRAG_THRESHOLD = 6
 
 	const onPointerDown = (pointer: Phaser.Input.Pointer) => {
-		activePointers.set(pointer.pointerId, pointer)
 		dragging = false
 		dragMoved = false
 		dragStartX = pointer.x
@@ -79,23 +77,22 @@ export function bindCameraControls(
 	}
 
 	const onPointerMove = (pointer: Phaser.Input.Pointer) => {
-		// Обновляем активный указатель, если это тот же ID.
-		if (activePointers.has(pointer.pointerId)) {
-			activePointers.set(pointer.pointerId, pointer)
-		}
+		// Pinch-zoom: считаем активные указатели через менеджер ввода.
+		const managerPointers = scene.input.manager.pointers || []
+		const activeCount = managerPointers.filter((p) => p.isDown).length
 
-		// Pinch-zoom: если два указателя активны — приближаем/отдаляем.
-		if (activePointers.size === 2) {
-			const pointers = Array.from(activePointers.values())
-			const p0 = pointers[0]
-			const p1 = pointers[1]
+		if (activeCount === 2) {
+			const active = managerPointers.filter((p) => p.isDown)
+			const p0 = active[0]
+			const p1 = active[1]
+			if (!p0 || !p1) return
+
 			const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y)
 
 			if (lastPinchDist > 0 && Math.abs(dist - lastPinchDist) > 2) {
 				const factor = Math.max(0.3, Math.min(2.5, dist / lastPinchDist))
 				const newZoom = clampZoom(camera.zoom * factor)
 
-				// Центрируем зум на середине двух пальцев.
 				const cx = (p0.x + p1.x) / 2
 				const cy = (p0.y + p1.y) / 2
 				const originX = camera.width * camera.originX
@@ -168,9 +165,8 @@ export function bindCameraControls(
 	}
 
 	const onPointerUp = (pointer: Phaser.Input.Pointer) => {
-		activePointers.delete(pointer.pointerId)
 		lastPinchDist = 0
-		if (activePointers.size === 0) {
+		if (scene.input.manager.pointers.filter((p) => p.isDown).length === 0) {
 			stopDragging()
 		}
 	}
