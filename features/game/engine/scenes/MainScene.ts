@@ -53,6 +53,7 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('tower-fire', '/game/towers/fire.png')
 		this.load.image('tower-earth', '/game/towers/earth.png')
 		this.load.image('castle', '/game/path/castle.png')
+		this.load.image('logo', '/game/logo.png')
 	}
 
 	// Вызывается Phaser при создании сцены.
