@@ -352,19 +352,7 @@ export default function HomePage() {
 				</div>
 
 				{/* Divider */}
-				<div className="mx-1 h-10 w-px bg-gradient-to-b from-transparent via-[#4a3728]/50 to-transparent" />
-
-				{/* Resources */}
-				<div className="flex shrink-0 gap-2">
-					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#4a3728]/80 bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
-						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">◆</span>
-						<span className="text-xs font-black text-amber-300 tabular-nums tracking-wider">{game.gold}</span>
-					</div>
-					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#3a2a1a] bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
-						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">♥</span>
-						<span className="text-xs font-black text-red-300 tabular-nums tracking-wider">{game.lives}</span>
-					</div>
-				</div>
+				<div className="mx-1 h-10 w-px bg-gradient-to-b from-transparent via-[#4a3728]/50 to-transparent shrink-0" />
 
 				{/* Wave button */}
 				<button
@@ -375,7 +363,19 @@ export default function HomePage() {
 				>
 					{game.gameOver ? 'ЗАНОВО' : game.waveActive ? 'ВОЛНА' : game.wave === 0 ? 'СТАРТ' : `ВОЛНА ${game.wave + 1}`}
 				</button>
-			</div>
+
+				{/* Resources — moved right of wave button */}
+				<div className="flex shrink-0 gap-1.5 ml-auto">
+					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#4a3728]/80 bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
+						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">◆</span>
+						<span className="text-xs font-black text-amber-300 tabular-nums tracking-wider">{game.gold}</span>
+					</div>
+					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#3a2a1a] bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
+						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">♥</span>
+						<span className="text-xs font-black text-red-300 tabular-nums tracking-wider">{game.lives}</span>
+					</div>
+				</div>
+				</div>
 			</div>
 
 			</main>
