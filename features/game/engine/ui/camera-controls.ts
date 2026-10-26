@@ -192,8 +192,10 @@ export function bindCameraControls(
 		if (cursors?.down.isDown || wasd?.S?.isDown) directionY += 1
 
 		// Управление камерой у краёв экрана как в Dota — мышь у границы прокручивает.
+		// Отключено на мобильных (touch), где это конфликтует с перетаскиванием.
+		const isTouchDevice = scene.sys?.game?.device?.input?.touch === true
 		const pointer = scene.input.activePointer
-		if (pointer && pointer.x > 0 && pointer.y > 0 && pointer.x < scene.scale.width && pointer.y < scene.scale.height) {
+		if (!isTouchDevice && pointer && pointer.x > 0 && pointer.y > 0 && pointer.x < scene.scale.width && pointer.y < scene.scale.height) {
 			const edgeMargin = 40
 			if (pointer.x < edgeMargin) directionX -= 1
 			if (pointer.x > scene.scale.width - edgeMargin) directionX += 1
