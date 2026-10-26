@@ -30,12 +30,19 @@ const PIXEL_COLORS = {
 	goldDim: 0xd1bd68,
 }
 
+// Размер бесшовной текстуры травы. 64 клетки по 32 px дают
+// степень двойки — такую текстуру безопасно повторять в WebGL.
+// Чем крупнее тайл, тем меньше заметен повтор узора на большой карте.
+const GRASS_TILE_CELLS = 64
+const GRASS_TILE_SIZE = GRASS_TILE_CELLS * CELL_SIZE
+
 // Рисует всё игровое поле и возвращает множество клеток, занятых дорогой.
 export function drawBoard(
     scene: Phaser.Scene,
     seed = 1,
 ): Set<string> {
-    drawGrid(scene, seed)
+    drawGrass(scene, seed)
+    drawEdgeShade(scene)
 
     const pathCells = drawPath(scene, seed)
 
@@ -43,6 +50,51 @@ export function drawBoard(
     drawPathEndpoints(scene)
 
     return pathCells
+}
+
+// Мягкая тень по краю поля. Без неё яркая трава обрывается
+// резкой линией о лесной фон, когда камера доезжает до границы мира.
+function drawEdgeShade(scene: Phaser.Scene) {
+    const graphics = scene.add.graphics()
+    const width = COLS * CELL_SIZE
+    const height = ROWS * CELL_SIZE
+
+    // Ширина затемнения и количество ступеней градиента.
+    const band = CELL_SIZE * 2
+    const steps = 8
+    const stepSize = band / steps
+
+    for (let i = 0; i < steps; i++) {
+        const alpha = 0.45 * (1 - i / steps)
+        const offset = i * stepSize
+
+        graphics.fillStyle(0x1e4b22, alpha)
+
+        graphics.fillRect(offset, offset, width - offset * 2, stepSize)
+        graphics.fillRect(
+            offset,
+            height - offset - stepSize,
+            width - offset * 2,
+            stepSize,
+        )
+        graphics.fillRect(offset, offset, stepSize, height - offset * 2)
+        graphics.fillRect(
+            width - offset - stepSize,
+            offset,
+            stepSize,
+            height - offset * 2,
+        )
+    }
+
+    graphics.setDepth(0.05)
+}
+
+function cssColor(color: number, alpha = 1) {
+    const red = (color >> 16) & 0xff
+    const green = (color >> 8) & 0xff
+    const blue = color & 0xff
+
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
 // Рисует игровое поле с пиксельной текстурой.
@@ -60,24 +112,43 @@ function createSeededRandom(seed: number) {
 	}
 }
 
-function drawGrid(scene: Phaser.Scene, seed: number) {
-	const graphics = scene.add.graphics()
-	const random = createSeededRandom(seed)
-
+// Рисует траву одним повторяющимся тайлом. Для карты 4000×4000
+// рисовать каждую клетку отдельными командами Graphics слишком дорого,
+// поэтому узор готовится один раз в CanvasTexture и растягивается TileSprite.
+function drawGrass(scene: Phaser.Scene, seed: number) {
 	const width = COLS * CELL_SIZE
 	const height = ROWS * CELL_SIZE
+	const key = 'td-grass-tile'
 
-	//* Траву рисуем только на самом игровом поле. *
-	//* Вокруг него виден фон с лесной поляной, который не даёт *
-	//* тёмных полос по краям экрана. *
-	graphics.fillStyle(PIXEL_COLORS.grassMid, 1)
-	graphics.fillRect(0, 0, width, height)
+	if (scene.textures.exists(key)) {
+		scene.textures.remove(key)
+	}
 
-	for (let y = 0; y < ROWS; y++) {
-		for (let x = 0; x < COLS; x++) {
+	const texture = scene.textures.createCanvas(
+		key,
+		GRASS_TILE_SIZE,
+		GRASS_TILE_SIZE,
+	)
+
+	// Если браузер не дал создать текстуру, оставляем ровный зелёный фон.
+	if (!texture) {
+		const fallback = scene.add.graphics()
+		fallback.fillStyle(PIXEL_COLORS.grassMid, 1)
+		fallback.fillRect(0, 0, width, height)
+		fallback.setDepth(0)
+		return
+	}
+
+	const context = texture.context
+	const random = createSeededRandom(seed)
+
+	context.fillStyle = cssColor(PIXEL_COLORS.grassMid)
+	context.fillRect(0, 0, GRASS_TILE_SIZE, GRASS_TILE_SIZE)
+
+	for (let y = 0; y < GRASS_TILE_CELLS; y++) {
+		for (let x = 0; x < GRASS_TILE_CELLS; x++) {
 			const px = x * CELL_SIZE
 			const py = y * CELL_SIZE
-
 			const shade = random()
 
 			//* Незаметные вариации основного покрытия. *
@@ -90,13 +161,8 @@ function drawGrid(scene: Phaser.Scene, seed: number) {
 							? PIXEL_COLORS.grassBright
 							: PIXEL_COLORS.grassMid
 
-			graphics.fillStyle(color, 0.24 + random() * 0.12)
-			graphics.fillRect(
-				px + 1,
-				py + 1,
-				CELL_SIZE - 2,
-				CELL_SIZE - 2,
-			)
+			context.fillStyle = cssColor(color, 0.12 + random() * 0.1)
+			context.fillRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2)
 
 			//* Мелкие пиксельные пятна на траве. *
 			const details = 2 + Math.floor(random() * 3)
@@ -105,14 +171,14 @@ function drawGrid(scene: Phaser.Scene, seed: number) {
 				const detailX = px + 4 + random() * Math.max(1, CELL_SIZE - 10)
 				const detailY = py + 4 + random() * Math.max(1, CELL_SIZE - 10)
 
-				graphics.fillStyle(
+				context.fillStyle = cssColor(
 					random() > 0.5
 						? PIXEL_COLORS.grassLight
 						: PIXEL_COLORS.grassDark,
 					0.16 + random() * 0.16,
 				)
 
-				graphics.fillRect(
+				context.fillRect(
 					Math.floor(detailX),
 					Math.floor(detailY),
 					2 + Math.floor(random() * 3),
@@ -122,29 +188,20 @@ function drawGrid(scene: Phaser.Scene, seed: number) {
 		}
 	}
 
-	//* Тонкая сетка только внутри игрового поля. *
-	//* Внешние линии не рисуем, чтобы по краям не было рамки. *
-	graphics.lineStyle(1, 0x1e4b22, 0.18)
+	//* Тонкая сетка вшита в тайл, поэтому она не стоит отдельных команд. *
+	context.fillStyle = cssColor(0x1e4b22, 0.18)
 
-	for (let x = 1; x < COLS; x++) {
-		graphics.lineBetween(
-			x * CELL_SIZE,
-			0,
-			x * CELL_SIZE,
-			height,
-		)
+	for (let i = 0; i < GRASS_TILE_CELLS; i++) {
+		context.fillRect(i * CELL_SIZE, 0, 1, GRASS_TILE_SIZE)
+		context.fillRect(0, i * CELL_SIZE, GRASS_TILE_SIZE, 1)
 	}
 
-	for (let y = 1; y < ROWS; y++) {
-		graphics.lineBetween(
-			0,
-			y * CELL_SIZE,
-			width,
-			y * CELL_SIZE,
-		)
-	}
+	texture.refresh()
 
-	graphics.setDepth(0)
+	scene.add
+		.tileSprite(0, 0, width, height, key)
+		.setOrigin(0, 0)
+		.setDepth(0)
 }
 
 // Рисует дороги в стиле каменных плит и возвращает занятые ими клетки.
@@ -262,7 +319,7 @@ function drawPath(scene: Phaser.Scene, seed = 1): Set<string> {
 			const end = points[i + 1]
 
 			const length = Math.hypot(end.x - start.x, end.y - start.y)
-			const count = Math.floor(length / 14)
+			const count = Math.floor(length / 20)
 
 			for (let j = 0; j < count; j++) {
 				if (random() > 0.65) continue
@@ -367,8 +424,9 @@ function drawTerrainDetails(
             const centerX = x * CELL_SIZE + CELL_SIZE / 2
             const centerY = y * CELL_SIZE + CELL_SIZE / 2
 
-            //* Не декорируем каждую клетку — оставляем пространство. *
-            if (random() > 0.48) continue
+            //* На большой карте декорируем редко: так сцена остаётся
+            //* лёгкой, а трава не превращается в сплошной шум. *
+            if (random() > 0.045) continue
 
             const offsetX = (random() - 0.5) * CELL_SIZE * 0.45
             const offsetY = (random() - 0.5) * CELL_SIZE * 0.45

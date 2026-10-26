@@ -355,6 +355,9 @@ export default function HomePage() {
 				<div className="flex h-full w-full flex-col lg:flex-row">
 					<section className="relative min-h-0 flex-1 overflow-hidden">
 						<GameCanvas />
+						<div className="pointer-events-none absolute bottom-3 left-3 z-40 max-w-[calc(100%-1.5rem)] border border-[#3a2a1a]/80 bg-[#0f0a05]/75 px-2 py-1.5 text-[9px] font-bold uppercase leading-relaxed tracking-[0.1em] text-[#a89060] shadow-[0_2px_0_rgba(0,0,0,0.5)]">
+							ЛКМ — башня · ПКМ/СКМ — камера · WASD — движение · Колесо — зум
+						</div>
 						{upgradeCards.length > 0 && !game.gameOver ? (
 							<div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
 								<div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">

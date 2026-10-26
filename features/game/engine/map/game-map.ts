@@ -31,6 +31,17 @@ function randomInt(min: number, max: number) {
 	return low + Math.floor(Math.random() * (high - low + 1))
 }
 
+// Случайное целое, которое не подходит слишком близко к заданному значению.
+// Нужно, чтобы соседние повороты дороги не сливались в один отрезок.
+function randomIntAwayFrom(min: number, max: number, avoid: number, gap: number) {
+	for (let attempt = 0; attempt < 40; attempt++) {
+		const value = randomInt(min, max)
+		if (Math.abs(value - avoid) >= gap) return value
+	}
+
+	return randomInt(min, max)
+}
+
 // Убирает повторяющиеся подряд точки, чтобы не рисовать нулевые отрезки.
 function normalize(road: Road): Road {
 	const result: Road = []
@@ -46,130 +57,83 @@ function normalize(road: Road): Road {
 	return result
 }
 
-// Возвращает все клетки, через которые проходит дорога.
-function roadCells(road: Road): [number, number][] {
-	const cells: [number, number][] = []
-
-	for (let i = 0; i < road.length - 1; i++) {
-		const [startX, startY] = road[i]
-		const [endX, endY] = road[i + 1]
-
-		const dx = endX - startX
-		const dy = endY - startY
-		const steps = Math.max(Math.abs(dx), Math.abs(dy))
-
-		if (steps === 0) {
-			cells.push([startX, startY])
-			continue
-		}
-
-		for (let step = 0; step <= steps; step++) {
-			cells.push([
-				Math.round(startX + (dx * step) / steps),
-				Math.round(startY + (dy * step) / steps),
-			])
-		}
-	}
-
-	return cells
-}
-
-// Дороги не должны пересекаться и обязаны отстоять друг от друга
-// минимум на одну свободную клетку (расстояние Чебышёва >= 2).
-function roadsAreSeparated(roads: Road[]): boolean {
-	const cells = roads.map(roadCells)
-
-	for (let first = 0; first < cells.length; first++) {
-		for (let second = first + 1; second < cells.length; second++) {
-			for (const [firstX, firstY] of cells[first]) {
-				for (const [secondX, secondY] of cells[second]) {
-					const distance = Math.max(
-						Math.abs(firstX - secondX),
-						Math.abs(firstY - secondY),
-					)
-
-					if (distance < 2) return false
-				}
-			}
-		}
-	}
-
-	return true
-}
-
-// Строит случайный вариант 4 дорог, ведущих к воротам замка.
+// Строит 4 длинные извилистые дороги, которые входят в замок
+// с четырёх сторон. Каждая дорога живёт в своей четверти карты,
+// поэтому дороги гарантированно не пересекаются и не слипаются.
 function buildRoads(): Road[] {
 	const [cx, cy] = CENTER_CELL
 
-	// Северная дорога: сверху, затем поворот к северным воротам.
-	const northX = randomInt(2, COLS - 3)
-	const northRow = randomInt(2, cy - 3)
+	// Дорога выходит за пределы поля на две клетки, чтобы враги
+	// появлялись в лесу и входили на карту через ворота.
+	const edge = 2
+
+	// Ворота стоят в двух клетках от центра — сразу за стенами замка.
+	const gate = 2
+
+	// Минимальный зазор между соседними поворотами дороги.
+	const turnGap = 6
+
+	// Северная дорога: верхняя левая четверть, входит в северные ворота.
+	const northX = randomInt(4, cx - 2)
+	const northY1 = randomInt(8, Math.floor(cy / 2))
+	const northY2 = randomInt(Math.floor(cy / 2) + turnGap, cy - 4)
+	const northX2 = randomIntAwayFrom(4, cx - 2, northX, turnGap)
 	const north: Road = normalize([
-		[northX, -2],
-		[northX, northRow],
-		[cx, northRow],
-		[cx, cy - 2],
+		[northX, -edge],
+		[northX, northY1],
+		[northX2, northY1],
+		[northX2, northY2],
+		[cx, northY2],
+		[cx, cy - gate],
 	])
 
-	// Восточная дорога: справа, затем поворот к восточным воротам.
-	const eastRow = randomInt(2, ROWS - 3)
-	const eastCol = randomInt(cx + 3, COLS - 3)
+	// Восточная дорога: верхняя правая четверть, входит в восточные ворота.
+	const eastY = randomInt(4, cy - 4)
+	const eastX1 = randomInt(cx + 16, COLS - 16)
+	const eastX2 = randomInt(cx + 4, eastX1 - turnGap)
+	const eastY2 = randomIntAwayFrom(4, cy - 4, eastY, turnGap)
 	const east: Road = normalize([
-		[COLS + 2, eastRow],
-		[eastCol, eastRow],
-		[eastCol, cy],
-		[cx + 2, cy],
+		[COLS + edge, eastY],
+		[eastX1, eastY],
+		[eastX1, eastY2],
+		[eastX2, eastY2],
+		[eastX2, cy],
+		[cx + gate, cy],
 	])
 
-	// Южная дорога: снизу, затем поворот к южным воротам.
-	const southX = randomInt(2, COLS - 3)
-	const southRow = randomInt(cy + 3, ROWS - 2)
+	// Южная дорога: нижняя правая четверть, входит в южные ворота.
+	const southX = randomInt(cx + 2, COLS - 4)
+	const southY1 = randomInt(Math.floor(cy + (ROWS - cy) / 2), ROWS - 8)
+	const southY2 = randomInt(cy + 4, southY1 - turnGap)
+	const southX2 = randomIntAwayFrom(cx + 2, COLS - 4, southX, turnGap)
 	const south: Road = normalize([
-		[southX, ROWS + 2],
-		[southX, southRow],
-		[cx, southRow],
-		[cx, cy + 2],
+		[southX, ROWS + edge],
+		[southX, southY1],
+		[southX2, southY1],
+		[southX2, southY2],
+		[cx, southY2],
+		[cx, cy + gate],
 	])
 
-	// Западная дорога: слева, затем поворот к западным воротам.
-	const westRow = randomInt(2, ROWS - 3)
-	const westCol = randomInt(2, cx - 3)
+	// Западная дорога: нижняя левая четверть, входит в западные ворота.
+	const westY = randomInt(cy + 4, ROWS - 4)
+	const westX1 = randomInt(16, cx - 16)
+	const westX2 = randomInt(westX1 + turnGap, cx - 4)
+	const westY2 = randomIntAwayFrom(cy + 4, ROWS - 4, westY, turnGap)
 	const west: Road = normalize([
-		[-2, westRow],
-		[westCol, westRow],
-		[westCol, cy],
-		[cx - 2, cy],
+		[-edge, westY],
+		[westX1, westY],
+		[westX1, westY2],
+		[westX2, westY2],
+		[westX2, cy],
+		[cx - gate, cy],
 	])
 
 	return [north, east, south, west]
 }
 
-// Запасной безопасный вариант на случай, если случайная генерация
-// не найдёт подходящую раскладку за отведённое число попыток.
-const FALLBACK_ROADS: Road[] = [
-	[[4, -2], [4, 3], [12, 3], [12, 5]],
-	[[26, 3], [19, 3], [19, 7], [14, 7]],
-	[[20, 16], [20, 11], [12, 11], [12, 9]],
-	[[-2, 11], [5, 11], [5, 7], [10, 7]],
-]
-
-// Генерирует 4 непересекающиеся дороги с четырёх сторон света.
-// Все отрезки строго горизонтальные или вертикальные, поэтому
-// построение клеток пути никогда не зацикливается.
-function generateRoads(): Road[] {
-	for (let attempt = 0; attempt < 300; attempt++) {
-		const roads = buildRoads()
-
-		if (roadsAreSeparated(roads)) {
-			return roads
-		}
-	}
-
-	return FALLBACK_ROADS
-}
-
 // 4 дороги с разных сторон к воротам центрального замка.
-export const ROADS: Road[] = generateRoads()
+export const ROADS: Road[] = buildRoads()
 
 function toPoint([x, y]: [number, number]) {
 	return {

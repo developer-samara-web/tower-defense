@@ -1,16 +1,30 @@
 
 import Phaser from 'phaser'
 
-import { CELL_SIZE, COLS, ROWS } from '@/features/game/config/game.config'
+import {
+	CAMERA_BOUNDS_MARGIN,
+	CAMERA_MAX_ZOOM,
+	CAMERA_MIN_ZOOM,
+	CAMERA_START_ZOOM,
+} from '@/features/game/config/game.config'
 import { createGameState, resetGameState, type GameState } from '@/features/game/domain/game-state'
 import { applyUpgradeCard, upgradeCardTitle } from '@/features/game/domain/upgrade-cards'
 
 import { drawBoard } from '../board/board-renderer'
 import type { GameContext } from '../game-context'
+import {
+	BOARD_PIXEL_HEIGHT,
+	BOARD_PIXEL_WIDTH,
+	CENTER_POINT,
+} from '../map/game-map'
 import { createEnemySystem, type EnemySystem } from '../systems/enemy-system'
 import { createTowerSystem, type TowerSystem } from '../systems/tower-system'
 import { createWaveSystem, type WaveSystem } from '../systems/wave-system'
 import { connectBrowserControls } from '../ui/browser-controls'
+import {
+	bindCameraControls,
+	type CameraController,
+} from '../ui/camera-controls'
 import { createHudBridge, type HudBridge } from '../ui/hud-bridge'
 import { bindSceneControls } from '../ui/scene-controls'
 
@@ -28,6 +42,7 @@ export class MainScene extends Phaser.Scene {
 	private enemies!: EnemySystem
 	private towers!: TowerSystem
 	private waves!: WaveSystem
+	private cameraControls!: CameraController
 
 	constructor() {
 		super('MainScene')
@@ -47,9 +62,9 @@ export class MainScene extends Phaser.Scene {
 
 		// Фон за пределами поля рисует CSS-слой с картинкой леса,
 		// поэтому камера остаётся прозрачной.
-		this.cameras.main.setBackgroundColor('rgba(0,0,0,0)')
-		this.fitCameraToBoard()
-		this.scale.on('resize', this.fitCameraToBoard)
+		this.setupCamera()
+		this.cameraControls = bindCameraControls(this, CENTER_POINT)
+		this.scale.on('resize', this.handleResize)
 
 		this.state.pathCells = drawBoard(this)
 
@@ -78,35 +93,53 @@ export class MainScene extends Phaser.Scene {
 		// Отправляем первоначальное состояние в интерфейс.
 		this.hud.publish()
 
-		// Убираем обработчик изменения размера при завершении сцены.
+		// Убираем обработчики при завершении сцены.
 		this.events.once('shutdown', () => {
-			this.scale.off('resize', this.fitCameraToBoard)
+			this.scale.off('resize', this.handleResize)
+			this.cameraControls.destroy()
 		})
 	}
 
-	// Подбирает масштаб камеры и центрирует игровое поле.
-	private fitCameraToBoard = () => {
-		// Вычисляем полные размеры игрового поля.
-		const boardWidth = COLS * CELL_SIZE
-		const boardHeight = ROWS * CELL_SIZE
+	// Готовит камеру к путешествию по большому миру.
+	private setupCamera() {
+		const camera = this.cameras.main
 
-		// Выбираем наименьший масштаб по ширине и высоте,
-		// чтобы всё поле помещалось в доступную область.
-		// Ограничиваем максимальный масштаб, чтобы на больших экранах
-		// поле не растягивалось, а вокруг оставался зелёный фон.
-		const fitZoom = Math.min(
-			this.scale.width / boardWidth,
-			this.scale.height / boardHeight,
+		camera.setBackgroundColor('rgba(0,0,0,0)')
+
+		// Границы чуть больше поля, чтобы у ворот был виден лесной фон.
+		camera.setBounds(
+			-CAMERA_BOUNDS_MARGIN,
+			-CAMERA_BOUNDS_MARGIN,
+			BOARD_PIXEL_WIDTH + CAMERA_BOUNDS_MARGIN * 2,
+			BOARD_PIXEL_HEIGHT + CAMERA_BOUNDS_MARGIN * 2,
 		)
-		const zoom = Math.min(fitZoom, 1.5)
 
-		// Устанавливаем масштаб камеры и центрируем поле.
-		this.cameras.main.setZoom(zoom)
-		this.cameras.main.centerOn(boardWidth / 2, boardHeight / 2)
+		camera.setZoom(CAMERA_START_ZOOM)
+		camera.centerOn(CENTER_POINT.x, CENTER_POINT.y)
+	}
+
+	// При изменении размера окна не сбрасываем позицию игрока,
+	// а только не даём отдалить камеру сильнее границ мира.
+	private handleResize = () => {
+		const camera = this.cameras.main
+		const bounds = camera.getBounds()
+		const fitZoom = Math.max(
+			camera.width / bounds.width,
+			camera.height / bounds.height,
+		)
+		const minZoom = Math.max(
+			CAMERA_MIN_ZOOM,
+			Math.min(fitZoom, CAMERA_MAX_ZOOM),
+		)
+
+		if (camera.zoom < minZoom) {
+			camera.setZoom(minZoom)
+		}
 	}
 
 	// Основной игровой цикл Phaser. Вызывается каждый кадр.
 	update(_time: number, delta: number) {
+		this.cameraControls.update(delta)
 		this.waves.update(delta)
 		this.enemies.updateSpawning(delta)
 		this.enemies.update(delta)
@@ -153,6 +186,7 @@ export class MainScene extends Phaser.Scene {
 		this.enemies.clear()
 		this.towers.clear()
 		resetGameState(this.state)
+		this.cameraControls.reset()
 		this.hud.reset()
 		this.hud.publish()
 	}

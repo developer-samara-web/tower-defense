@@ -13,8 +13,11 @@ export type SceneHandlers = {
 
 // Подключает мышь и клавиатуру Phaser к действиям игры.
 export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) {
-	// Клик по полю строит башню или выбирает уже построенную.
+	// Клик левой кнопкой по полю строит башню или выбирает уже построенную.
+	// Средняя и правая кнопки заняты камерой, поэтому их не обрабатываем.
 	scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+		if (pointer.button !== 0) return
+
 		handlers.onPointerDown(pointer.worldX, pointer.worldY)
 	})
 

@@ -32,6 +32,16 @@ export default function GameCanvas() {
 				height: parent.clientHeight,
 				parent,
 				scene: [MainScene],
+				// Правая кнопка перетаскивает камеру, поэтому
+				// стандартное контекстное меню браузера отключаем.
+				disableContextMenu: true,
+				input: {
+					mouse: {
+						preventDefaultDown: true,
+						preventDefaultUp: true,
+						preventDefaultWheel: true,
+					},
+				},
 				scale: {
 					mode: PhaserModule.default.Scale.RESIZE,
 					autoCenter: PhaserModule.default.Scale.CENTER_BOTH,

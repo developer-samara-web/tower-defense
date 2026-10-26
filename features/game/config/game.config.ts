@@ -1,10 +1,23 @@
 
-export const CELL_SIZE = 30
-export const COLS = 24
-export const ROWS = 14
+// Большой мир 125 × 125 клеток по 32 px = ровно 4000 × 4000 px.
+// Камера показывает только часть карты, поэтому игроку есть куда
+// исследовать и где строить оборону вдоль длинных дорог.
+export const CELL_SIZE = 32
+export const COLS = 125
+export const ROWS = 125
 
 export const INITIAL_GOLD = 160
 export const INITIAL_LIVES = 20
+
+// Настройки камеры: стартовый масштаб, пределы зума и скорость
+// перемещения клавишами. Скорость указана в пикселях мира в секунду.
+export const CAMERA_START_ZOOM = 1
+export const CAMERA_MIN_ZOOM = 0.5
+export const CAMERA_MAX_ZOOM = 2
+export const CAMERA_PAN_SPEED = 900
+
+// Сколько пикселей леса вокруг поля разрешено показать камере.
+export const CAMERA_BOUNDS_MARGIN = CELL_SIZE * 4
 
 export const FIRE_SPLASH_RADIUS = 55
 
