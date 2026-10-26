@@ -110,14 +110,14 @@ export class MainScene extends Phaser.Scene {
 	private setupCamera() {
 		const camera = this.cameras.main
 
-		camera.setBackgroundColor('rgba(0,0,0,0)')
+		camera.setBackgroundColor('rgba(10,15,8,1)')
 
-		// Границы чуть больше поля, чтобы у ворот был виден лесной фон.
+		// Границы строго по игровому полю — без лесного фона с краёв.
 		camera.setBounds(
-			-CAMERA_BOUNDS_MARGIN,
-			-CAMERA_BOUNDS_MARGIN,
-			BOARD_PIXEL_WIDTH + CAMERA_BOUNDS_MARGIN * 2,
-			BOARD_PIXEL_HEIGHT + CAMERA_BOUNDS_MARGIN * 2,
+			0,
+			0,
+			BOARD_PIXEL_WIDTH,
+			BOARD_PIXEL_HEIGHT,
 		)
 
 		camera.setZoom(CAMERA_START_ZOOM)

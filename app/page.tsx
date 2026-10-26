@@ -194,7 +194,7 @@ export default function HomePage() {
 
 	return (
 		!authChecked ? (
-			<main className="h-dvh w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
+			<main className="h-dvh w-full overflow-hidden bg-gradient-to-b from-[#050a08] via-[#0a1008] to-[#050a08] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4">
 				<div className="w-full max-w-sm rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
 					<div className="mb-6 flex flex-col items-center gap-3">
 						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
@@ -214,7 +214,7 @@ export default function HomePage() {
 				</div>
 			</main>
 		) : !token ? (
-			<main className="h-dvh w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
+			<main className="h-dvh w-full overflow-hidden bg-[#050a08] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4">
 				<div className="w-full max-w-md rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
 					<div className="mb-6 flex flex-col items-center gap-3">
 						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
@@ -233,7 +233,7 @@ export default function HomePage() {
 				</div>
 			</main>
 		) : (
-			<main className="h-dvh w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
+			<main className="h-dvh w-full overflow-hidden bg-[#0a0e05] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
 				{/* Logo top-left */}
 				<div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
 					<Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
