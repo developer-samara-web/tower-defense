@@ -233,7 +233,7 @@ export default function HomePage() {
 				</div>
 			</main>
 		) : (
-			<main className="h-dvh w-full overflow-hidden bg-[#3e722b] bg-[url(/game/background.png)] bg-cover bg-center bg-no-repeat text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
+			<main className="h-dvh w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
 				{/* Logo top-left */}
 				<div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
 					<Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
