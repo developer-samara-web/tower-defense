@@ -38,6 +38,9 @@ export function bindCameraControls(
 	keyboard?.addCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
 
 	let dragging = false
+	let dragStartX = 0
+	let dragStartY = 0
+	let dragMoved = false
 	let lastPointerX = 0
 	let lastPointerY = 0
 
@@ -59,24 +62,30 @@ export function bindCameraControls(
 	const clampZoom = (zoom: number) =>
 		Phaser.Math.Clamp(zoom, minZoom(), CAMERA_MAX_ZOOM)
 
-	// Начинаем перетаскивание только средней или правой кнопкой,
-	// чтобы левая кнопка продолжала строить башни.
-	const onPointerDown = (pointer: Phaser.Input.Pointer) => {
-		if (!pointer.middleButtonDown() && !pointer.rightButtonDown()) return
+	// Начинаем перетаскивание при любом касании, но только если
+	// произошло заметное перемещение (чтобы не блокировать постройку башен на мобильном).
+	const DRAG_THRESHOLD = 6
 
-		dragging = true
-		lastPointerX = pointer.x
-		lastPointerY = pointer.y
+	const onPointerDown = (pointer: Phaser.Input.Pointer) => {
+		dragging = false
+		dragMoved = false
+		dragStartX = pointer.x
+		dragStartY = pointer.y
 	}
 
 	const onPointerMove = (pointer: Phaser.Input.Pointer) => {
-		if (!dragging) return
-
-		// Если кнопку отпустили за пределами canvas, прекращаем движение.
-		if (!pointer.middleButtonDown() && !pointer.rightButtonDown()) {
-			dragging = false
-			return
+		if (!dragging && (dragStartX !== 0 || dragStartY !== 0)) {
+			const dx = pointer.x - dragStartX
+			const dy = pointer.y - dragStartY
+			if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+				dragging = true
+				dragMoved = true
+				lastPointerX = pointer.x
+				lastPointerY = pointer.y
+			}
 		}
+
+		if (!dragging) return
 
 		const deltaX = (pointer.x - lastPointerX) / camera.zoom
 		const deltaY = (pointer.y - lastPointerY) / camera.zoom
@@ -90,6 +99,9 @@ export function bindCameraControls(
 
 	const stopDragging = () => {
 		dragging = false
+		dragMoved = false
+		dragStartX = 0
+		dragStartY = 0
 	}
 
 	// Зум колесом вокруг курсора: точка под мышью остаётся на месте.
