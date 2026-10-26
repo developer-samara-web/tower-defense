@@ -194,7 +194,7 @@ export default function HomePage() {
 
 	return (
 		!authChecked ? (
-			<main className="h-dvh w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
+			<main className="h-[103dvh] w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
 				<div className="w-full max-w-sm rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
 					<div className="mb-6 flex flex-col items-center gap-3">
 						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
@@ -214,7 +214,7 @@ export default function HomePage() {
 				</div>
 			</main>
 		) : !token ? (
-			<main className="h-dvh w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
+			<main className="h-[103dvh] w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
 				<div className="w-full max-w-md rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
 					<div className="mb-6 flex flex-col items-center gap-3">
 						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
@@ -233,13 +233,13 @@ export default function HomePage() {
 				</div>
 			</main>
 		) : (
-			<main className="h-dvh w-full overflow-hidden bg-[#0a0e05] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
+			<main className="h-[103dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
 				{/* Logo top-left */}
 				<div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
 					<Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
 				</div>
 
-				{/* Top-right: hint + leaderboard */}
+				{/* Top-right: hint + leaderboard + menu/profile */}
 				<div className="absolute top-3 right-3 z-40 flex items-center gap-2">
 					<div className="rounded-none border border-[#3a2a1a]/70 bg-[#0f0a05]/70 px-2 py-1 shadow-[2px_2px_0_#1a1008] backdrop-blur-sm">
 						<p className="text-[8px] font-black uppercase tracking-[0.08em] text-[#b5a17b]">WASD · Колесо</p>
@@ -251,6 +251,19 @@ export default function HomePage() {
 						title="Топ игроков"
 					>
 						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-.01L12 2z" /></svg>
+					</button>
+					<button
+						onClick={() => {
+							if (token) {
+								localStorage.removeItem('td_token')
+								window.location.reload()
+							}
+						}}
+						className="flex h-9 w-9 items-center justify-center rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#3a2515] to-[#1a1008] text-amber-300 shadow-[0_2px_4px_rgba(0,0,0,0.6)] hover:border-amber-600 hover:text-amber-100 transition active:translate-y-[1px]"
+						aria-label="Меню"
+						title="Меню / Выход"
+					>
+						Х
 					</button>
 				</div>
 
@@ -320,7 +333,7 @@ export default function HomePage() {
 				</section>
 
 				{/* Status above bar — dark text with strong shadow */}
-				<div className="absolute bottom-[92px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+				<div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
 					<div className="flex justify-center">
 						<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
 							<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
@@ -328,8 +341,8 @@ export default function HomePage() {
 					</div>
 				</div>
 
-				{/* Bottom compact pixel-art bar — full width, no fixed max */}				
-				<div className="absolute bottom-4 left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 px-2">
+				{/* Bottom compact pixel-art bar — full width, no fixed max */}
+				<div className="absolute bottom-[50px] left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 px-2">
 					<div className="flex h-[64px] max-w-full items-center gap-2 overflow-x-auto rounded-sm border-2 border-[#5c3a1a] bg-[#0f0a05]/95 px-2 shadow-[4px_4px_0_#2a1d0a]">
 
 						{/* Ресурсы */}
@@ -369,8 +382,8 @@ export default function HomePage() {
 										aria-pressed={selected}
 										title={`${tower.name} — ${tower.cost} золота`}
 										className={`group relative flex h-[48px] w-[66px] shrink-0 flex-col items-center justify-center border-2 p-1 text-center transition-colors ${selected
-												? 'border-amber-300 bg-[#38230d] shadow-[inset_0_0_8px_#a1620760]'
-												: 'border-[#3a2a1a] bg-[#120d05] hover:border-amber-700 hover:bg-[#211507]'
+											? 'border-amber-300 bg-[#38230d] shadow-[inset_0_0_8px_#a1620760]'
+											: 'border-[#3a2a1a] bg-[#120d05] hover:border-amber-700 hover:bg-[#211507]'
 											} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300`}
 									>
 										<Image
@@ -415,8 +428,6 @@ export default function HomePage() {
 						</button>
 					</div>
 				</div>
-				```
-
 			</main>
 		)
 	)
