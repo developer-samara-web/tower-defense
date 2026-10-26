@@ -84,13 +84,13 @@ function saveScore(detail: Pick<Score, 'wave' | 'gold'>): Score[] {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
 			body: JSON.stringify({ gold: detail.gold }),
-		}).catch(() => {})
+		}).catch(() => { })
 	}
 	const next = [
 		{ id: crypto.randomUUID(), wave: detail.wave, gold: detail.gold, createdAt: new Date().toISOString() },
 		...readScores(),
 	].sort((a, b) => b.wave - a.wave || b.gold - a.gold).slice(0, MAX_SCORES)
-	try { localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(next)) } catch {}
+	try { localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(next)) } catch { }
 	return next
 }
 
@@ -136,7 +136,7 @@ export default function HomePage() {
 			fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
 				.then((r) => r.json())
 				.then((d) => { if (d.user) setGame((prev) => ({ ...prev, gold: d.user.record || 0 })) })
-				.catch(() => {})
+				.catch(() => { })
 				.finally(() => setAuthChecked(true))
 		} else {
 			queueMicrotask(() => setAuthChecked(true))
@@ -219,7 +219,6 @@ export default function HomePage() {
 					<div className="mb-6 flex flex-col items-center gap-3">
 						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
 					</div>
-					<h1 className="text-center text-2xl font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_3px_0_#5c2d0e] mb-6">Врата Замка</h1>
 					<form onSubmit={handleAuth} className="space-y-4">
 						<div className="flex rounded-none border-2 border-[#3a2a1a] overflow-hidden bg-[#0f0a05]/30">
 							<button type="button" className={`flex-1 py-2 text-xs font-black uppercase tracking-[0.15em] transition ${authMode === 'login' ? 'bg-[#3a2a1a] text-amber-200' : 'text-[#7a5e30]'}`} onClick={() => setAuthMode('login')}>Вход</button>
@@ -240,8 +239,11 @@ export default function HomePage() {
 					<Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
 				</div>
 
-				{/* Top-right: leaderboard icon + menu */}
-				<div className="absolute top-3 right-3 z-40 flex gap-2">
+				{/* Top-right: hint + leaderboard */}
+				<div className="absolute top-3 right-3 z-40 flex items-center gap-2">
+					<div className="rounded-none border border-[#3a2a1a]/70 bg-[#0f0a05]/70 px-2 py-1 shadow-[2px_2px_0_#1a1008] backdrop-blur-sm">
+						<p className="text-[8px] font-black uppercase tracking-[0.08em] text-[#b5a17b]">WASD · Колесо</p>
+					</div>
 					<button
 						onClick={() => setShowLeaderboard(!showLeaderboard)}
 						className="flex h-9 w-9 items-center justify-center rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#3a2515] to-[#1a1008] text-amber-300 shadow-[0_2px_4px_rgba(0,0,0,0.6)] hover:border-amber-600 hover:text-amber-100 transition active:translate-y-[1px]"
@@ -278,9 +280,7 @@ export default function HomePage() {
 				{/* Game area */}
 				<section className="relative min-h-0 flex-1 overflow-hidden">
 					<GameCanvas />
-					<div className="pointer-events-none absolute bottom-3 left-3 z-40 max-w-[calc(100%-1.5rem)] border border-[#3a2a1a]/80 bg-[#0f0a05]/75 px-2 py-1.5 text-[9px] font-bold uppercase leading-relaxed tracking-[0.1em] text-[#a89060] shadow-[0_2px_0_rgba(0,0,0,0.5)]">
-						ЛКМ — башня · ПКМ/СКМ — камера · WASD — движение · Колесо — зум
-					</div>
+
 
 					{/* Upgrade cards overlay */}
 					{upgradeCards.length > 0 && !game.gameOver ? (
@@ -297,86 +297,126 @@ export default function HomePage() {
 										</button>
 									))}
 								</div>
+							</div>
+						</div>
+					) : null}
+
+					{game.selectedBuiltTower ? (
+						<div className="absolute top-14 right-3 z-50 max-w-[220px] scale-90 origin-top-right md:scale-100 md:right-4 md:top-14">
+							<TowerDetails
+								name={game.selectedBuiltTower.name}
+								level={game.selectedBuiltTower.level}
+								maxLevel={game.selectedBuiltTower.maxLevel}
+								damage={game.selectedBuiltTower.damage}
+								range={game.selectedBuiltTower.range}
+								attackSpeed={game.selectedBuiltTower.attackSpeed}
+								upgradeCost={game.selectedBuiltTower.upgradeCost}
+								gold={game.gold}
+								onUpgrade={upgradeTower}
+								onClose={deselectTower}
+							/>
+						</div>
+					) : null}
+				</section>
+
+				{/* Status above bar — dark text with strong shadow */}
+				<div className="absolute bottom-[92px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+					<div className="flex justify-center">
+						<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
+							<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
 						</div>
 					</div>
-				) : null}
-
-				{game.selectedBuiltTower ? (
-					<div className="absolute top-14 right-3 z-50 max-w-[220px] scale-90 origin-top-right md:scale-100 md:right-4 md:top-14">
-						<TowerDetails
-							name={game.selectedBuiltTower.name}
-							level={game.selectedBuiltTower.level}
-							maxLevel={game.selectedBuiltTower.maxLevel}
-							damage={game.selectedBuiltTower.damage}
-							range={game.selectedBuiltTower.range}
-							attackSpeed={game.selectedBuiltTower.attackSpeed}
-							upgradeCost={game.selectedBuiltTower.upgradeCost}
-							gold={game.gold}
-							onUpgrade={upgradeTower}
-							onClose={deselectTower}
-						/>
-					</div>
-				) : null}
-			</section>
-
-			{/* Status above bar — dark text with strong shadow */}
-			<div className="absolute bottom-[92px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
-				<div className="flex justify-center">
-					<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
-						<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
-					</div>
-				</div>
-			</div>
-
-			{/* Bottom compact pixel-art bar */}
-			<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-[640px] px-2">
-				<div className="flex h-[56px] items-center gap-1.5 rounded-none border-[3px] border-[#5c3a1a] bg-[#0f0a05]/85 px-2 shadow-[4px_4px_0_#2a1d0a,0_0_0_#000]">
-				{/* Tower cards mini */}
-				<div className="flex gap-1.5 overflow-x-auto">
-					{towers.map((tower) => {
-						const selected = game.selectedTower === tower.id
-						return (
-							<button
-								key={tower.id}
-								type="button"
-								onClick={() => selectTower(tower.id)}
-								aria-pressed={selected}
-								className={`group relative flex h-[48px] w-[68px] shrink-0 flex-col items-center justify-center rounded-none border-[3px] p-1 text-center transition-all duration-75 ${selected ? 'border-amber-300 bg-[#1a0f05] shadow-[3px_3px_0_#5c2d0e]' : 'border-[#2a1d0a] bg-[#0d0802] hover:border-amber-600 hover:bg-[#140c05]'} focus:outline-none`}
-							>
-								<Image src={tower.image} width={26} height={26} alt={tower.name} className="mb-0.5 drop-shadow-[2px_2px_0_#000]" />
-								<span className={`text-[7px] font-black uppercase tracking-[0.08em] leading-none ${selected ? 'text-amber-200' : 'text-amber-100/70'}`}>{tower.name}</span>
-								<span className="text-[6px] font-black tabular-nums text-[#b5a17b]/80">{tower.cost}g</span>
-							</button>
-						)
-					})}
 				</div>
 
-				{/* Divider */}
-				<div className="mx-1 h-10 w-px bg-gradient-to-b from-transparent via-[#4a3728]/50 to-transparent shrink-0" />
+				{/* Bottom compact pixel-art bar — full width, no fixed max */}
+				```tsx
+				<div className="absolute bottom-4 left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 px-2">
+					<div className="flex h-[64px] max-w-full items-center gap-2 overflow-x-auto rounded-sm border-2 border-[#5c3a1a] bg-[#0f0a05]/95 px-2 shadow-[4px_4px_0_#2a1d0a]">
 
-				{/* Wave button */}
-				<button
-					type="button"
-					onClick={game.gameOver ? restartGame : startWave}
-					disabled={waveButtonDisabled}
-					className="h-[48px] shrink-0 rounded-none border-[3px] border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-3 text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] shadow-[3px_3px_0_#3a1d0a] transition-all hover:from-[#9b6a3e] hover:to-[#6a3a1e] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-				>
-					{game.gameOver ? 'ЗАНОВО' : game.waveActive ? 'ВОЛНА' : game.wave === 0 ? 'СТАРТ' : `ВОЛНА ${game.wave + 1}`}
-				</button>
+						{/* Ресурсы */}
+						<div className="flex shrink-0 items-center gap-1.5">
+							<div className="flex h-[48px] min-w-[62px] flex-col items-center justify-center border-2 border-[#4a3728] bg-[#120d05] px-2">
+								<span className="text-[8px] font-black uppercase tracking-widest text-[#8a7340]">
+									ЗОЛОТО
+								</span>
+								<span className="text-sm font-black tabular-nums text-amber-300">
+									{game.gold}
+								</span>
+							</div>
 
-				{/* Resources — moved right of wave button */}
-				<div className="flex shrink-0 gap-1.5 ml-auto">
-					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#4a3728]/80 bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
-						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">◆</span>
-						<span className="text-xs font-black text-amber-300 tabular-nums tracking-wider">{game.gold}</span>
-					</div>
-					<div className="flex h-[48px] w-[64px] flex-col items-center justify-center rounded-none border-[3px] border-[#3a2a1a] bg-[#120d05] px-1.5 shadow-[3px_3px_0_#2a1d0a]">
-						<span className="text-[8px] font-black uppercase tracking-[0.1em] text-[#8a7340]">♥</span>
-						<span className="text-xs font-black text-red-300 tabular-nums tracking-wider">{game.lives}</span>
+							<div className="flex h-[48px] min-w-[62px] flex-col items-center justify-center border-2 border-[#4a3728] bg-[#120d05] px-2">
+								<span className="text-[8px] font-black uppercase tracking-widest text-[#8a7340]">
+									ЖИЗНИ
+								</span>
+								<span className="text-sm font-black tabular-nums text-red-400">
+									{game.lives}
+								</span>
+							</div>
+						</div>
+
+						{/* Разделитель */}
+						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
+
+						{/* Башни */}
+						<div className="flex shrink-0 items-center gap-1.5">
+							{towers.map((tower) => {
+								const selected = game.selectedTower === tower.id
+
+								return (
+									<button
+										key={tower.id}
+										type="button"
+										onClick={() => selectTower(tower.id)}
+										aria-pressed={selected}
+										title={`${tower.name} — ${tower.cost} золота`}
+										className={`group relative flex h-[48px] w-[66px] shrink-0 flex-col items-center justify-center border-2 p-1 text-center transition-colors ${selected
+												? 'border-amber-300 bg-[#38230d] shadow-[inset_0_0_8px_#a1620760]'
+												: 'border-[#3a2a1a] bg-[#120d05] hover:border-amber-700 hover:bg-[#211507]'
+											} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300`}
+									>
+										<Image
+											src={tower.image}
+											width={27}
+											height={27}
+											alt={tower.name}
+											className="mb-0.5 object-contain drop-shadow-[2px_2px_0_#000]"
+										/>
+
+										<span
+											className={`text-[7px] font-black uppercase leading-none tracking-wide ${selected ? 'text-amber-200' : 'text-amber-100/70'
+												}`}
+										>
+											{tower.name}
+										</span>
+
+										<span className="mt-0.5 text-[7px] font-bold tabular-nums text-[#b5a17b]">
+											{tower.cost}g
+										</span>
+									</button>
+								)
+							})}
+						</div>
+
+						{/* Кнопка */}
+						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
+
+						<button
+							type="button"
+							onClick={game.gameOver ? restartGame : startWave}
+							disabled={waveButtonDisabled}
+							className="h-[48px] shrink-0 border-2 border-[#9a6535] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#f5e6c8] shadow-[3px_3px_0_#3a1d0a] transition-colors hover:from-[#a16b3b] hover:to-[#70401f] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+						>
+							{game.gameOver
+								? 'ЗАНОВО'
+								: game.waveActive
+									? 'ВОЛНА'
+									: game.wave === 0
+										? 'СТАРТ'
+										: `ВОЛНА ${game.wave + 1}`}
+						</button>
 					</div>
 				</div>
-				</div>
-			</div>
+				```
 
 			</main>
 		)
