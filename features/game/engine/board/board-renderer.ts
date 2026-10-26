@@ -547,8 +547,8 @@ function getInsetRoadPoints(
 
 	return [
 		{
-			x: start.x + dx * CELL_SIZE,
-			y: start.y + dy * CELL_SIZE,
+			x: start.x + dx * (CELL_SIZE / 3),
+			y: start.y + dy * (CELL_SIZE / 3),
 		},
 		next,
 		...rest,
