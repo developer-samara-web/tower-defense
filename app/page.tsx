@@ -98,6 +98,7 @@ export default function HomePage() {
 	const [game, setGame] = useState<GameState>(initialState)
 	const [scores, setScores] = useState<Score[]>([])
 	const [showLeaderboard, setShowLeaderboard] = useState(false)
+	const [showInfo, setShowInfo] = useState(false)
 	const [upgradeCards, setUpgradeCards] = useState<UpgradeCard[]>([])
 	const [cardsShown, setCardsShown] = useState(false)
 
@@ -356,6 +357,32 @@ export default function HomePage() {
 							/>
 						</svg>
 					</button>
+
+					{/* Мини-профиль / инструкция */}
+					{showInfo && (
+						<div className="absolute top-14 right-3 z-50 w-52 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
+							<div className="flex items-center justify-between border-b border-[#3a2a1a]/60 px-3 py-2">
+								<span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">Игрок</span>
+								<button onClick={() => setShowInfo(false)} className="text-[10px] font-black text-[#8a7340] hover:text-amber-300">×</button>
+							</div>
+							<div className="px-3 py-2 space-y-1">
+								<p className="text-[9px] font-bold text-[#8a7340] tracking-wide">Управление</p>
+								<p className="text-[10px] text-amber-100 leading-snug">ЛКМ — башня · ПКМ/СКМ — камера · WASD — движение · Колесо — зум</p>
+
+							{token && (
+								<div className="mt-2 pt-2 border-t border-[#3a2a1a]/40 space-y-1">
+									<p className="text-[9px] font-black text-amber-300 tracking-wide">Авторизован</p>
+									<button
+										onClick={() => { localStorage.removeItem('td_token'); window.location.reload() }}
+										className="w-full rounded-none border border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-2 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#f5e6c8] shadow-[0_2px_0_#3a1d0a] hover:from-[#9b6a3e] hover:to-[#6a3a1e] transition"
+									>
+										Выход
+									</button>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 				</div>
 
 				{/* Leaderboard mini overlay */}
