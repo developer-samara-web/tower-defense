@@ -246,11 +246,70 @@ export default function HomePage() {
 					</div>
 					<button
 						onClick={() => setShowLeaderboard(!showLeaderboard)}
-						className="flex h-9 w-9 items-center justify-center rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#3a2515] to-[#1a1008] text-amber-300 shadow-[0_2px_4px_rgba(0,0,0,0.6)] hover:border-amber-600 hover:text-amber-100 transition active:translate-y-[1px]"
+						className="
+        group relative flex h-10 w-10 items-center justify-center
+        border-2 border-[#79502b]
+        bg-[#21150c]
+        text-amber-300
+        shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
+        transition-all duration-150
+        hover:border-yellow-400
+        hover:bg-[#493713]
+        hover:text-yellow-200
+        hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)]
+        active:translate-y-[2px]
+        active:shadow-[0_1px_0_#100904]
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-amber-400
+    "
 						aria-label="Топ игроков"
 						title="Топ игроков"
+						aria-expanded={showLeaderboard}
 					>
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-.01L12 2z" /></svg>
+						{/* Внутренняя рамка */}
+						<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
+
+						{/* Иконка рейтинга */}
+						<svg
+							viewBox="0 0 24 24"
+							className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:scale-110"
+							fill="none"
+							aria-hidden="true"
+						>
+							{/* Медаль */}
+							<path
+								d="M7 3H17L15 10H9L7 3Z"
+								fill="currentColor"
+								fillOpacity="0.2"
+								stroke="currentColor"
+								strokeWidth="1.8"
+								strokeLinejoin="miter"
+							/>
+
+							{/* Ленты */}
+							<path
+								d="M8 10L6 20L12 16L18 20L16 10"
+								fill="#9b6729"
+								stroke="currentColor"
+								strokeWidth="1.5"
+								strokeLinejoin="miter"
+							/>
+
+							{/* Звезда */}
+							<path
+								d="M12 5L13.2 7.4L15.8 7.8L13.9 9.6L14.4 12.2L12 10.9L9.6 12.2L10.1 9.6L8.2 7.8L10.8 7.4L12 5Z"
+								fill="currentColor"
+								stroke="currentColor"
+								strokeWidth="0.5"
+								strokeLinejoin="miter"
+							/>
+						</svg>
+
+						{/* Индикатор открытого рейтинга */}
+						{showLeaderboard && (
+							<span className="absolute -right-[3px] -top-[3px] h-2 w-2 border border-[#21150c] bg-yellow-400 shadow-[0_0_5px_#facc15]" />
+						)}
 					</button>
 					<button
 						onClick={() => {
@@ -259,11 +318,43 @@ export default function HomePage() {
 								window.location.reload()
 							}
 						}}
-						className="flex h-9 w-9 items-center justify-center rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#3a2515] to-[#1a1008] text-amber-300 shadow-[0_2px_4px_rgba(0,0,0,0.6)] hover:border-amber-600 hover:text-amber-100 transition active:translate-y-[1px]"
-						aria-label="Меню"
+						className="
+        group relative flex h-10 w-10 items-center justify-center
+        border-2 border-[#79502b]
+        bg-[#21150c]
+        text-amber-300
+        shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
+        transition-all duration-150
+        hover:border-red-500
+        hover:bg-[#421b13]
+        hover:text-red-300
+        hover:shadow-[inset_0_1px_0_rgba(255,150,100,0.15),0_3px_0_#100904,0_0_12px_rgba(239,68,68,0.2)]
+        active:translate-y-[2px]
+        active:shadow-[0_1px_0_#100904]
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-amber-400
+    "
+						aria-label="Меню / Выход"
 						title="Меню / Выход"
 					>
-						Х
+						{/* Внутренняя рамка */}
+						<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-red-400/40" />
+
+						{/* Иконка закрытия */}
+						<svg
+							viewBox="0 0 16 16"
+							className="relative h-5 w-5 transition-transform duration-150 group-hover:rotate-90"
+							fill="none"
+							aria-hidden="true"
+						>
+							<path
+								d="M4 4L12 12M12 4L4 12"
+								stroke="currentColor"
+								strokeWidth="2.5"
+								strokeLinecap="square"
+							/>
+						</svg>
 					</button>
 				</div>
 
@@ -343,25 +434,59 @@ export default function HomePage() {
 
 				{/* Bottom compact pixel-art bar — full width, no fixed max */}
 				<div className="absolute bottom-[50px] left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 px-2">
-					<div className="flex h-[64px] max-w-full items-center gap-2 overflow-x-auto rounded-sm border-2 border-[#5c3a1a] bg-[#0f0a05]/95 px-2 shadow-[4px_4px_0_#2a1d0a]">
+					{/* HP-бар замка */}
+					<div
+						className="relative h-[13px] w-full overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]"
+						role="progressbar"
+						aria-label="Здоровье замка"
+						aria-valuemin={0}
+						aria-valuemax={20}
+						aria-valuenow={Math.max(0, Math.min(20, game.lives))}
+					>
+						{/* Заполнение здоровья */}
+						<div
+							className={`absolute inset-y-0 left-0 transition-[width] duration-300 ${game.lives / 20 <= 0.25
+								? 'bg-[#e53935]'
+								: game.lives / 20 <= 0.5
+									? 'bg-[#f2b632]'
+									: 'bg-[#65c943]'
+								}`}
+							style={{
+								width: `${Math.max(0, Math.min(100, (game.lives / 20) * 100))}%`
+							}}
+						>
+							{/* Пиксельный блик */}
+							<div className="absolute inset-x-0 top-0 h-[2px] bg-white/30" />
+						</div>
 
-						{/* Ресурсы */}
-						<div className="flex shrink-0 items-center gap-1.5">
-							<div className="flex h-[48px] min-w-[62px] flex-col items-center justify-center border-2 border-[#4a3728] bg-[#120d05] px-2">
-								<span className="text-[8px] font-black uppercase tracking-widest text-[#8a7340]">
-									ЗОЛОТО
+						{/* Разделители сегментов */}
+						<div
+							className="pointer-events-none absolute inset-0"
+							style={{
+								backgroundImage:
+									'repeating-linear-gradient(to right, transparent 0, transparent calc(5% - 1px), #21100c calc(5% - 1px), #21100c 5%)'
+							}}
+						/>
+
+						{/* Тонкая внутренняя рамка */}
+						<div className="pointer-events-none absolute inset-0 border-t border-white/10 border-b border-black/40" />
+					</div>
+
+					{/* Основная панель */}
+					<div className="relative flex h-[72px] max-w-full items-center gap-2 rounded-b-sm border-2 border-t-0 border-[#79552c] bg-[#0f0a05]/90 px-2 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md">
+						{/* Золото */}
+						<div className="flex h-[48px] shrink-0 items-center gap-2 border border-[#8b651f] bg-gradient-to-b from-[#49300e] to-[#241606] px-3 shadow-[inset_0_1px_0_#c99b3b]">
+							<span className="text-xl drop-shadow-[0_0_5px_#facc15]">
+								🪙
+							</span>
+
+							<div className="flex flex-col leading-tight">
+								<span className="text-[9px] font-bold uppercase tracking-wider text-[#c5a76b]">
+									Золото
 								</span>
-								<span className="text-sm font-black tabular-nums text-amber-300">
+
+								<span className="text-base font-black tabular-nums text-yellow-300 drop-shadow-[0_0_4px_#ca8a04]">
 									{game.gold}
-								</span>
-							</div>
-
-							<div className="flex h-[48px] min-w-[62px] flex-col items-center justify-center border-2 border-[#4a3728] bg-[#120d05] px-2">
-								<span className="text-[8px] font-black uppercase tracking-widest text-[#8a7340]">
-									ЖИЗНИ
-								</span>
-								<span className="text-sm font-black tabular-nums text-red-400">
-									{game.lives}
 								</span>
 							</div>
 						</div>
@@ -369,62 +494,94 @@ export default function HomePage() {
 						{/* Разделитель */}
 						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
 
-						{/* Башни */}
-						<div className="flex shrink-0 items-center gap-1.5">
+						{/* Карточки башен */}
+						<div className="flex min-w-0 items-center gap-2">
 							{towers.map((tower) => {
-								const selected = game.selectedTower === tower.id
+								const isSelected = game.selectedTower === tower.id
+								const canAfford = game.gold >= tower.cost
 
 								return (
 									<button
 										key={tower.id}
 										type="button"
 										onClick={() => selectTower(tower.id)}
-										aria-pressed={selected}
-										title={`${tower.name} — ${tower.cost} золота`}
-										className={`group relative flex h-[48px] w-[66px] shrink-0 flex-col items-center justify-center border-2 p-1 text-center transition-colors ${selected
-											? 'border-amber-300 bg-[#38230d] shadow-[inset_0_0_8px_#a1620760]'
-											: 'border-[#3a2a1a] bg-[#120d05] hover:border-amber-700 hover:bg-[#211507]'
-											} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300`}
+										title={tower.name}
+										aria-label={`${tower.name}, цена ${tower.cost} золота`}
+										aria-pressed={isSelected}
+										className={`group relative flex h-[52px] w-[76px] shrink-0 flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected
+											? 'border-yellow-400 bg-[#493713] shadow-[0_0_8px_#eab30866]'
+											: 'border-[#5c3a1a] bg-[#21170d] hover:border-[#a67c36] hover:bg-[#352411]'
+											}`}
 									>
+										{/* Иконка башни */}
 										<Image
 											src={tower.image}
-											width={27}
-											height={27}
 											alt={tower.name}
-											className="mb-0.5 object-contain drop-shadow-[2px_2px_0_#000]"
+											width={30}
+											height={30}
+											className="h-[30px] w-[30px] object-contain [image-rendering:pixelated]"
 										/>
 
+										{/* Название башни */}
 										<span
-											className={`text-[7px] font-black uppercase leading-none tracking-wide ${selected ? 'text-amber-200' : 'text-amber-100/70'
+											className={`mt-0.5 max-w-full truncate px-1 text-[10px] font-bold leading-none ${isSelected ? 'text-yellow-200' : 'text-[#d6c4a3]'
 												}`}
 										>
 											{tower.name}
 										</span>
 
-										<span className="mt-0.5 text-[7px] font-bold tabular-nums text-[#b5a17b]">
-											{tower.cost}g
+										{/* Цена при наведении */}
+										<span
+											className={`pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 ${canAfford
+												? 'border border-[#a67c36] bg-[#eabf4b] text-[#38230a]'
+												: 'border border-[#79503a] bg-[#34251b] text-red-300'
+												} whitespace-nowrap px-3 py-1.5 text-xs font-black shadow-[2px_3px_0_#1a1006]`}
+										>
+											🪙 {tower.cost} золота
+
+											{/* Указатель подсказки */}
+											<span
+												className={`absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r ${canAfford
+													? 'border-[#a67c36] bg-[#eabf4b]'
+													: 'border-[#79503a] bg-[#34251b]'
+													}`}
+											/>
 										</span>
 									</button>
 								)
 							})}
 						</div>
 
-						{/* Кнопка */}
+						{/* Разделитель */}
 						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
 
+						{/* Управление волнами */}
 						<button
 							type="button"
 							onClick={game.gameOver ? restartGame : startWave}
 							disabled={waveButtonDisabled}
-							className="h-[48px] shrink-0 border-2 border-[#9a6535] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-4 text-[9px] font-black uppercase tracking-[0.12em] text-[#f5e6c8] shadow-[3px_3px_0_#3a1d0a] transition-colors hover:from-[#a16b3b] hover:to-[#70401f] active:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-						>
-							{game.gameOver
-								? 'ЗАНОВО'
+							className={`flex h-[48px] shrink-0 flex-col items-center justify-center border-2 px-3 text-center font-black transition-colors ${game.gameOver
+								? 'border-red-400 bg-red-900 text-red-100 hover:bg-red-800'
 								: game.waveActive
-									? 'ВОЛНА'
-									: game.wave === 0
-										? 'СТАРТ'
-										: `ВОЛНА ${game.wave + 1}`}
+									? 'cursor-not-allowed border-[#5c3a1a] bg-[#21170d] text-[#8c785a]'
+									: 'border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65] hover:from-[#628e33] hover:to-[#3d6022]'
+								}`}
+						>
+							<span className="text-[11px] uppercase tracking-wide cursor-pointer">
+								{game.gameOver
+									? 'Заново'
+									: game.waveActive
+										? 'Волна идёт'
+										: game.wave > 0
+											? 'Следующая волна'
+											: 'Начать волну'}
+							</span>
+
+							{!game.gameOver && (
+								<span className="mt-0.5 text-[10px] font-semibold opacity-80">
+									{game.waveActive ? `Волна ${game.wave}` : `Волна ${game.wave + 1}`}
+								</span>
+							)}
 						</button>
 					</div>
 				</div>
