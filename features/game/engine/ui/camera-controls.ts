@@ -44,6 +44,10 @@ export function bindCameraControls(
 	let lastPointerX = 0
 	let lastPointerY = 0
 
+	// Для pinch-zoom на мобильных: отслеживаем активные указатели.
+	const activePointers = new Map<number, Phaser.Input.Pointer>()
+	let lastPinchDist = 0
+
 	// Минимальный зум зависит от размера окна: нельзя отдалить карту
 	// сильнее, чем позволяют её границы, иначе камера начнёт «дрожать».
 	const minZoom = () => {
@@ -67,6 +71,7 @@ export function bindCameraControls(
 	const DRAG_THRESHOLD = 6
 
 	const onPointerDown = (pointer: Phaser.Input.Pointer) => {
+		activePointers.set(pointer.pointerId, pointer)
 		dragging = false
 		dragMoved = false
 		dragStartX = pointer.x
@@ -74,6 +79,41 @@ export function bindCameraControls(
 	}
 
 	const onPointerMove = (pointer: Phaser.Input.Pointer) => {
+		// Обновляем активный указатель, если это тот же ID.
+		if (activePointers.has(pointer.pointerId)) {
+			activePointers.set(pointer.pointerId, pointer)
+		}
+
+		// Pinch-zoom: если два указателя активны — приближаем/отдаляем.
+		if (activePointers.size === 2) {
+			const pointers = Array.from(activePointers.values())
+			const p0 = pointers[0]
+			const p1 = pointers[1]
+			const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y)
+
+			if (lastPinchDist > 0 && Math.abs(dist - lastPinchDist) > 2) {
+				const factor = Math.max(0.3, Math.min(2.5, dist / lastPinchDist))
+				const newZoom = clampZoom(camera.zoom * factor)
+
+				// Центрируем зум на середине двух пальцев.
+				const cx = (p0.x + p1.x) / 2
+				const cy = (p0.y + p1.y) / 2
+				const originX = camera.width * camera.originX
+				const originY = camera.height * camera.originY
+				const worldX = (cx - originX) / camera.zoom + camera.scrollX + originX
+				const worldY = (cy - originY) / camera.zoom + camera.scrollY + originY
+
+				camera.setZoom(newZoom)
+				camera.scrollX = worldX - originX - (cx - originX) / newZoom
+				camera.scrollY = worldY - originY - (cy - originY) / newZoom
+			}
+
+			lastPinchDist = dist
+			return
+		} else {
+			lastPinchDist = 0
+		}
+
 		if (!dragging && (dragStartX !== 0 || dragStartY !== 0)) {
 			const dx = pointer.x - dragStartX
 			const dy = pointer.y - dragStartY
@@ -127,10 +167,18 @@ export function bindCameraControls(
 		camera.scrollY = worldY - originY - (pointer.y - originY) / zoom
 	}
 
+	const onPointerUp = (pointer: Phaser.Input.Pointer) => {
+		activePointers.delete(pointer.pointerId)
+		lastPinchDist = 0
+		if (activePointers.size === 0) {
+			stopDragging()
+		}
+	}
+
 	scene.input.on('pointerdown', onPointerDown)
 	scene.input.on('pointermove', onPointerMove)
-	scene.input.on('pointerup', stopDragging)
-	scene.input.on('pointerupoutside', stopDragging)
+	scene.input.on('pointerup', onPointerUp)
+	scene.input.on('pointerupoutside', onPointerUp)
 	scene.input.on('wheel', onWheel)
 
 	// Плавно двигает камеру, пока зажаты клавиши движения или мышь у края экрана.
@@ -172,8 +220,8 @@ export function bindCameraControls(
 	function destroy() {
 		scene.input.off('pointerdown', onPointerDown)
 		scene.input.off('pointermove', onPointerMove)
-		scene.input.off('pointerup', stopDragging)
-		scene.input.off('pointerupoutside', stopDragging)
+		scene.input.off('pointerup', onPointerUp)
+		scene.input.off('pointerupoutside', onPointerUp)
 		scene.input.off('wheel', onWheel)
 		keyboard?.removeCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
 	}
