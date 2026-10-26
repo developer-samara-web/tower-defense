@@ -424,9 +424,9 @@ function drawTerrainDetails(
             const centerX = x * CELL_SIZE + CELL_SIZE / 2
             const centerY = y * CELL_SIZE + CELL_SIZE / 2
 
-            //* На большой карте декорируем редко: так сцена остаётся
-            //* лёгкой, а трава не превращается в сплошной шум. *
-            if (random() > 0.045) continue
+            //* На большой карте декорируем чаще, чем раньше,
+            //* чтобы поле не выглядело пустым. *
+            if (random() > 0.12) continue
 
             const offsetX = (random() - 0.5) * CELL_SIZE * 0.45
             const offsetY = (random() - 0.5) * CELL_SIZE * 0.45

@@ -121,7 +121,7 @@ export function bindCameraControls(
 	scene.input.on('pointerupoutside', stopDragging)
 	scene.input.on('wheel', onWheel)
 
-	// Плавно двигает камеру, пока зажаты клавиши движения.
+	// Плавно двигает камеру, пока зажаты клавиши движения или мышь у края экрана.
 	function update(delta: number) {
 		let directionX = 0
 		let directionY = 0
@@ -130,6 +130,16 @@ export function bindCameraControls(
 		if (cursors?.right.isDown || wasd?.D?.isDown) directionX += 1
 		if (cursors?.up.isDown || wasd?.W?.isDown) directionY -= 1
 		if (cursors?.down.isDown || wasd?.S?.isDown) directionY += 1
+
+		// Управление камерой у краёв экрана как в Dota — мышь у границы прокручивает.
+		const pointer = scene.input.activePointer
+		if (pointer && pointer.x > 0 && pointer.y > 0 && pointer.x < scene.scale.width && pointer.y < scene.scale.height) {
+			const edgeMargin = 40
+			if (pointer.x < edgeMargin) directionX -= 1
+			if (pointer.x > scene.scale.width - edgeMargin) directionX += 1
+			if (pointer.y < edgeMargin) directionY -= 1
+			if (pointer.y > scene.scale.height - edgeMargin) directionY += 1
+		}
 
 		if (directionX === 0 && directionY === 0) return
 

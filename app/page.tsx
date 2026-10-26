@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import GameCanvas from '@/components/game/GameCanvas'
 import TowerDetails from '@/components/game/TowerDetails'
 import { TOWER_TYPES, type TowerType } from '@/features/game/config/game.config'
@@ -144,12 +144,15 @@ export default function HomePage() {
 	}, [])
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		const isUpgradeWave = game.wave > 0 && game.wave % 5 === 0
 		if (isUpgradeWave && !cardsShown) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setUpgradeCards(generateUpgradeCards(3))
 			setCardsShown(true)
 		}
 		if (!isUpgradeWave && cardsShown) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setUpgradeCards([])
 			setCardsShown(false)
 		}
@@ -316,8 +319,18 @@ export default function HomePage() {
 				) : null}
 			</section>
 
-			{/* Bottom compact bar — Minecraft-style hotbar */}
-			<div className="relative z-40 flex h-[72px] shrink-0 items-center gap-1 bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 border-t-2 border-[#3a2a1a] px-3 shadow-[0_-4px_16px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm">
+			{/* Status above bar — dark text with strong shadow */}
+			<div className="absolute bottom-[72px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+				<div className="flex justify-center">
+					<div className="rounded-full bg-[#0f0a05]/75 border border-[#3a2a1a]/40 px-5 py-1 shadow-[0_4px_20px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+						<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_6px_rgba(0,0,0,1),0_1px_0_#000]">{game.status}</p>
+					</div>
+				</div>
+			</div>
+
+			{/* Bottom compact centered semi-transparent bar */}
+			<div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 w-full max-w-[640px] px-2">
+				<div className="flex h-[56px] items-center gap-1.5 rounded-2xl border-2 border-[#3a2a1a]/60 bg-[#0f0a05]/60 backdrop-blur-xl px-2 shadow-[0_8px_32px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)]">
 				{/* Tower cards mini */}
 				<div className="flex gap-1.5 overflow-x-auto">
 					{towers.map((tower) => {
@@ -367,6 +380,7 @@ export default function HomePage() {
 				<div className="flex h-[56px] flex-1 items-center px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#b5a17b] truncate">
 					{game.status}
 				</div>
+			</div>
 			</div>
 
 			</main>
