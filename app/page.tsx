@@ -247,22 +247,22 @@ export default function HomePage() {
 					<button
 						onClick={() => setShowLeaderboard(!showLeaderboard)}
 						className="
-        group relative flex h-10 w-10 items-center justify-center
-        border-2 border-[#79502b]
-        bg-[#21150c]
-        text-amber-300
-        shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
-        transition-all duration-150
-        hover:border-yellow-400
-        hover:bg-[#493713]
-        hover:text-yellow-200
-        hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)]
-        active:translate-y-[2px]
-        active:shadow-[0_1px_0_#100904]
-        focus-visible:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-amber-400
-    "
+							group relative flex h-10 w-10 items-center justify-center
+							border-2 border-[#79502b]
+							bg-[#21150c]
+							text-amber-300
+							shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
+							transition-all duration-150
+							hover:border-yellow-400
+							hover:bg-[#493713]
+							hover:text-yellow-200
+							hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)]
+							active:translate-y-[2px]
+							active:shadow-[0_1px_0_#100904]
+							focus-visible:outline-none
+							focus-visible:ring-2
+							focus-visible:ring-amber-400
+						"
 						aria-label="Топ игроков"
 						title="Топ игроков"
 						aria-expanded={showLeaderboard}
@@ -319,22 +319,22 @@ export default function HomePage() {
 							}
 						}}
 						className="
-        group relative flex h-10 w-10 items-center justify-center
-        border-2 border-[#79502b]
-        bg-[#21150c]
-        text-amber-300
-        shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
-        transition-all duration-150
-        hover:border-red-500
-        hover:bg-[#421b13]
-        hover:text-red-300
-        hover:shadow-[inset_0_1px_0_rgba(255,150,100,0.15),0_3px_0_#100904,0_0_12px_rgba(239,68,68,0.2)]
-        active:translate-y-[2px]
-        active:shadow-[0_1px_0_#100904]
-        focus-visible:outline-none
-        focus-visible:ring-2
-        focus-visible:ring-amber-400
-    "
+							group relative flex h-10 w-10 items-center justify-center
+							border-2 border-[#79502b]
+							bg-[#21150c]
+							text-amber-300
+							shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
+							transition-all duration-150
+							hover:border-red-500
+							hover:bg-[#421b13]
+							hover:text-red-300
+							hover:shadow-[inset_0_1px_0_rgba(255,150,100,0.15),0_3px_0_#100904,0_0_12px_rgba(239,68,68,0.2)]
+							active:translate-y-[2px]
+							active:shadow-[0_1px_0_#100904]
+							focus-visible:outline-none
+							focus-visible:ring-2
+							focus-visible:ring-amber-400
+						"
 						aria-label="Меню / Выход"
 						title="Меню / Выход"
 					>
@@ -508,7 +508,7 @@ export default function HomePage() {
 										title={tower.name}
 										aria-label={`${tower.name}, цена ${tower.cost} золота`}
 										aria-pressed={isSelected}
-										className={`group relative flex h-[52px] w-[76px] shrink-0 flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected
+										className={`group relative flex h-[48px] w-[76px] shrink-0 flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected
 											? 'border-yellow-400 bg-[#493713] shadow-[0_0_8px_#eab30866]'
 											: 'border-[#5c3a1a] bg-[#21170d] hover:border-[#a67c36] hover:bg-[#352411]'
 											}`}

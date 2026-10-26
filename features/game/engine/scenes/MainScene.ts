@@ -59,6 +59,19 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('gate-left', '/game/path/gate-left.png')
 		this.load.image('gate-right', '/game/path/gate-right.png')
 		this.load.image('gate-top', '/game/path/gate-top.png')
+
+		// Квадратные пропсы для живой карты.
+		;[
+			'tree-1', 'tree-2', 'tree-3',
+			'stone-1', 'stone-2', 'stone-3',
+			'bush-1', 'bush-2', 'bush-3',
+			'grass-1', 'grass-2',
+			'grass_flowers-1', 'grass_flowers-2', 'grass_flowers-3', 'grass_flowers-4',
+			'road-1', 'road-2', 'road-3', 'road-main',
+			'shore-side-top', 'shore-side-right', 'shore-side-left', 'shore-side-bottom',
+			'shore-right-top', 'shore-right-bottom', 'shore-left-top', 'shore-left-bottom',
+			'bridge-1',
+		].forEach((key) => this.load.image(key, `/game/grid/${key}.png`))
 	}
 
 	// Вызывается Phaser при создании сцены.
@@ -110,9 +123,9 @@ export class MainScene extends Phaser.Scene {
 	private setupCamera() {
 		const camera = this.cameras.main
 
-		camera.setBackgroundColor('rgba(10,15,8,1)')
+		camera.setBackgroundColor('rgba(74,127,42,1)')
 
-		// Границы строго по игровому полю — без лесного фона с краёв.
+		// Границы строго по игровому полю.
 		camera.setBounds(
 			0,
 			0,
@@ -120,7 +133,13 @@ export class MainScene extends Phaser.Scene {
 			BOARD_PIXEL_HEIGHT,
 		)
 
-		camera.setZoom(CAMERA_START_ZOOM)
+		const fitZoom = Math.min(
+			this.scale.width / BOARD_PIXEL_WIDTH,
+			this.scale.height / BOARD_PIXEL_HEIGHT,
+		)
+		const startZoom = Math.min(Math.max(fitZoom, CAMERA_MIN_ZOOM), CAMERA_MAX_ZOOM)
+
+		camera.setZoom(startZoom)
 		camera.centerOn(CENTER_POINT.x, CENTER_POINT.y)
 	}
 

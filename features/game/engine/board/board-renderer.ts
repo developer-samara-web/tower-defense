@@ -47,6 +47,7 @@ export function drawBoard(
 	const pathCells = drawPath(scene, seed)
 
 	drawTerrainDetails(scene, pathCells, seed)
+	// drawProps(scene, pathCells, seed) // временно отключено
 	drawPathEndpoints(scene)
 
 	return pathCells
@@ -547,10 +548,60 @@ function getInsetRoadPoints(
 
 	return [
 		{
-			x: start.x + dx * (CELL_SIZE * 4),
-			y: start.y + dy * (CELL_SIZE * 4),
+			x: start.x + dx * (CELL_SIZE * 5),
+			y: start.y + dy * (CELL_SIZE * 5),
 		},
 		next,
 		...rest,
 	]
 }
+
+// Живые квадратные пропсы из папки grid.
+function drawProps(scene: Phaser.Scene, pathCells: ReadonlySet<string>, seed: number) {
+	const random = createSeededRandom(seed ^ 0x77b3a1)
+	const propKeys = [
+		'tree-1', 'tree-2', 'tree-3',
+		'bush-1', 'bush-2', 'bush-3',
+		'grass-1', 'grass-2',
+		'grass_flowers-1', 'grass_flowers-2', 'grass_flowers-3', 'grass_flowers-4',
+		'stone-1', 'stone-2', 'stone-3',
+		'bridge-1',
+	]
+
+	const roadProps = ['road-1', 'road-2', 'road-3']
+
+	for (let y = 0; y < ROWS; y++) {
+		for (let x = 0; x < COLS; x++) {
+			const isPath = pathCells.has(`${x},${y}`)
+
+			// Для дорожек: чаще кладём пропсы дорог.
+			if (isPath) {
+				// Для дорожек: покрываем всю дорогу пропсами.
+				const px = x * CELL_SIZE + CELL_SIZE / 2
+				const py = y * CELL_SIZE + CELL_SIZE / 2
+				// 50% — основной пропс дороги.
+				const key = random() > 0.5 ? 'road-main' : roadProps[Math.floor(random() * roadProps.length)]
+				const size = CELL_SIZE
+
+				scene.add
+				.image(px, py, key)
+				.setDisplaySize(Math.round(size), Math.round(size))
+				.setDepth(1.1)
+				continue
+			}
+
+			if (random() > 0.14) continue
+
+			const px = x * CELL_SIZE + CELL_SIZE / 2
+			const py = y * CELL_SIZE + CELL_SIZE / 2
+			const key = propKeys[Math.floor(random() * propKeys.length)]
+			const size = CELL_SIZE
+
+			scene.add
+			.image(px, py, key)
+			.setDisplaySize(Math.round(size), Math.round(size))
+			.setDepth(0.6)
+		}
+	}
+}
+
