@@ -4,10 +4,12 @@ export default function MiniMap({
 	pathCells,
 	towerCells,
 	towers,
+	viewport,
 }: {
 	pathCells?: ReadonlySet<string> | string[]
 	towerCells?: ReadonlySet<string> | string[]
 	towers?: Array<{ id: string; x: number; y: number }>
+	viewport?: { worldX: number; worldY: number; width: number; height: number; zoom: number }
 }) {
 	const ref = useRef<HTMLCanvasElement>(null)
 
@@ -57,6 +59,19 @@ export default function MiniMap({
 			3 * scale,
 			3 * scale,
 		)
+
+		// Область просмотра (камера)
+		if (viewport) {
+			ctx.strokeStyle = '#eab308'
+			ctx.lineWidth = 1.5
+			ctx.setLineDash([3, 2])
+			const vx = viewport.worldX / 32 * scale
+			const vy = viewport.worldY / 32 * scale
+			const vw = (viewport.width / viewport.zoom) / 32 * scale
+			const vh = (viewport.height / viewport.zoom) / 32 * scale
+			ctx.strokeRect(Math.round(vx), Math.round(vy), Math.round(vw), Math.round(vh))
+			ctx.setLineDash([])
+		}
 
 		// Дорога
 		if (pathCells) {

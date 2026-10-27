@@ -45,6 +45,7 @@ type GameState = {
 	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
 	towerCells: string[]
 	pathCells: string[]
+	viewport: { worldX: number; worldY: number; width: number; height: number; zoom: number } | null
 }
 
 type Score = { id: string; login?: string; wave: number; gold: number; createdAt: string }
@@ -67,6 +68,7 @@ const initialState: GameState = {
 	towers: [],
 	towerCells: [],
 	pathCells: [],
+	viewport: null,
 }
 
 const towers = (
@@ -634,6 +636,7 @@ export default function HomePage() {
 						pathCells={new Set(game.pathCells)}
 						towerCells={game.towerCells}
 						towers={game.towers}
+						viewport={game.viewport ?? undefined}
 					/>
 
 					{/* Upgrade cards overlay */}

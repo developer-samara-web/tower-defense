@@ -61,6 +61,18 @@ export function createHudBridge(
 
 		const snapshot = buildSnapshot(state, getPanelPosition())
 
+		// Вычисляем область просмотра камеры для миникарты.
+		if (scene) {
+			const camera = scene.cameras.main
+			;(snapshot as any).viewport = {
+				worldX: camera.worldView.x,
+				worldY: camera.worldView.y,
+				width: camera.worldView.width,
+				height: camera.worldView.height,
+				zoom: camera.zoom,
+			}
+		}
+
 		// Преобразуем состояние в строку для сравнения с предыдущим.
 		const serialized = JSON.stringify(snapshot)
 
