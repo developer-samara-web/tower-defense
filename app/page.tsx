@@ -686,7 +686,7 @@ export default function HomePage() {
 				</div>
 
 				{/* Bottom compact pixel-art bar — full width, no fixed max */}
-				<div className="absolute bottom-[50px] left-1/2 z-40 w-max max-w-[calc(100vw-24px)] -translate-x-1/2 px-2">
+				<div className="absolute bottom-[16px] sm:bottom-[50px] left-1/2 z-40 w-[98vw] sm:w-max max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-24px)] -translate-x-1/2 px-1 sm:px-2">
 					{/* HP-бар замка */}
 					<div
 						className="relative h-[13px] w-full overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]"
@@ -726,29 +726,29 @@ export default function HomePage() {
 					</div>
 
 					{/* Основная панель */}
-					<div className="relative flex h-[72px] max-w-full items-center gap-2 rounded-b-sm border-2 border-t-0 border-[#79552c] bg-[#0f0a05]/90 px-2 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md">
+					<div className="relative flex h-[52px] sm:h-[72px] max-w-full items-center gap-1.5 sm:gap-2 rounded-b-sm border-2 border-t-0 border-[#79552c] bg-[#0f0a05]/90 px-1.5 sm:px-2 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md">
 						{/* Золото */}
-						<div className="flex h-[48px] shrink-0 items-center gap-2 border border-[#8b651f] bg-gradient-to-b from-[#49300e] to-[#241606] px-3 shadow-[inset_0_1px_0_#c99b3b]">
+						<div className="flex h-[36px] sm:h-[48px] shrink-0 items-center gap-1.5 sm:gap-2 border border-[#8b651f] bg-gradient-to-b from-[#49300e] to-[#241606] px-2 sm:px-3 shadow-[inset_0_1px_0_#c99b3b]">
 							<span className="text-xl drop-shadow-[0_0_5px_#facc15]">
 								🪙
 							</span>
 
 							<div className="flex flex-col leading-tight">
-								<span className="text-[9px] font-bold uppercase tracking-wider text-[#c5a76b]">
+								<span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-[#c5a76b]">
 									Золото
 								</span>
 
-								<span className="text-base font-black tabular-nums text-yellow-300 drop-shadow-[0_0_4px_#ca8a04]">
+								<span className="text-sm sm:text-base font-black tabular-nums text-yellow-300 drop-shadow-[0_0_4px_#ca8a04]">
 									{game.gold}
 								</span>
 							</div>
 						</div>
 
 						{/* Разделитель */}
-						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
+						<div className="h-8 sm:h-10 w-px shrink-0 bg-[#5c3a1a]" />
 
 						{/* Карточки башен */}
-						<div className="flex min-w-0 items-center gap-2">
+						<div className="flex min-w-0 items-center gap-1 sm:gap-2">
 							{towers.map((tower) => {
 								const isSelected = game.selectedTower === tower.id
 								const canAfford = game.gold >= tower.cost
@@ -761,7 +761,7 @@ export default function HomePage() {
 										title={tower.name}
 										aria-label={`${tower.name}, цена ${tower.cost} золота`}
 										aria-pressed={isSelected}
-										className={`group relative flex h-[48px] w-[76px] shrink-0 flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected
+										className={`group relative flex h-[38px] sm:h-[48px] w-[60px] sm:w-[76px] shrink-0 flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected
 											? 'border-yellow-400 bg-[#493713] shadow-[0_0_8px_#eab30866]'
 											: 'border-[#5c3a1a] bg-[#21170d] hover:border-[#a67c36] hover:bg-[#352411]'
 											}`}
@@ -772,12 +772,12 @@ export default function HomePage() {
 											alt={tower.name}
 											width={30}
 											height={30}
-											className="h-[30px] w-[30px] object-contain [image-rendering:pixelated]"
+											className="h-[22px] w-[22px] sm:h-[30px] sm:w-[30px] object-contain [image-rendering:pixelated]"
 										/>
 
 										{/* Название башни */}
 										<span
-											className={`mt-0.5 max-w-full truncate px-1 text-[10px] font-bold leading-none ${isSelected ? 'text-yellow-200' : 'text-[#d6c4a3]'
+											className={`mt-0.5 max-w-full truncate px-1 text-[8px] sm:text-[10px] font-bold leading-none ${isSelected ? 'text-yellow-200' : 'text-[#d6c4a3]'
 												}`}
 										>
 											{tower.name}
@@ -806,21 +806,21 @@ export default function HomePage() {
 						</div>
 
 						{/* Разделитель */}
-						<div className="h-10 w-px shrink-0 bg-[#5c3a1a]" />
+						<div className="h-8 sm:h-10 w-px shrink-0 bg-[#5c3a1a]" />
 
 						{/* Управление волнами */}
 						<button
 							type="button"
 							onClick={game.gameOver ? restartGame : startWave}
 							disabled={waveButtonDisabled}
-							className={`flex h-[48px] shrink-0 flex-col items-center justify-center border-2 px-3 text-center font-black transition-colors ${game.gameOver
+							className={`flex h-[42px] sm:h-[48px] shrink-0 flex-col items-center justify-center border-2 px-2 sm:px-3 text-center font-black transition-colors ${game.gameOver
 								? 'border-red-400 bg-red-900 text-red-100 hover:bg-red-800'
 								: game.waveActive
 									? 'cursor-not-allowed border-[#5c3a1a] bg-[#21170d] text-[#8c785a]'
 									: 'border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65] hover:from-[#628e33] hover:to-[#3d6022]'
 								}`}
 						>
-							<span className="text-[11px] uppercase tracking-wide cursor-pointer">
+							<span className="text-[9px] sm:text-[11px] uppercase tracking-wide cursor-pointer">
 								{game.gameOver
 									? 'Заново'
 									: game.waveActive
@@ -831,7 +831,7 @@ export default function HomePage() {
 							</span>
 
 							{!game.gameOver && (
-								<span className="mt-0.5 text-[10px] font-semibold opacity-80">
+								<span className="mt-0.5 text-[8px] sm:text-[10px] font-semibold opacity-80">
 									{game.waveActive ? `Волна ${game.wave}` : `Волна ${game.wave + 1}`}
 								</span>
 							)}

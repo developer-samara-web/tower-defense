@@ -6,6 +6,12 @@ export const metadata: Metadata = {
 	description: "Браузерная стратегия в жанре tower defense.",
 };
 
+export const viewport = {
+	width: "device-width",
+	initialScale: 1,
+	maximumScale: 5,
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
 	return (
 		<html lang="ru" className={`h-full antialiased`} >
