@@ -641,8 +641,8 @@ export default function HomePage() {
 
 					{/* Upgrade cards overlay */}
 					{upgradeCards.length > 0 && !game.gameOver ? (
-						<div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
-							<div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
+						<div className="absolute top-[100px] left-1/2 z-[60] flex w-[92vw] max-w-2xl -translate-x-1/2 items-start justify-center px-2">
+							<div className="w-full rounded-none border-2 border-[#79552c] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,0.85),inset_0_0_20px_rgba(74,55,35,0.15)] backdrop-blur-md sm:p-5">
 								<h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Волна {game.wave}: выбери улучшение</h3>
 								<p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Одна из трёх карточек усилит башни до конца игры</p>
 								<div className="mt-4 grid gap-2 sm:grid-cols-3">
