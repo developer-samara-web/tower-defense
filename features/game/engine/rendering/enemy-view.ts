@@ -32,31 +32,23 @@ function createEnemyBody(
 	color: number,
 	type: EnemyType,
 ) {
-	// Рассчитываем ширину и высоту тела на основе радиуса.
-	const width = radius * 2
-	const height = radius * 2
+	const texture =
+		type === 'scout'
+			? 'enemy-small'
+			: type === 'brute'
+				? 'enemy-big'
+				: type === 'sprinter'
+					? 'enemy-average'
+					: 'enemy-boss'
 
-	// Пиксельное тело врага — квадрат с тёмной обводкой.
-	const fill = Phaser.Display.Color.IntegerToColor(color).darken(8).color
-	const accent = Phaser.Display.Color.IntegerToColor(color).brighten(16).color
+	const size = Math.max(radius * 1.6, 16)
 
-	const body = scene.add.graphics().setPosition(x, y).setDepth(3)
+	const body = scene.add
+		.image(x, y, texture)
+		.setDisplaySize(size, size)
+		.setOrigin(0.5)
+		.setDepth(3)
 
-	body.fillStyle(fill, 1)
-	body.fillRect(-radius, -radius, width, height)
-
-	// Пиксельная тёмная рамка
-	body.lineStyle(2, 0x1a0f08, 1)
-	body.strokeRect(-radius, -radius, width, height)
-
-	// Пиксельная подсветка (квадрат)
-	body.fillStyle(accent, 1)
-	body.fillRect(-radius * 0.36, -radius * 0.32, width * 0.72, height * 0.2)
-
-	// Пиксельная иконка
-	drawEnemyIcon(body, type, radius)
-
-	// Возвращаем созданный графический объект для дальнейшего перемещения.
 	return body
 }
 

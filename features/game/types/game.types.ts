@@ -26,7 +26,7 @@ export type Enemy = {
   reward: number
   pathIndex: number
   route: { x: number; y: number }[]
-  body: Phaser.GameObjects.Graphics
+  body: Phaser.GameObjects.Image
   healthBar: Phaser.GameObjects.Graphics
   slowTimer: number
 }

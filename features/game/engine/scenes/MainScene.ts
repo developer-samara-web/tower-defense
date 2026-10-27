@@ -55,6 +55,11 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('castle', '/game/path/castle.png')
 		this.load.image('logo', '/game/logo.png')
 
+		this.load.image('enemy-small', '/game/enemy/small.png')
+		this.load.image('enemy-average', '/game/enemy/average.png')
+		this.load.image('enemy-big', '/game/enemy/big.png')
+		this.load.image('enemy-boss', '/game/enemy/boss.png')
+
 		this.load.image('gate-bottom', '/game/path/gate-bottom.png')
 		this.load.image('gate-left', '/game/path/gate-left.png')
 		this.load.image('gate-right', '/game/path/gate-right.png')
