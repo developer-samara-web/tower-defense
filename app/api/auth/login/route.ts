@@ -1,9 +1,7 @@
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
 import { connectDB } from '@/lib/db'
+import { signToken } from '@/lib/auth'
 import User from '@/models/User'
-
-const JWT_SECRET = 'tower-defense-secret-key-2026'
 
 export async function POST(req: Request) {
 	await connectDB()
@@ -24,11 +22,12 @@ export async function POST(req: Request) {
 		return Response.json({ error: 'Неверный пароль' }, { status: 401 })
 	}
 
-	const token = jwt.sign(
-		{ userId: user._id.toString(), login: user.login, email: user.email, record: user.record },
-		JWT_SECRET,
-		{ expiresIn: '7d' }
-	)
+	const token = signToken({
+		userId: user._id.toString(),
+		login: user.login,
+		email: user.email,
+		record: user.record,
+	})
 
 	return Response.json({ token })
 }

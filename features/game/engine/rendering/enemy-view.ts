@@ -33,15 +33,15 @@ function createEnemyBody(
 	type: EnemyType,
 ) {
 	const texture =
-		type === 'scout'
+		type === 'sprinter'
 			? 'enemy-small'
 			: type === 'brute'
 				? 'enemy-big'
-				: type === 'sprinter'
+				: type === 'scout'
 					? 'enemy-average'
 					: 'enemy-boss'
 
-	const size = Math.max(radius * 1.6, 16)
+	const size = Math.max(radius * 2.6, 16)
 
 	const body = scene.add
 		.image(x, y, texture)
@@ -50,96 +50,6 @@ function createEnemyBody(
 		.setDepth(3)
 
 	return body
-}
-
-// Рисует символ, который визуально отличает один тип врага от другого.
-function drawEnemyIcon(
-	graphics: Phaser.GameObjects.Graphics,
-	type: EnemyType,
-	radius: number,
-) {
-	// Используем белый цвет, чтобы символ контрастировал с телом врага.
-	const iconColor = 0xffffff
-
-	// Рассчитываем размер символа относительно размера врага.
-	const size = Math.max(3, radius * 0.25)
-
-	// Настраиваем толщину линий и их цвет.
-	graphics.lineStyle(Math.max(1, radius * 0.1), iconColor, 0.9)
-
-	// Символ разведчика — круг с двумя небольшими точками.
-	if (type === 'scout') {
-		// Рисуем круг.
-		graphics.strokeCircle(0, radius * 0.18, size)
-
-		// Добавляем левую точку.
-		graphics.fillStyle(iconColor, 0.9)
-		graphics.fillCircle(-size * 0.35, radius * 0.18, 0.8)
-
-		// Добавляем правую точку.
-		graphics.fillCircle(size * 0.35, radius * 0.18, 0.8)
-
-		// Завершаем отрисовку символа разведчика.
-		return
-	}
-
-	// Символ тяжёлого врага — треугольник.
-	if (type === 'brute') {
-		// Выбираем цвет заливки.
-		graphics.fillStyle(iconColor, 0.9)
-
-		// Рисуем треугольник внутри тела врага.
-		graphics.fillTriangle(
-			0,
-			radius * 0.58,
-			-size,
-			-size * 0.1 + radius * 0.18,
-			size,
-			-size * 0.1 + radius * 0.18,
-		)
-
-		// Завершаем отрисовку символа тяжёлого врага.
-		return
-	}
-
-	// Символ быстрого врага — молния.
-	if (type === 'sprinter') {
-		// Выбираем цвет заливки молнии.
-		graphics.fillStyle(iconColor, 0.9)
-
-		// Начинаем построение контура молнии.
-		graphics.beginPath()
-
-		// Последовательно задаём вершины молнии.
-		graphics.moveTo(size * 0.15, -size * 0.85 + radius * 0.18)
-		graphics.lineTo(-size * 0.7, radius * 0.18)
-		graphics.lineTo(-size * 0.1, radius * 0.18)
-		graphics.lineTo(-size * 0.25, size * 0.9 + radius * 0.18)
-		graphics.lineTo(size * 0.75, -size * 0.15 + radius * 0.18)
-		graphics.lineTo(size * 0.1, -size * 0.15 + radius * 0.18)
-
-		// Замыкаем контур молнии.
-		graphics.closePath()
-
-		// Заливаем получившуюся фигуру.
-		graphics.fillPath()
-
-		// Завершаем отрисовку символа быстрого врага.
-		return
-	}
-
-	// Для остальных типов рисуем условный символ брони.
-	graphics.beginPath()
-
-	// Последовательно задаём вершины символа.
-	graphics.moveTo(-size, radius * 0.58)
-	graphics.lineTo(-size, -size * 0.25 + radius * 0.18)
-	graphics.lineTo(0, size * 0.15 + radius * 0.18)
-	graphics.lineTo(size, -size * 0.25 + radius * 0.18)
-	graphics.lineTo(size, radius * 0.58)
-
-	// Отрисовываем контур символа.
-	graphics.strokePath()
 }
 
 // Отрисовывает полоску здоровья над врагом.

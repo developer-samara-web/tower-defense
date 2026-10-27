@@ -25,6 +25,8 @@ export type Enemy = {
   speed: number
   reward: number
   pathIndex: number
+  // Индекс дороги в карте: нужен, чтобы восстановить врага из сохранения.
+  routeIndex: number
   route: { x: number; y: number }[]
   body: Phaser.GameObjects.Image
   healthBar: Phaser.GameObjects.Graphics

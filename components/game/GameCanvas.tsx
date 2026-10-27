@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react'
 
-export default function GameCanvas() {
+export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }) {
 	const containerRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -31,7 +31,7 @@ export default function GameCanvas() {
 				width: parent.clientWidth,
 				height: parent.clientHeight,
 				parent,
-				scene: [MainScene],
+				scene: [new MainScene(mapSeed)],
 				// Правая кнопка перетаскивает камеру, поэтому
 				// стандартное контекстное меню браузера отключаем.
 				disableContextMenu: true,
@@ -60,7 +60,7 @@ export default function GameCanvas() {
 			disposed = true
 			game?.destroy(true)
 		}
-	}, [])
+	}, [mapSeed])
 
 	return (
 		<div

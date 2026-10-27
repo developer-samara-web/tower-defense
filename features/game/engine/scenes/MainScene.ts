@@ -1,21 +1,37 @@
-
 import Phaser from 'phaser'
 
 import {
-	CAMERA_BOUNDS_MARGIN,
 	CAMERA_MAX_ZOOM,
 	CAMERA_MIN_ZOOM,
-	CAMERA_START_ZOOM,
 } from '@/features/game/config/game.config'
-import { createGameState, resetGameState, type GameState } from '@/features/game/domain/game-state'
-import { applyUpgradeCard, upgradeCardTitle } from '@/features/game/domain/upgrade-cards'
+import {
+	createGameState,
+	resetGameState,
+	type GameState,
+} from '@/features/game/domain/game-state'
+import { isBoardPosition } from '@/features/game/domain/game-rules'
+import {
+	isTowerType,
+	readSessionEnemies,
+	readSessionTower,
+	restoreBuffs,
+	restoreStats,
+	type SessionPayload,
+} from '@/features/game/domain/session-state'
+import {
+	applyUpgradeCard,
+	upgradeCardTitle,
+} from '@/features/game/domain/upgrade-cards'
 
 import { drawBoard } from '../board/board-renderer'
+import { createTowerView } from '../rendering/tower-view'
 import type { GameContext } from '../game-context'
 import {
 	BOARD_PIXEL_HEIGHT,
 	BOARD_PIXEL_WIDTH,
 	CENTER_POINT,
+	createGameMap,
+	mapSeedToNumber,
 } from '../map/game-map'
 import { createEnemySystem, type EnemySystem } from '../systems/enemy-system'
 import { createTowerSystem, type TowerSystem } from '../systems/tower-system'
@@ -27,6 +43,8 @@ import {
 } from '../ui/camera-controls'
 import { createHudBridge, type HudBridge } from '../ui/hud-bridge'
 import { bindSceneControls } from '../ui/scene-controls'
+
+type SessionWindow = Window & { __sessionData?: SessionPayload }
 
 // Сцена только собирает системы вместе и связывает их с вводом игрока.
 export class MainScene extends Phaser.Scene {
@@ -44,8 +62,12 @@ export class MainScene extends Phaser.Scene {
 	private waves!: WaveSystem
 	private cameraControls!: CameraController
 
-	constructor() {
+	// Seed определяет дороги, поэтому карта восстанавливается вместе с игрой.
+	private readonly mapSeed: string
+
+	constructor(mapSeed = 'default') {
 		super('MainScene')
+		this.mapSeed = mapSeed
 	}
 
 	preload() {
@@ -90,13 +112,19 @@ export class MainScene extends Phaser.Scene {
 		this.cameraControls = bindCameraControls(this, CENTER_POINT)
 		this.scale.on('resize', this.handleResize)
 
-		this.state.pathCells = drawBoard(this)
+		const map = createGameMap(this.mapSeed)
+		this.state.pathCells = drawBoard(
+			this,
+			map,
+			mapSeedToNumber(this.mapSeed),
+		)
 
 		// Создаём мост состояния и общий контекст для систем.
 		this.hud = createHudBridge(this.state, this)
 		this.context = {
 			scene: this,
 			state: this.state,
+			map,
 			setStatus: (status) => {
 				this.state.status = status
 			},
@@ -110,6 +138,9 @@ export class MainScene extends Phaser.Scene {
 		this.towers = createTowerSystem(this.context, this.enemies)
 		this.waves = createWaveSystem(this.context)
 
+		// Загружаем сохранённую сессию, если она была передана из React.
+		this.restoreSession()
+
 		// Подключаем управление с клавиатуры, мыши и из React-панели.
 		this.bindControls()
 		this.connectPanel()
@@ -122,6 +153,75 @@ export class MainScene extends Phaser.Scene {
 			this.scale.off('resize', this.handleResize)
 			this.cameraControls.destroy()
 		})
+	}
+
+	// Восстанавливает сохранённую игру поверх свежей сцены.
+	private restoreSession() {
+		if (typeof window === 'undefined') return
+
+		const sessionWindow = window as SessionWindow
+		const payload = sessionWindow.__sessionData
+		if (!payload?.gameState) return
+
+		const saved = payload.gameState
+		const { state } = this
+
+		state.wave = nonNegativeInt(saved.wave, 0)
+		state.gold = nonNegativeNumber(saved.gold, state.gold)
+		state.lives = nonNegativeNumber(saved.lives, state.lives)
+		state.waveActive = saved.waveActive === true
+		state.waveBreakRemaining = nonNegativeNumber(
+			saved.waveBreakRemaining,
+			nonNegativeNumber(saved.nextWaveIn, 0) * 1000,
+		)
+		state.spawnRemaining = nonNegativeInt(saved.spawnRemaining, 0)
+		state.spawnedInWave = nonNegativeInt(saved.spawnedInWave, 0)
+		state.spawnCooldown = nonNegativeNumber(saved.spawnCooldown, 0)
+		state.selectedTower = isTowerType(saved.selectedTower)
+			? saved.selectedTower
+			: null
+		// DTO выбранной башни из снимка не содержит Phaser-объектов,
+		// поэтому выбор восстанавливается только кликом по башне.
+		state.selectedBuiltTower = null
+		state.status = typeof saved.status === 'string' ? saved.status : ''
+		state.buffs = restoreBuffs(saved.buffs)
+		state.stats = restoreStats(saved.stats ?? payload.stats)
+		state.resultReported = saved.resultReported === true
+
+		// Башни восстанавливаем вручную, чтобы не списывать золото повторно.
+		for (const entry of saved.towers ?? []) {
+			const tower = readSessionTower(entry)
+			if (!tower) continue
+
+			const [cellX, cellY] = tower.id.split(',').map(Number)
+			const position = { x: cellX, y: cellY }
+			if (!isBoardPosition(position)) continue
+			if (state.towerCells.has(tower.id)) continue
+
+			const view = createTowerView(this, tower.type, cellX, cellY)
+			state.towers.push({
+				id: tower.id,
+				type: tower.type,
+				level: tower.level,
+				invested: tower.invested,
+				x: view.x,
+				y: view.y,
+				cooldown: 0,
+				body: view.body,
+				icon: view.icon,
+				levelText: view.levelText,
+			})
+			state.towerCells.add(tower.id)
+
+			if (tower.level > 1) {
+				view.levelText.setText(String(tower.level)).setVisible(true)
+			}
+		}
+
+		// Врагов возвращаем на те же места, чтобы волна не завершилась мгновенно.
+		this.enemies.restore(readSessionEnemies(saved.enemies))
+
+		delete sessionWindow.__sessionData
 	}
 
 	// Готовит камеру к путешествию по большому миру.
@@ -249,4 +349,14 @@ export class MainScene extends Phaser.Scene {
 
 		this.hud.publish()
 	}
+}
+
+function nonNegativeNumber(value: unknown, fallback: number) {
+	return typeof value === 'number' && Number.isFinite(value) && value >= 0
+		? value
+		: fallback
+}
+
+function nonNegativeInt(value: unknown, fallback: number) {
+	return Math.trunc(nonNegativeNumber(value, fallback))
 }

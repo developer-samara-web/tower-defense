@@ -1,8 +1,6 @@
-import jwt from 'jsonwebtoken'
 import { connectDB } from '@/lib/db'
+import { verifyToken } from '@/lib/auth'
 import User from '@/models/User'
-
-const JWT_SECRET = 'tower-defense-secret-key-2026'
 
 export async function GET(req: Request) {
 	await connectDB()
@@ -15,14 +13,22 @@ export async function GET(req: Request) {
 	}
 
 	try {
-		const payload = jwt.verify(token, JWT_SECRET) as { userId: string; login: string; email: string; record: number }
+		const payload = verifyToken(token)
 
 		const user = await User.findById(payload.userId).select('-password')
 		if (!user) {
 			return Response.json({ error: 'Пользователь не найден' }, { status: 404 })
 		}
 
-		return Response.json({ user: { id: user._id.toString(), login: user.login, email: user.email, record: user.record } })
+		return Response.json({
+			user: {
+				id: user._id.toString(),
+				login: user.login,
+				email: user.email,
+				record: user.record,
+				bestWave: user.bestWave,
+			},
+		})
 	} catch {
 		return Response.json({ error: 'Неверный токен' }, { status: 401 })
 	}

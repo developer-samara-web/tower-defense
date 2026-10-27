@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test features/game/domain/game-rules.test.ts"
+    "test": "node --test features/game/domain/game-rules.test.ts features/game/domain/session-state.test.ts features/game/engine/map/game-map.test.ts lib/auth.test.ts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

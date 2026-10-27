@@ -14,6 +14,10 @@ const PANEL_HEIGHT = 204
 const PANEL_MARGIN = 8
 const PANEL_GAP = 10
 
+// Сцена зовёт publish каждый кадр, а React не нужен такой поток:
+// 10 обновлений в секунду достаточно для HUD и миникарты.
+const PUBLISH_INTERVAL_MS = 100
+
 // Передаёт снимок состояния игры в React-панель через браузерное событие.
 export function createHudBridge(
 	state: GameState,
@@ -21,6 +25,7 @@ export function createHudBridge(
 ): HudBridge {
 	// Предыдущий снимок в виде строки, чтобы не отправлять одинаковые обновления.
 	let lastSnapshot = ''
+	let lastPublishedAt = 0
 
 	// Переводит позицию выбранной башни в координаты полотна и
 	// подбирает место для панели рядом с ней.
@@ -59,12 +64,16 @@ export function createHudBridge(
 		// Пропускаем обновление, если код выполняется вне браузера.
 		if (typeof window === 'undefined') return
 
+		const now = Date.now()
+		if (now - lastPublishedAt < PUBLISH_INTERVAL_MS) return
+		lastPublishedAt = now
+
 		const snapshot = buildSnapshot(state, getPanelPosition())
 
 		// Вычисляем область просмотра камеры для миникарты.
 		if (scene) {
 			const camera = scene.cameras.main
-			;(snapshot as any).viewport = {
+			;(snapshot as { viewport?: { worldX: number; worldY: number; width: number; height: number; zoom: number } }).viewport = {
 				worldX: camera.worldView.x,
 				worldY: camera.worldView.y,
 				width: camera.worldView.width,
@@ -88,6 +97,7 @@ export function createHudBridge(
 	// Сбрасывает кеш, чтобы после перезапуска ушло новое состояние.
 	function reset() {
 		lastSnapshot = ''
+		lastPublishedAt = 0
 	}
 
 	return { publish, reset }

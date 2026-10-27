@@ -7,13 +7,14 @@ type ProfileScreenProps = {
 	user: PlayerProfile | null
 	scores: PlayerScore[]
 	onBack: () => void
+	backLabel: string
 }
 
-export default function ProfileScreen({ user, scores, onBack }: ProfileScreenProps) {
+export default function ProfileScreen({ user, scores, onBack, backLabel }: ProfileScreenProps) {
 	const record = user?.record ?? 0
 	const rankIndex = user ? scores.findIndex((score) => score.id === user.id) : -1
 	const rank = rankIndex >= 0 ? rankIndex + 1 : null
-	const wave = Math.floor(record / 25) || 1
+	const wave = user?.bestWave || Math.floor(record / 25) || 1
 
 	return (
 		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
@@ -26,7 +27,7 @@ export default function ProfileScreen({ user, scores, onBack }: ProfileScreenPro
 					className="mb-3 inline-flex items-center gap-2 rounded-none border-2 border-[#79502b] bg-[#21150c] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] transition-colors hover:border-amber-400 hover:text-amber-50 active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
 				>
 					<span className="text-[14px] leading-none">←</span>
-					Главное меню
+					{backLabel}
 				</button>
 
 				<div className="rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.9)] sm:p-5">

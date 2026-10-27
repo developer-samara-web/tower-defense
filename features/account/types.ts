@@ -3,6 +3,7 @@ export type PlayerProfile = {
 	login: string
 	email: string
 	record: number
+	bestWave?: number
 }
 
 export type PlayerScore = {

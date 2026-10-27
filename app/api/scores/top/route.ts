@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 	const scores = users.map((u) => ({
 		id: u._id.toString(),
 		login: u.login,
-		wave: Math.floor(u.record / 25) || 1,
+		wave: u.bestWave || Math.floor(u.record / 25) || 1,
 		gold: u.record,
 		createdAt: u.createdAt.toISOString(),
 	}))

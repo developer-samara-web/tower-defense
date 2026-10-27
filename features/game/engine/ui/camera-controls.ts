@@ -40,7 +40,6 @@ export function bindCameraControls(
 	let dragging = false
 	let dragStartX = 0
 	let dragStartY = 0
-	let dragMoved = false
 	let lastPointerX = 0
 	let lastPointerY = 0
 
@@ -71,7 +70,6 @@ export function bindCameraControls(
 
 	const onPointerDown = (pointer: Phaser.Input.Pointer) => {
 		dragging = false
-		dragMoved = false
 		dragStartX = pointer.x
 		dragStartY = pointer.y
 	}
@@ -116,7 +114,6 @@ export function bindCameraControls(
 			const dy = pointer.y - dragStartY
 			if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
 				dragging = true
-				dragMoved = true
 				lastPointerX = pointer.x
 				lastPointerY = pointer.y
 			}
@@ -136,7 +133,6 @@ export function bindCameraControls(
 
 	const stopDragging = () => {
 		dragging = false
-		dragMoved = false
 		dragStartX = 0
 		dragStartY = 0
 	}
@@ -164,7 +160,7 @@ export function bindCameraControls(
 		camera.scrollY = worldY - originY - (pointer.y - originY) / zoom
 	}
 
-	const onPointerUp = (pointer: Phaser.Input.Pointer) => {
+	const onPointerUp = () => {
 		lastPinchDist = 0
 		if (scene.input.manager.pointers.filter((p) => p.isDown).length === 0) {
 			stopDragging()

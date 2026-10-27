@@ -15,12 +15,35 @@ export type SceneHandlers = {
 
 // Подключает мышь и клавиатуру Phaser к действиям игры.
 export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) {
-	// Клик левой кнопкой по полю строит башню или выбирает уже построенную.
-	// Средняя и правая кнопки заняты камерой, поэтому их не обрабатываем.
+	// Клик отличается от перетаскивания камеры по смещению указателя.
+	const CLICK_DISTANCE = 8
+	let pressX = 0
+	let pressY = 0
+	let pressed = false
+
+	// Строим и выбираем башню на отпускании кнопки: иначе перетаскивание
+	// левой кнопкой ставило бы башню в точке начала жеста.
 	scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+		const isLeftButton = pointer.button === 0
+		pressed = isLeftButton
+		if (!isLeftButton) return
+
+		pressX = pointer.x
+		pressY = pointer.y
+	})
+
+	scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+		if (!pressed) return
+		pressed = false
+
 		if (pointer.button !== 0) return
+		if (Math.hypot(pointer.x - pressX, pointer.y - pressY) > CLICK_DISTANCE) return
 
 		handlers.onPointerDown(pointer.worldX, pointer.worldY)
+	})
+
+	scene.input.on('pointerupoutside', () => {
+		pressed = false
 	})
 
 	// Движение курсора показывает проекцию выбранной башни.

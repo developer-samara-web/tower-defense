@@ -270,6 +270,8 @@ export function createTowerSystem(
 		// Помечаем клетку занятой и списываем стоимость башни.
 		state.towerCells.add(key)
 		state.gold -= stats.cost
+		state.stats.buildingsBuilt++
+		state.stats.moneySpent += stats.cost
 
 		// Прячем проекцию: клетка теперь занята.
 		hideGhost()
@@ -304,6 +306,7 @@ export function createTowerSystem(
 
 		// Списываем стоимость и повышаем уровень.
 		state.gold -= cost
+		state.stats.moneySpent += cost
 		tower.level += 1
 
 		// Учитываем улучшение в полной стоимости башни.

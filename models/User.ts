@@ -5,6 +5,7 @@ export interface IUser {
 	email: string
 	password: string
 	record: number
+	bestWave: number
 	createdAt: Date
 }
 
@@ -13,6 +14,7 @@ const UserSchema = new mongoose.Schema<IUser>({
 	email: { type: String, required: true, unique: true },
 	password: { type: String, required: true },
 	record: { type: Number, default: 0 },
+	bestWave: { type: Number, default: 0 },
 	createdAt: { type: Date, default: Date.now },
 })
 

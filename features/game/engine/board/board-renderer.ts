@@ -5,8 +5,7 @@ import {
 	CASTLE_CELLS,
 	CASTLE_SIZE,
 	CENTER_POINT,
-	ROADS,
-	ROAD_POINTS,
+	type GameMap,
 } from '../map/game-map'
 
 // Палитра Pixel Art D&D
@@ -39,16 +38,16 @@ const GRASS_TILE_SIZE = GRASS_TILE_CELLS * CELL_SIZE
 // Рисует всё игровое поле и возвращает множество клеток, занятых дорогой.
 export function drawBoard(
 	scene: Phaser.Scene,
+	map: GameMap,
 	seed = 1,
 ): Set<string> {
 	drawGrass(scene, seed)
 	drawEdgeShade(scene)
 
-	const pathCells = drawPath(scene, seed)
+	const pathCells = drawPath(scene, map, seed)
 
 	drawTerrainDetails(scene, pathCells, seed)
-	// drawProps(scene, pathCells, seed) // временно отключено
-	drawPathEndpoints(scene)
+	drawPathEndpoints(scene, map)
 
 	return pathCells
 }
@@ -206,7 +205,7 @@ function drawGrass(scene: Phaser.Scene, seed: number) {
 }
 
 // Рисует дороги в стиле каменных плит и возвращает занятые ими клетки.
-function drawPath(scene: Phaser.Scene, seed = 1): Set<string> {
+function drawPath(scene: Phaser.Scene, map: GameMap, seed = 1): Set<string> {
 	const graphics = scene.add.graphics()
 	const random = createSeededRandom(seed ^ 0x27d4eb2d)
 
@@ -241,7 +240,7 @@ function drawPath(scene: Phaser.Scene, seed = 1): Set<string> {
 		}
 	}
 
-	for (const originalPoints of ROAD_POINTS) {
+	for (const originalPoints of map.roadPoints) {
 		const points = getInsetRoadPoints(originalPoints)
 		// 1. Каменная окантовка дороги.
 		for (let i = 0; i < points.length - 1; i++) {
@@ -370,7 +369,7 @@ function drawPath(scene: Phaser.Scene, seed = 1): Set<string> {
 	//* Возвращаем клетки пути для размещения башен и декора. *
 	const pathCells = new Set<string>()
 
-	for (const road of ROADS) {
+	for (const road of map.roads) {
 		for (let i = 0; i < road.length - 1; i++) {
 			addLineCells(pathCells, road[i], road[i + 1])
 		}
@@ -514,7 +513,7 @@ function drawTerrainDetails(
 }
 
 // Пиксельные ворота у входа на каждую дорогу и крепость в центре.
-function drawPathEndpoints(scene: Phaser.Scene) {
+function drawPathEndpoints(scene: Phaser.Scene, map: GameMap) {
     const gateTextures = [
         'gate-bottom',
         'gate-left',
@@ -522,7 +521,7 @@ function drawPathEndpoints(scene: Phaser.Scene) {
         'gate-top',
     ]
 
-    ROAD_POINTS.forEach((originalPoints, index) => {
+    map.roadPoints.forEach((originalPoints, index) => {
         const points = getInsetRoadPoints(originalPoints)
         const start = points[0]
 
@@ -554,54 +553,5 @@ function getInsetRoadPoints(
 		next,
 		...rest,
 	]
-}
-
-// Живые квадратные пропсы из папки grid.
-function drawProps(scene: Phaser.Scene, pathCells: ReadonlySet<string>, seed: number) {
-	const random = createSeededRandom(seed ^ 0x77b3a1)
-	const propKeys = [
-		'tree-1', 'tree-2', 'tree-3',
-		'bush-1', 'bush-2', 'bush-3',
-		'grass-1', 'grass-2',
-		'grass_flowers-1', 'grass_flowers-2', 'grass_flowers-3', 'grass_flowers-4',
-		'stone-1', 'stone-2', 'stone-3',
-		'bridge-1',
-	]
-
-	const roadProps = ['road-1', 'road-2', 'road-3']
-
-	for (let y = 0; y < ROWS; y++) {
-		for (let x = 0; x < COLS; x++) {
-			const isPath = pathCells.has(`${x},${y}`)
-
-			// Для дорожек: чаще кладём пропсы дорог.
-			if (isPath) {
-				// Для дорожек: покрываем всю дорогу пропсами.
-				const px = x * CELL_SIZE + CELL_SIZE / 2
-				const py = y * CELL_SIZE + CELL_SIZE / 2
-				// 50% — основной пропс дороги.
-				const key = random() > 0.5 ? 'road-main' : roadProps[Math.floor(random() * roadProps.length)]
-				const size = CELL_SIZE
-
-				scene.add
-				.image(px, py, key)
-				.setDisplaySize(Math.round(size), Math.round(size))
-				.setDepth(1.1)
-				continue
-			}
-
-			if (random() > 0.14) continue
-
-			const px = x * CELL_SIZE + CELL_SIZE / 2
-			const py = y * CELL_SIZE + CELL_SIZE / 2
-			const key = propKeys[Math.floor(random() * propKeys.length)]
-			const size = CELL_SIZE
-
-			scene.add
-			.image(px, py, key)
-			.setDisplaySize(Math.round(size), Math.round(size))
-			.setDepth(0.6)
-		}
-	}
 }
 

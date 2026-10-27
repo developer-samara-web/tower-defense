@@ -8,6 +8,14 @@ import {
 import type { Enemy, Tower } from '../types/game.types.ts'
 import { towerSellValue, towerStats, towerUpgradeCost } from './game-rules.ts'
 import { createEmptyBuffs, type TowerBuffs } from './game-rules.ts'
+import type { SessionEnemy } from './session-state.ts'
+
+export type GameStats = {
+	monstersKilled: number
+	buildingsBuilt: number
+	moneySpent: number
+	damageDealt: number
+}
 
 // Всё изменяемое состояние одной игры. Живёт в сцене и передаётся системам.
 export type GameState = {
@@ -28,6 +36,7 @@ export type GameState = {
 	buffs: TowerBuffs
 	resultReported: boolean
 	status: string
+	stats: GameStats
 }
 
 export type SelectedTowerInfo = {
@@ -57,7 +66,16 @@ export type GameSnapshot = {
 	waveActive: boolean
 	nextWaveIn: number
 	gameOver: boolean
-	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
+	towers: Array<{
+		id: string
+		x: number
+		y: number
+		type: TowerType
+		level: number
+		invested: number
+	}>
+	// Живые враги нужны, чтобы продолжить волну с того же места.
+	enemyStates: SessionEnemy[]
 	towerCells: string[]
 	pathCells: string[]
 	viewport: {
@@ -67,6 +85,13 @@ export type GameSnapshot = {
 		height: number
 		zoom: number
 	} | null
+	stats: GameStats
+	buffs: TowerBuffs
+	resultReported: boolean
+	spawnRemaining: number
+	spawnedInWave: number
+	spawnCooldown: number
+	waveBreakRemaining: number
 }
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
@@ -90,6 +115,12 @@ export function createGameState(): GameState {
 		buffs: createEmptyBuffs(),
 		resultReported: false,
 		status: '',
+		stats: {
+			monstersKilled: 0,
+			buildingsBuilt: 0,
+			moneySpent: 0,
+			damageDealt: 0,
+		},
 	}
 }
 
@@ -109,6 +140,10 @@ export function resetGameState(state: GameState) {
 	state.buffs = createEmptyBuffs()
 	state.resultReported = false
 	state.status = ''
+	state.stats.monstersKilled = 0
+	state.stats.buildingsBuilt = 0
+	state.stats.moneySpent = 0
+	state.stats.damageDealt = 0
 }
 
 export function buildSnapshot(
@@ -116,7 +151,7 @@ export function buildSnapshot(
 	panelPosition: { x: number; y: number } | null = null,
 ): GameSnapshot {
 	const selected = state.selectedBuiltTower
-
+	
 	return {
 		wave: state.wave,
 		gold: state.gold,
@@ -129,10 +164,29 @@ export function buildSnapshot(
 		waveActive: state.waveActive,
 		nextWaveIn: Math.ceil(state.waveBreakRemaining / 1000),
 		gameOver: state.lives <= 0,
-		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type })),
+		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type, level: t.level, invested: t.invested })),
+		enemyStates: state.enemies.map((enemy) => ({
+			type: enemy.type,
+			x: enemy.x,
+			y: enemy.y,
+			hp: enemy.hp,
+			maxHp: enemy.maxHp,
+			speed: enemy.speed,
+			reward: enemy.reward,
+			pathIndex: enemy.pathIndex,
+			routeIndex: enemy.routeIndex,
+			slowTimer: enemy.slowTimer,
+		})),
 		towerCells: Array.from(state.towerCells),
 		pathCells: Array.from(state.pathCells),
 		viewport: null,
+		stats: state.stats,
+		buffs: state.buffs,
+		resultReported: state.resultReported,
+		spawnRemaining: state.spawnRemaining,
+		spawnedInWave: state.spawnedInWave,
+		spawnCooldown: state.spawnCooldown,
+		waveBreakRemaining: state.waveBreakRemaining,
 	}
 }
 

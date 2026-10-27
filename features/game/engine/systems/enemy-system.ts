@@ -1,12 +1,11 @@
-import { ENEMY_SPAWN_INTERVAL } from '../../config/game.config'
+import { ENEMY_SPAWN_INTERVAL, ENEMY_TYPES } from '../../config/game.config'
 import { enemyStats, isInsideBoardPoint } from '../../domain/game-rules'
+import type { SessionEnemy } from '../../domain/session-state'
 import type { Enemy } from '../../types/game.types'
 import type { GameContext } from '../game-context'
-import { ROAD_POINTS } from '../map/game-map'
 import { createEnemyView, drawHealthBar } from '../rendering/enemy-view'
 
 type EnemyHooks = {
-	// Вызывается, когда у игрока закончились жизни.
 	onGameOver: () => void
 }
 
@@ -14,8 +13,12 @@ export type EnemySystem = {
 	updateSpawning: (delta: number) => void
 	update: (delta: number) => void
 	damage: (enemy: Enemy, damage: number) => void
+	restore: (enemies: readonly SessionEnemy[]) => void
 	clear: () => void
 }
+
+// Защита от повреждённого/подделанного сохранения.
+const MAX_RESTORED_ENEMIES = 300
 
 // Отвечает за появление врагов, их перемещение по маршруту и урон.
 export function createEnemySystem(
@@ -36,7 +39,9 @@ export function createEnemySystem(
 		state.spawnedInWave++
 
 		// Получаем координаты начала случайной дороги.
-		const route = ROAD_POINTS[Math.floor(Math.random() * ROAD_POINTS.length)]
+		const { roadPoints } = ctx.map
+		const routeIndex = Math.floor(Math.random() * roadPoints.length)
+		const route = roadPoints[routeIndex]
 		const start = route[0]
 
 		// Создаём тело врага и полоску здоровья.
@@ -60,6 +65,7 @@ export function createEnemySystem(
 			speed,
 			reward,
 			pathIndex: 1,
+			routeIndex,
 			route,
 			body,
 			healthBar,
@@ -137,8 +143,10 @@ export function createEnemySystem(
 			// Рассчитываем расстояние до следующей точки.
 			const distance = Math.hypot(dx, dy)
 
-			// Уменьшаем оставшееся время замедления.
-			enemy.slowTimer = Math.max(0, enemy.slowTimer - delta)
+			// Замедление действует ограниченное время.
+			if (enemy.slowTimer > 0) {
+				enemy.slowTimer = Math.max(0, enemy.slowTimer - delta)
+			}
 
 			// Если замедление активно, скорость врага уменьшается вдвое.
 			const speedMultiplier = enemy.slowTimer > 0 ? 0.5 : 1
@@ -184,10 +192,14 @@ export function createEnemySystem(
 		// Уменьшаем текущее здоровье врага.
 		enemy.hp -= damageAmount
 
+		// Учитываем нанесённый урон в статистике.
+		state.stats.damageDealt += damageAmount
+
 		// Если здоровье закончилось, уничтожаем врага.
 		if (enemy.hp <= 0) {
 			// Начисляем игроку награду за уничтожение.
 			state.gold += enemy.reward
+			state.stats.monstersKilled++
 
 			// Удаляем врага без потери жизни.
 			remove(state.enemies.indexOf(enemy), false)
@@ -196,6 +208,49 @@ export function createEnemySystem(
 
 		// Если враг выжил, обновляем его полоску здоровья.
 		drawHealthBar(enemy)
+	}
+
+	// Возвращает на поле врагов, которые были живы на момент сохранения.
+	function restore(entries: readonly SessionEnemy[]) {
+		const { scene, state } = ctx
+		const routes = ctx.map.roadPoints
+
+		for (const saved of entries.slice(0, MAX_RESTORED_ENEMIES)) {
+			const route = routes[saved.routeIndex]
+			if (!route) continue
+			if (!Number.isInteger(saved.pathIndex)) continue
+			if (saved.pathIndex < 0 || saved.pathIndex >= route.length) continue
+			if (!(saved.hp > 0) || saved.maxHp < saved.hp) continue
+
+			const config = ENEMY_TYPES[saved.type]
+			const { body, healthBar } = createEnemyView(
+				scene,
+				saved.x,
+				saved.y,
+				config.radius,
+				config.color,
+				saved.type,
+			)
+
+			const enemy: Enemy = {
+				type: saved.type,
+				x: saved.x,
+				y: saved.y,
+				hp: saved.hp,
+				maxHp: saved.maxHp,
+				speed: saved.speed,
+				reward: saved.reward,
+				pathIndex: saved.pathIndex,
+				routeIndex: saved.routeIndex,
+				route,
+				slowTimer: saved.slowTimer,
+				body,
+				healthBar,
+			}
+
+			state.enemies.push(enemy)
+			drawHealthBar(enemy)
+		}
 	}
 
 	// Удаляет всех врагов со сцены.
@@ -210,5 +265,5 @@ export function createEnemySystem(
 		state.enemies.length = 0
 	}
 
-	return { updateSpawning, update, damage, clear }
+	return { updateSpawning, update, damage, restore, clear }
 }
