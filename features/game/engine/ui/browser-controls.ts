@@ -8,6 +8,7 @@ export type BrowserHandlers = {
 	onSelectType: (type: TowerType) => void
 	onStartWave: () => void
 	onUpgrade: () => void
+	onSell: () => void
 	onDeselect: () => void
 	onRestart: () => void
 	onPickUpgrade: (card: UpgradeCard) => void
@@ -42,6 +43,7 @@ export function connectBrowserControls(
 	window.addEventListener('td:start-wave', handlers.onStartWave)
 	window.addEventListener('td:restart', handlers.onRestart)
 	window.addEventListener('td:upgrade-tower', handlers.onUpgrade)
+	window.addEventListener('td:sell-tower', handlers.onSell)
 	window.addEventListener('td:deselect-tower', handlers.onDeselect)
 	window.addEventListener('td:pick-upgrade', onPickUpgrade)
 
@@ -52,6 +54,7 @@ export function connectBrowserControls(
 		window.removeEventListener('td:start-wave', handlers.onStartWave)
 		window.removeEventListener('td:restart', handlers.onRestart)
 		window.removeEventListener('td:upgrade-tower', handlers.onUpgrade)
+		window.removeEventListener('td:sell-tower', handlers.onSell)
 		window.removeEventListener('td:deselect-tower', handlers.onDeselect)
 		window.removeEventListener('td:pick-upgrade', onPickUpgrade)
 	})

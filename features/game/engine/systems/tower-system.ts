@@ -9,7 +9,9 @@ import {
 } from '../../config/game.config'
 import {
 	canBuildTower,
+	isBoardPosition,
 	isInsideBoardPoint,
+	towerSellValue,
 	towerStats,
 	towerUpgradeCost,
 } from '../../domain/game-rules'
@@ -17,18 +19,24 @@ import type { Enemy, Tower } from '../../types/game.types'
 import type { GameContext } from '../game-context'
 import {
 	createSelectionHighlight,
+	createTowerGhost,
 	createTowerView,
+	drawBuildPreview,
 	fireProjectile,
 	showHitFlash,
+	towerTexture,
 } from '../rendering/tower-view'
 import type { EnemySystem } from './enemy-system'
 
 export type TowerSystem = {
-	selectType: (type: TowerType) => void
+	selectType: (type: TowerType | null) => void
 	place: (worldX: number, worldY: number) => void
 	select: (tower: Tower) => void
 	deselect: () => void
+	hover: (worldX: number, worldY: number) => void
+	clearHover: () => void
 	upgrade: () => void
+	sell: () => void
 	update: (delta: number) => void
 	clear: () => void
 }
@@ -41,6 +49,82 @@ export function createTowerSystem(
 	// Рамка, подсвечивающая выбранную башню.
 	let highlight: Phaser.GameObjects.Graphics | null = null
 
+	// Полупрозрачная проекция башни и подсветка клетки под курсором.
+	let ghost: Phaser.GameObjects.Image | null = null
+	let ghostCell: Phaser.GameObjects.Graphics | null = null
+
+	// Последняя позиция курсора в мировых координатах.
+	let hoverX: number | null = null
+	let hoverY: number | null = null
+
+	// Прячет проекцию башни, когда она не нужна.
+	function hideGhost() {
+		ghost?.setVisible(false)
+		ghostCell?.clear()
+	}
+
+	// Показывает проекцию выбранной башни в клетке под курсором.
+	function updateGhost() {
+		const { scene, state } = ctx
+		const type = state.selectedTower
+
+		if (!type || state.lives <= 0 || hoverX === null || hoverY === null) {
+			hideGhost()
+			return
+		}
+
+		// Переводим мировые координаты курсора в координаты клетки.
+		const x = Math.floor(hoverX / CELL_SIZE)
+		const y = Math.floor(hoverY / CELL_SIZE)
+
+		// За пределами поля проекцию не показываем.
+		if (!isBoardPosition({ x, y })) {
+			hideGhost()
+			return
+		}
+
+		// Зелёная подсветка — строить можно, красная — клетка занята,
+		// это дорога или не хватает золота.
+		const buildCheck = canBuildTower({
+			position: { x, y },
+			pathCells: state.pathCells,
+			towerCells: state.towerCells,
+			gold: state.gold,
+			towerType: type,
+		})
+
+		// Создаём проекцию при первом наведении.
+		if (!ghost || !ghostCell) {
+			const created = createTowerGhost(scene, type)
+			ghost = created.body
+			ghostCell = created.cell
+		}
+
+		ghost.setTexture(towerTexture(type))
+		ghost.setDisplaySize(CELL_SIZE, CELL_SIZE)
+
+		ghost
+			.setPosition(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2)
+			.setVisible(true)
+			.setAlpha(buildCheck.allowed ? 0.6 : 0.35)
+
+		drawBuildPreview(ghostCell, x, y, buildCheck.allowed)
+	}
+
+	// Запоминает позицию курсора и обновляет проекцию.
+	function hover(worldX: number, worldY: number) {
+		hoverX = worldX
+		hoverY = worldY
+		updateGhost()
+	}
+
+	// Убирает проекцию, когда курсор уходит с поля.
+	function clearHover() {
+		hoverX = null
+		hoverY = null
+		hideGhost()
+	}
+
 	// Снимает выбор с построенной башни.
 	function deselect() {
 		highlight?.destroy()
@@ -52,6 +136,9 @@ export function createTowerSystem(
 	function select(tower: Tower) {
 		const { scene, state, setStatus, publish } = ctx
 
+		// Выбор башни отменяет режим строительства.
+		state.selectedTower = null
+		hideGhost()
 		state.selectedBuiltTower = tower
 
 		// Перерисовываем подсветку вокруг выбранной клетки.
@@ -71,17 +158,23 @@ export function createTowerSystem(
 		publish()
 	}
 
-	// Выбирает тип башни для строительства.
-	function selectType(type: TowerType) {
+	// Выбирает тип башни для строительства. Повторный клик снимает выбор.
+	function selectType(type: TowerType | null) {
 		const { state, setStatus, publish } = ctx
 
-		// Запоминаем выбранный тип и снимаем выбор с построенной башни.
-		state.selectedTower = type
+		state.selectedTower =
+			type !== null && state.selectedTower === type ? null : type
 		deselect()
+		updateGhost()
 
-		// Показываем название башни и стоимость её строительства.
-		const tower = TOWER_TYPES[type]
-		setStatus(`Выбрана башня «${tower.name}». Стоимость: ${tower.cost} золота.`)
+		if (state.selectedTower === null) {
+			setStatus('Башня не выбрана. Нажми на карточку внизу, чтобы строить.')
+		} else {
+			const tower = TOWER_TYPES[state.selectedTower]
+			setStatus(
+				`Выбрана башня «${tower.name}». Стоимость: ${tower.cost} золота.`,
+			)
+		}
 
 		publish()
 	}
@@ -108,6 +201,16 @@ export function createTowerSystem(
 			return
 		}
 
+		// Без выбранного типа строить нечего.
+		const type = state.selectedTower
+
+		if (!type) {
+			deselect()
+			setStatus('Сначала выбери башню в панели внизу.')
+			publish()
+			return
+		}
+
 		// Проверяем, можно ли строить башню: границы поля, дорогу,
 		// занятые клетки, золото и тип башни.
 		const buildCheck = canBuildTower({
@@ -115,7 +218,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
-			towerType: state.selectedTower,
+			towerType: type,
 		})
 
 		// Клик за пределами поля просто снимает выбор с башни.
@@ -128,27 +231,31 @@ export function createTowerSystem(
 		// Запрещаем строительство на дороге.
 		if (buildCheck.reason === 'path') {
 			setStatus('На дороге строить нельзя.')
+			publish()
 			return
 		}
 
 		// Получаем характеристики выбранной башни.
-		const stats = TOWER_TYPES[state.selectedTower]
+		const stats = TOWER_TYPES[type]
 
 		// Проверяем, хватает ли золота на строительство.
 		if (buildCheck.reason === 'gold') {
 			setStatus(`Недостаточно золота. Нужно: ${stats.cost}.`)
+			publish()
 			return
 		}
 
 		// Создаём графическое представление башни.
-		const view = createTowerView(scene, state.selectedTower, x, y)
+		const view = createTowerView(scene, type, x, y)
 
 		// Добавляем башню в массив объектов, которые будут атаковать врагов.
 		state.towers.push({
 			// Ключ клетки служит уникальным идентификатором башни.
 			id: key,
-			type: state.selectedTower,
+			type,
 			level: 1,
+			// Запоминаем полную стоимость постройки для расчёта продажи.
+			invested: stats.cost,
 			x: view.x,
 			y: view.y,
 			cooldown: 0,
@@ -164,7 +271,11 @@ export function createTowerSystem(
 		state.towerCells.add(key)
 		state.gold -= stats.cost
 
+		// Прячем проекцию: клетка теперь занята.
+		hideGhost()
+
 		setStatus('Башня построена.')
+		publish()
 	}
 
 	// Улучшает выбранную башню, если хватает золота.
@@ -195,10 +306,42 @@ export function createTowerSystem(
 		state.gold -= cost
 		tower.level += 1
 
+		// Учитываем улучшение в полной стоимости башни.
+		tower.invested += cost
+
 		// Показываем новый уровень на карте.
 		tower.levelText.setText(String(tower.level)).setVisible(true)
 
 		setStatus(`«${name}» улучшена до уровня ${tower.level}.`)
+		publish()
+	}
+
+	// Продаёт выбранную башню и возвращает часть вложенного золота.
+	function sell() {
+		const { state, setStatus, publish } = ctx
+
+		const tower = state.selectedBuiltTower
+		if (!tower || state.lives <= 0) return
+
+		// Возврат считается от полной стоимости с учётом улучшений.
+		const refund = towerSellValue(tower.invested)
+		const { name } = TOWER_TYPES[tower.type]
+
+		// Убираем башню со сцены и из состояния.
+		tower.body.destroy()
+		tower.icon.destroy()
+		tower.levelText.destroy()
+
+		const index = state.towers.indexOf(tower)
+		if (index >= 0) state.towers.splice(index, 1)
+
+		state.towerCells.delete(tower.id)
+		state.gold += refund
+
+		deselect()
+		updateGhost()
+
+		setStatus(`«${name}» продана. Возврат: ${refund} золота.`)
 		publish()
 	}
 
@@ -237,6 +380,14 @@ export function createTowerSystem(
 	// Обновляет башни: перезарядку, поиск целей и атаки.
 	function update(delta: number) {
 		const { scene, state } = ctx
+
+		// После поражения проекцию башни больше не показываем.
+		if (state.lives <= 0) {
+			hideGhost()
+		} else if (state.selectedTower) {
+			// Обновляем цвет подсветки, если изменился баланс игрока.
+			updateGhost()
+		}
 
 		for (const tower of state.towers) {
 			// Уменьшаем время до следующей атаки.
@@ -306,7 +457,27 @@ export function createTowerSystem(
 		state.towers.length = 0
 		state.towerCells.clear()
 		deselect()
+
+		// Убираем проекцию и сбрасываем выбранный тип башни.
+		ghost?.destroy()
+		ghost = null
+		ghostCell?.destroy()
+		ghostCell = null
+		hoverX = null
+		hoverY = null
+		state.selectedTower = null
 	}
 
-	return { selectType, place, select, deselect, upgrade, update, clear }
+	return {
+		selectType,
+		place,
+		select,
+		deselect,
+		hover,
+		clearHover,
+		upgrade,
+		sell,
+		update,
+		clear,
+	}
 }

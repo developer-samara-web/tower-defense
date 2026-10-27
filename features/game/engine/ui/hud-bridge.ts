@@ -1,3 +1,6 @@
+import type Phaser from 'phaser'
+
+import { CELL_SIZE } from '../../config/game.config'
 import { buildSnapshot, type GameState } from '../../domain/game-state'
 
 export type HudBridge = {
@@ -5,16 +8,58 @@ export type HudBridge = {
 	reset: () => void
 }
 
+// Размеры панели башни в React-интерфейсе (px).
+const PANEL_WIDTH = 232
+const PANEL_HEIGHT = 204
+const PANEL_MARGIN = 8
+const PANEL_GAP = 10
+
 // Передаёт снимок состояния игры в React-панель через браузерное событие.
-export function createHudBridge(state: GameState): HudBridge {
+export function createHudBridge(
+	state: GameState,
+	scene?: Phaser.Scene,
+): HudBridge {
 	// Предыдущий снимок в виде строки, чтобы не отправлять одинаковые обновления.
 	let lastSnapshot = ''
+
+	// Переводит позицию выбранной башни в координаты полотна и
+	// подбирает место для панели рядом с ней.
+	function getPanelPosition() {
+		const tower = state.selectedBuiltTower
+		if (!tower || !scene) return null
+
+		const camera = scene.cameras.main
+		const zoom = camera.zoom
+		const screenX = (tower.x - camera.worldView.x) * zoom
+		const screenY = (tower.y - camera.worldView.y) * zoom
+		const halfCell = (CELL_SIZE / 2) * zoom
+
+		// Обычно панель справа от башни, но у правого края — слева.
+		let x = screenX + halfCell + PANEL_GAP
+		if (x + PANEL_WIDTH > camera.width - PANEL_MARGIN) {
+			x = screenX - halfCell - PANEL_GAP - PANEL_WIDTH
+		}
+
+		const maxX = Math.max(
+			PANEL_MARGIN,
+			camera.width - PANEL_WIDTH - PANEL_MARGIN,
+		)
+		const maxY = Math.max(
+			PANEL_MARGIN,
+			camera.height - PANEL_HEIGHT - PANEL_MARGIN,
+		)
+
+		return {
+			x: Math.min(Math.max(PANEL_MARGIN, x), maxX),
+			y: Math.min(Math.max(PANEL_MARGIN, screenY - PANEL_HEIGHT / 2), maxY),
+		}
+	}
 
 	function publish() {
 		// Пропускаем обновление, если код выполняется вне браузера.
 		if (typeof window === 'undefined') return
 
-		const snapshot = buildSnapshot(state)
+		const snapshot = buildSnapshot(state, getPanelPosition())
 
 		// Преобразуем состояние в строку для сравнения с предыдущим.
 		const serialized = JSON.stringify(snapshot)

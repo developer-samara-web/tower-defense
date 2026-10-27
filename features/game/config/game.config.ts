@@ -35,6 +35,10 @@ export const WAVE_BREAK_DURATION = 3000
 
 export const MAX_TOWER_LEVEL = 5
 export const TOWER_UPGRADE_COST_FACTOR = 0.6
+
+// При продаже игрок получает 30% от всей вложенной в башню суммы
+// (стоимость постройки плюс все улучшения).
+export const TOWER_SELL_REFUND = 0.3
 export const TOWER_DAMAGE_GROWTH = 0.3
 export const TOWER_RANGE_GROWTH = 0.08
 export const TOWER_ATTACK_SPEED_GROWTH = 0.9

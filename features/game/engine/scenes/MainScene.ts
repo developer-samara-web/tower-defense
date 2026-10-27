@@ -88,7 +88,7 @@ export class MainScene extends Phaser.Scene {
 		this.state.pathCells = drawBoard(this)
 
 		// Создаём мост состояния и общий контекст для систем.
-		this.hud = createHudBridge(this.state)
+		this.hud = createHudBridge(this.state, this)
 		this.context = {
 			scene: this,
 			state: this.state,
@@ -177,6 +177,8 @@ export class MainScene extends Phaser.Scene {
 	private bindControls() {
 		bindSceneControls(this, {
 			onPointerDown: (worldX, worldY) => this.towers.place(worldX, worldY),
+			onPointerMove: (worldX, worldY) => this.towers.hover(worldX, worldY),
+			onPointerLeave: () => this.towers.clearHover(),
 			onStartWave: () => this.waves.requestStart(),
 			onSelectType: (type) => this.towers.selectType(type),
 			onUpgrade: () => this.towers.upgrade(),
@@ -192,6 +194,7 @@ export class MainScene extends Phaser.Scene {
 			onSelectType: (type) => this.towers.selectType(type),
 			onStartWave: () => this.waves.requestStart(),
 			onUpgrade: () => this.towers.upgrade(),
+			onSell: () => this.towers.sell(),
 			onDeselect: () => {
 				this.towers.deselect()
 				this.hud.publish()

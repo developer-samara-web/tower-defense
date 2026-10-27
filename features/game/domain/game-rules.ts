@@ -9,6 +9,7 @@ import {
 	TOWER_ATTACK_SPEED_GROWTH,
 	TOWER_DAMAGE_GROWTH,
 	TOWER_RANGE_GROWTH,
+	TOWER_SELL_REFUND,
 	TOWER_TYPES,
 	TOWER_UPGRADE_COST_FACTOR,
 	WAVE_HP_GROWTH,
@@ -104,6 +105,11 @@ export function towerStats(type: TowerType, level: number, buffs?: TowerBuffs) {
 export function towerUpgradeCost(type: TowerType, level: number) {
 	if (level >= MAX_TOWER_LEVEL) return null
 	return Math.round(TOWER_TYPES[type].cost * TOWER_UPGRADE_COST_FACTOR * level)
+}
+
+// Сколько золота вернётся при продаже башни с учётом всех вложений.
+export function towerSellValue(invested: number) {
+	return Math.floor(Math.max(0, invested) * TOWER_SELL_REFUND)
 }
 
 export const initialResources = { gold: INITIAL_GOLD, lives: INITIAL_LIVES }

@@ -60,6 +60,11 @@ export function createTowerView(
 }
 
 
+// Возвращает ключ текстуры башни для отрисовки.
+export function towerTexture(type: TowerType) {
+	return TOWER_TEXTURES[type]
+}
+
 // Создаёт рамку, подсвечивающую выбранную башню.
 export function createSelectionHighlight(scene: Phaser.Scene, tower: Tower) {
 	const highlight = scene.add.graphics().setDepth(8)
@@ -71,6 +76,39 @@ export function createSelectionHighlight(scene: Phaser.Scene, tower: Tower) {
 		CELL_SIZE,
 	)
 	return highlight
+}
+
+// Полупрозрачная проекция башни, которая следует за курсором.
+export function createTowerGhost(scene: Phaser.Scene, type: TowerType) {
+	const body = scene.add
+		.image(0, 0, TOWER_TEXTURES[type])
+		.setDisplaySize(CELL_SIZE, CELL_SIZE)
+		.setOrigin(0.5)
+		.setDepth(9)
+		.setAlpha(0.55)
+		.setVisible(false)
+
+	const cell = scene.add.graphics().setDepth(8)
+
+	return { body, cell }
+}
+
+// Перерисовывает подсветку клетки под проекцией башни.
+export function drawBuildPreview(
+	cell: Phaser.GameObjects.Graphics,
+	cellX: number,
+	cellY: number,
+	allowed: boolean,
+) {
+	const color = allowed ? 0x65c943 : 0xe53935
+	const left = cellX * CELL_SIZE
+	const top = cellY * CELL_SIZE
+
+	cell.clear()
+	cell.fillStyle(color, 0.18)
+	cell.fillRect(left, top, CELL_SIZE, CELL_SIZE)
+	cell.lineStyle(2, color, 0.95)
+	cell.strokeRect(left + 1, top + 1, CELL_SIZE - 2, CELL_SIZE - 2)
 }
 
 // Создаёт круглый снаряд цвета башни и запускает его к цели.

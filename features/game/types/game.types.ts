@@ -6,6 +6,8 @@ export type Tower = {
   id: string
   type: TowerType
   level: number
+  // Сколько золота вложено в башню: постройка и все улучшения.
+  invested: number
   x: number
   y: number
   cooldown: number

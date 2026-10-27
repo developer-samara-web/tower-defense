@@ -1,12 +1,20 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
+
 import GameCanvas from '@/components/game/GameCanvas'
+import GameMenu from '@/components/game/GameMenu'
 import TowerDetails from '@/components/game/TowerDetails'
+import AuthScreen from '@/components/menu/AuthScreen'
+import LandingScreen from '@/components/menu/LandingScreen'
+import LeaderboardScreen from '@/components/menu/LeaderboardScreen'
+import MainMenu from '@/components/menu/MainMenu'
+import ProfileScreen from '@/components/menu/ProfileScreen'
+import type { PlayerProfile } from '@/features/account/types'
 import { TOWER_TYPES, type TowerType } from '@/features/game/config/game.config'
 import { generateUpgradeCards, type UpgradeCard } from '@/features/game/domain/upgrade-cards'
 import { initialResources } from '@/features/game/domain/game-rules'
-import Image from 'next/image'
 
 type SelectedTowerInfo = {
 	id: string
@@ -18,6 +26,7 @@ type SelectedTowerInfo = {
 	range: number
 	attackSpeed: number
 	upgradeCost: number | null
+	sellValue: number
 }
 
 type GameState = {
@@ -25,8 +34,9 @@ type GameState = {
 	gold: number
 	lives: number
 	enemies: number
-	selectedTower: TowerType
+	selectedTower: TowerType | null
 	selectedBuiltTower: SelectedTowerInfo | null
+	panelPosition: { x: number; y: number } | null
 	status: string
 	waveActive: boolean
 	nextWaveIn: number
@@ -43,8 +53,9 @@ const initialState: GameState = {
 	gold: initialResources.gold,
 	lives: initialResources.lives,
 	enemies: 0,
-	selectedTower: 'fire',
+	selectedTower: null,
 	selectedBuiltTower: null,
+	panelPosition: null,
 	status: 'Выбери башню и подготовь оборону',
 	waveActive: false,
 	nextWaveIn: 0,
@@ -94,11 +105,18 @@ function saveScore(detail: Pick<Score, 'wave' | 'gold'>): Score[] {
 	return next
 }
 
+type Screen = 'landing' | 'auth' | 'menu' | 'profile' | 'leaderboard' | 'game'
+
 export default function HomePage() {
+	const [screen, setScreen] = useState<Screen>('landing')
 	const [game, setGame] = useState<GameState>(initialState)
 	const [scores, setScores] = useState<Score[]>([])
+	const [topScores, setTopScores] = useState<Score[]>([])
+	const [user, setUser] = useState<PlayerProfile | null>(null)
+	const [token, setToken] = useState<string | null>(null)
 	const [showLeaderboard, setShowLeaderboard] = useState(false)
 	const [showInfo, setShowInfo] = useState(false)
+	const [showGameMenu, setShowGameMenu] = useState(false)
 	const [upgradeCards, setUpgradeCards] = useState<UpgradeCard[]>([])
 	const [cardsShown, setCardsShown] = useState(false)
 
@@ -108,6 +126,7 @@ export default function HomePage() {
 	const [authPassword, setAuthPassword] = useState('')
 	const [authLoading, setAuthLoading] = useState(false)
 	const [authError, setAuthError] = useState('')
+	const [authNotice, setAuthNotice] = useState('')
 	const [authChecked, setAuthChecked] = useState(false)
 
 	useEffect(() => {
@@ -117,6 +136,7 @@ export default function HomePage() {
 			const detail = (event as CustomEvent<Pick<Score, 'wave' | 'gold'>>).detail
 			if (detail && Number.isFinite(detail.wave) && Number.isFinite(detail.gold)) {
 				setScores(saveScore(detail))
+				setUser((prev) => prev ? { ...prev, record: Math.max(prev.record, detail.gold) } : prev)
 			}
 		}
 		window.addEventListener('td:state', handleState)
@@ -132,16 +152,26 @@ export default function HomePage() {
 	}, [])
 
 	useEffect(() => {
-		const token = typeof window !== 'undefined' ? localStorage.getItem('td_token') : null
-		if (token) {
-			fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
-				.then((r) => r.json())
-				.then((d) => { if (d.user) setGame((prev) => ({ ...prev, gold: d.user.record || 0 })) })
-				.catch(() => { })
-				.finally(() => setAuthChecked(true))
-		} else {
+		const stored = typeof window !== 'undefined' ? localStorage.getItem('td_token') : null
+		if (!stored) {
 			queueMicrotask(() => setAuthChecked(true))
+			return
 		}
+
+		fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + stored } })
+			.then((r) => r.json())
+			.then((d) => {
+				setToken(stored)
+				if (d.user) {
+					setUser(d.user)
+					setGame((prev) => ({ ...prev, gold: d.user.record || 0 }))
+				} else {
+					localStorage.removeItem('td_token')
+					setToken(null)
+				}
+			})
+			.catch(() => setToken(stored))
+			.finally(() => setAuthChecked(true))
 	}, [])
 
 	useEffect(() => {
@@ -162,6 +192,7 @@ export default function HomePage() {
 	const selectTower = (towerId: TowerType) => window.dispatchEvent(new CustomEvent('td:select-tower', { detail: { towerId } }))
 	const startWave = () => window.dispatchEvent(new CustomEvent('td:start-wave'))
 	const upgradeTower = () => window.dispatchEvent(new CustomEvent('td:upgrade-tower'))
+	const sellTower = () => window.dispatchEvent(new CustomEvent('td:sell-tower'))
 	const deselectTower = () => window.dispatchEvent(new CustomEvent('td:deselect-tower'))
 	const pickUpgrade = (card: UpgradeCard) => {
 		window.dispatchEvent(new CustomEvent('td:pick-upgrade', { detail: { card } }))
@@ -176,6 +207,7 @@ export default function HomePage() {
 	const handleAuth = async (e: React.FormEvent) => {
 		e.preventDefault()
 		setAuthError('')
+		setAuthNotice('')
 		setAuthLoading(true)
 		const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register'
 		const body = authMode === 'login'
@@ -184,57 +216,158 @@ export default function HomePage() {
 		try {
 			const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
 			const data = await res.json()
-			if (!res.ok) setAuthError(data.error || 'Ошибка')
-			else if (data.token) { localStorage.setItem('td_token', data.token); window.location.reload() }
-			else { setAuthMode('login'); setAuthError('') }
+			if (!res.ok) {
+				setAuthError(data.error || 'Ошибка')
+				return
+			}
+			if (data.token) {
+				localStorage.setItem('td_token', data.token)
+				setToken(data.token)
+				setAuthPassword('')
+				try {
+					const me = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + data.token } })
+					const meData = await me.json()
+					if (meData.user) {
+						setUser(meData.user)
+						setGame((prev) => ({ ...prev, gold: meData.user.record || 0 }))
+					}
+				} catch { }
+				setScreen('menu')
+			} else {
+				setAuthMode('login')
+				setAuthNotice('Аккаунт создан — войдите')
+			}
 		} catch { setAuthError('Ошибка сети') } finally { setAuthLoading(false) }
 	}
 
 	const waveButtonDisabled = !game.gameOver && (game.waveActive || game.wave > 0)
-	const token = typeof window !== 'undefined' ? localStorage.getItem('td_token') : null
+
+	const handleStart = () => setScreen(token ? 'menu' : 'auth')
+
+	const logout = () => {
+		localStorage.removeItem('td_token')
+		setToken(null)
+		setUser(null)
+		setScreen('landing')
+		setShowGameMenu(false)
+		setShowInfo(false)
+		setShowLeaderboard(false)
+		setGame(initialState)
+		setUpgradeCards([])
+		setCardsShown(false)
+	}
+
+	const startSinglePlayer = () => {
+		setGame(initialState)
+		setUpgradeCards([])
+		setCardsShown(false)
+		setShowGameMenu(false)
+		setShowInfo(false)
+		setShowLeaderboard(false)
+		setScreen('game')
+	}
+
+	const refreshUser = async () => {
+		if (!token) return
+		try {
+			const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
+			const data = await res.json()
+			if (data.user) {
+				setUser(data.user)
+				setGame((prev) => ({ ...prev, gold: data.user.record || 0 }))
+			}
+		} catch { }
+	}
+
+	const refreshTopScores = async () => {
+		try {
+			const res = await fetch('/api/scores/top?limit=50')
+			const data = await res.json()
+			if (data.scores) setTopScores(data.scores)
+		} catch {
+			setTopScores(readScores())
+		}
+	}
+
+	const openProfile = () => {
+		setShowGameMenu(false)
+		setScreen('profile')
+		void refreshUser()
+		void refreshTopScores()
+	}
+
+	const openLeaderboard = () => {
+		setShowGameMenu(false)
+		setScreen('leaderboard')
+		void refreshTopScores()
+	}
+
+	if (!authChecked) {
+		return (
+			<main className="flex h-[100dvh] w-full items-center justify-center bg-[url(/game/background.png)] bg-cover bg-center font-mono">
+				<div className="border-2 border-[#3a2a1a] bg-[#0f0a05]/90 px-6 py-4 text-xs font-black uppercase tracking-[0.2em] text-amber-300 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+					Загрузка...
+				</div>
+			</main>
+		)
+	}
+
+	if (screen === 'landing') {
+		return <LandingScreen onStart={handleStart} />
+	}
+
+	if (screen === 'auth') {
+		return (
+			<AuthScreen
+				mode={authMode}
+				login={authLogin}
+				email={authEmail}
+				password={authPassword}
+				loading={authLoading}
+				error={authError}
+				notice={authNotice}
+				onModeChange={(mode) => {
+					setAuthMode(mode)
+					setAuthError('')
+					setAuthNotice('')
+				}}
+				onLoginChange={setAuthLogin}
+				onEmailChange={setAuthEmail}
+				onPasswordChange={setAuthPassword}
+				onSubmit={handleAuth}
+				onBack={() => setScreen('landing')}
+			/>
+		)
+	}
+
+	if (screen === 'menu') {
+		return (
+			<MainMenu
+				user={user}
+				onSingle={startSinglePlayer}
+				onProfile={openProfile}
+				onLeaderboard={openLeaderboard}
+				onLogout={logout}
+			/>
+		)
+	}
+
+	if (screen === 'profile') {
+		return <ProfileScreen user={user} scores={topScores} onBack={() => setScreen('menu')} />
+	}
+
+	if (screen === 'leaderboard') {
+		return (
+			<LeaderboardScreen
+				scores={topScores}
+				currentUserId={user?.id}
+				onBack={() => setScreen('menu')}
+			/>
+		)
+	}
 
 	return (
-		!authChecked ? (
-			<main className="h-[103dvh] w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
-				<div className="w-full max-w-sm rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
-					<div className="mb-6 flex flex-col items-center gap-3">
-						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
-					</div>
-					<h1 className="text-center text-2xl font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_3px_0_#5c2d0e] mb-6">Врата Замка</h1>
-					<form onSubmit={handleAuth} className="space-y-4">
-						<div className="flex rounded-none border-2 border-[#3a2a1a] overflow-hidden bg-[#0f0a05]/30">
-							<button type="button" className={`flex-1 py-2 text-xs font-black uppercase tracking-[0.15em] transition ${authMode === 'login' ? 'bg-[#3a2a1a] text-amber-200' : 'text-[#7a5e30]'}`} onClick={() => setAuthMode('login')}>Вход</button>
-							<button type="button" className={`flex-1 py-2 text-xs font-black uppercase tracking-[0.15em] transition ${authMode === 'register' ? 'bg-[#3a2a1a] text-amber-200' : 'text-[#7a5e30]'}`} onClick={() => setAuthMode('register')}>Регистрация</button>
-						</div>
-						<input type="text" placeholder="Логин" value={authLogin} onChange={(e) => setAuthLogin(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />
-						{authMode === 'register' && <input type="email" placeholder="Почта" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />}
-						<input type="password" placeholder="Пароль" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />
-						{authError && <p className="text-xs font-black text-red-400 tracking-wide">{authError}</p>}
-						<button type="submit" disabled={authLoading} className="w-full rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] py-3 text-xs font-black uppercase tracking-[0.2em] text-[#f5e6c8] shadow-[0_4px_0_#3a1d0a] transition-all hover:from-[#9b6a3e] hover:to-[#6a3a1e] active:translate-y-[2px] active:shadow-[0_2px_0_#3a1d0a] disabled:opacity-40">{authLoading ? 'Загрузка...' : authMode === 'login' ? 'Войти в Замок' : 'Создать Героя'}</button>
-					</form>
-				</div>
-			</main>
-		) : !token ? (
-			<main className="h-[103dvh] w-full overflow-hidden bg-gradient-to-b from-[#0a0e12] via-[#141820] to-[#0a0e12] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 flex items-center justify-center px-4 bg-[url(/game/background.png)] bg-cover">
-				<div className="w-full max-w-md rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] p-6 sm:p-8">
-					<div className="mb-6 flex flex-col items-center gap-3">
-						<Image src="/game/logo.png" alt="Legends of Prigranica" width={220} height={110} priority className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]" />
-					</div>
-					<form onSubmit={handleAuth} className="space-y-4">
-						<div className="flex rounded-none border-2 border-[#3a2a1a] overflow-hidden bg-[#0f0a05]/30">
-							<button type="button" className={`flex-1 py-2 text-xs font-black uppercase tracking-[0.15em] transition ${authMode === 'login' ? 'bg-[#3a2a1a] text-amber-200' : 'text-[#7a5e30]'}`} onClick={() => setAuthMode('login')}>Вход</button>
-							<button type="button" className={`flex-1 py-2 text-xs font-black uppercase tracking-[0.15em] transition ${authMode === 'register' ? 'bg-[#3a2a1a] text-amber-200' : 'text-[#7a5e30]'}`} onClick={() => setAuthMode('register')}>Регистрация</button>
-						</div>
-						<input type="text" placeholder="Логин" value={authLogin} onChange={(e) => setAuthLogin(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />
-						{authMode === 'register' && <input type="email" placeholder="Почта" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />}
-						<input type="password" placeholder="Пароль" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full rounded-none border-2 border-[#3a2a1a] bg-[#0f0a05]/60 px-3 py-2.5 text-xs font-bold text-amber-100 placeholder:text-[#5c3a1a] focus:outline-none focus:border-amber-600" />
-						{authError && <p className="text-xs font-black text-red-400 tracking-wide">{authError}</p>}
-						<button type="submit" disabled={authLoading} className="w-full rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] py-3 text-xs font-black uppercase tracking-[0.2em] text-[#f5e6c8] shadow-[0_4px_0_#3a1d0a] transition-all hover:from-[#9b6a3e] hover:to-[#6a3a1e] active:translate-y-[2px] active:shadow-[0_2px_0_#3a1d0a] disabled:opacity-40">{authLoading ? 'Загрузка...' : authMode === 'login' ? 'Войти в Замок' : 'Создать Героя'}</button>
-					</form>
-				</div>
-			</main>
-		) : (
-			<main className="h-[103dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
+		<main className="h-[100dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
 				{/* Logo top-left */}
 				<div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
 					<Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
@@ -246,7 +379,10 @@ export default function HomePage() {
 						<p className="text-[8px] font-black uppercase tracking-[0.08em] text-[#b5a17b]">WASD · Колесо</p>
 					</div>
 					<button
-						onClick={() => setShowLeaderboard(!showLeaderboard)}
+						onClick={() => {
+							setShowLeaderboard(!showLeaderboard)
+							setShowInfo(false)
+						}}
 						className="
 							group relative flex h-10 w-10 items-center justify-center
 							border-2 border-[#79502b]
@@ -312,12 +448,12 @@ export default function HomePage() {
 							<span className="absolute -right-[3px] -top-[3px] h-2 w-2 border border-[#21150c] bg-yellow-400 shadow-[0_0_5px_#facc15]" />
 						)}
 					</button>
+
+					{/* Информация об управлении */}
 					<button
 						onClick={() => {
-							if (token) {
-								localStorage.removeItem('td_token')
-								window.location.reload()
-							}
+							setShowInfo(!showInfo)
+							setShowLeaderboard(false)
 						}}
 						className="
 							group relative flex h-10 w-10 items-center justify-center
@@ -326,68 +462,104 @@ export default function HomePage() {
 							text-amber-300
 							shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
 							transition-all duration-150
-							hover:border-red-500
-							hover:bg-[#421b13]
-							hover:text-red-300
-							hover:shadow-[inset_0_1px_0_rgba(255,150,100,0.15),0_3px_0_#100904,0_0_12px_rgba(239,68,68,0.2)]
+							hover:border-sky-400
+							hover:bg-[#1b2b33]
+							hover:text-sky-200
+							hover:shadow-[inset_0_1px_0_rgba(150,220,255,0.18),0_3px_0_#100904,0_0_12px_rgba(56,189,248,0.25)]
+							active:translate-y-[2px]
+							active:shadow-[0_1px_0_#100904]
+							focus-visible:outline-none
+							focus-visible:ring-2
+							focus-visible:ring-sky-400
+						"
+						aria-label="Информация об управлении"
+						title="Управление"
+						aria-expanded={showInfo}
+					>
+						{/* Внутренняя рамка */}
+						<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-sky-400/40" />
+
+						{/* Иконка информации */}
+						<svg
+							viewBox="0 0 24 24"
+							className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:scale-110"
+							fill="none"
+							aria-hidden="true"
+						>
+							<circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+							<path d="M12 11V17" stroke="currentColor" strokeWidth="2.2" strokeLinecap="square" />
+							<rect x="11" y="6.4" width="2" height="2.6" fill="currentColor" />
+						</svg>
+
+						{/* Индикатор открытой панели */}
+						{showInfo && (
+							<span className="absolute -right-[3px] -top-[3px] h-2 w-2 border border-[#21150c] bg-sky-400 shadow-[0_0_5px_#38bdf8]" />
+						)}
+					</button>
+
+					<button
+						onClick={() => {
+							setShowGameMenu(true)
+							setShowInfo(false)
+							setShowLeaderboard(false)
+						}}
+						className="
+							group relative flex h-10 w-10 items-center justify-center
+							border-2 border-[#79502b]
+							bg-[#21150c]
+							text-amber-300
+							shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)]
+							transition-all duration-150
+							hover:border-amber-400
+							hover:bg-[#493713]
+							hover:text-yellow-200
+							hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)]
 							active:translate-y-[2px]
 							active:shadow-[0_1px_0_#100904]
 							focus-visible:outline-none
 							focus-visible:ring-2
 							focus-visible:ring-amber-400
 						"
-						aria-label="Меню / Выход"
-						title="Меню / Выход"
+						aria-label="Меню игры"
+						title="Меню игры"
+						aria-expanded={showGameMenu}
 					>
 						{/* Внутренняя рамка */}
-						<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-red-400/40" />
+						<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
 
-						{/* Иконка закрытия */}
+						{/* Иконка меню */}
 						<svg
 							viewBox="0 0 16 16"
-							className="relative h-5 w-5 transition-transform duration-150 group-hover:rotate-90"
+							className="relative h-5 w-5 transition-transform duration-150 group-hover:scale-110"
 							fill="none"
 							aria-hidden="true"
 						>
 							<path
-								d="M4 4L12 12M12 4L4 12"
+								d="M3 4H13M3 8H13M3 12H13"
 								stroke="currentColor"
-								strokeWidth="2.5"
+								strokeWidth="2"
 								strokeLinecap="square"
 							/>
 						</svg>
 					</button>
-
-					{/* Мини-профиль / инструкция */}
-					{showInfo && (
-						<div className="absolute top-14 right-3 z-50 w-52 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
-							<div className="flex items-center justify-between border-b border-[#3a2a1a]/60 px-3 py-2">
-								<span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">Игрок</span>
-								<button onClick={() => setShowInfo(false)} className="text-[10px] font-black text-[#8a7340] hover:text-amber-300">×</button>
-							</div>
-							<div className="px-3 py-2 space-y-1">
-								<p className="text-[9px] font-bold text-[#8a7340] tracking-wide">Управление</p>
-								<p className="text-[10px] text-amber-100 leading-snug">ЛКМ — башня · ПКМ/СКМ — камера · WASD — движение · Колесо — зум</p>
-
-							{token && (
-								<div className="mt-2 pt-2 border-t border-[#3a2a1a]/40 space-y-1">
-									<p className="text-[9px] font-black text-amber-300 tracking-wide">Авторизован</p>
-									<button
-										onClick={() => { localStorage.removeItem('td_token'); window.location.reload() }}
-										className="w-full rounded-none border border-[#5c2d0e] bg-gradient-to-b from-[#8a5a2e] to-[#5c2d0e] px-2 py-1.5 text-[9px] font-black uppercase tracking-[0.1em] text-[#f5e6c8] shadow-[0_2px_0_#3a1d0a] hover:from-[#9b6a3e] hover:to-[#6a3a1e] transition"
-									>
-										Выход
-									</button>
-								</div>
-							)}
-						</div>
-					</div>
-				)}
 				</div>
+
+				{/* Game menu */}
+				{showGameMenu && (
+					<GameMenu
+						onClose={() => setShowGameMenu(false)}
+						onProfile={openProfile}
+						onMainMenu={() => {
+							setShowGameMenu(false)
+							setScreen('menu')
+						}}
+						onLogout={logout}
+					/>
+				)}
 
 				{/* Leaderboard mini overlay */}
 				{showLeaderboard && (
-					<div className="absolute top-12 right-3 z-50 w-56 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
+					<div className="absolute top-[60px] right-3 z-50 w-56 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
 						<div className="flex items-center justify-between border-b border-[#3a2a1a]/60 px-2 py-1.5">
 							<span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">Топ</span>
 							<button onClick={() => setShowLeaderboard(false)} className="text-[10px] font-black text-[#8a7340] hover:text-amber-300">×</button>
@@ -404,6 +576,47 @@ export default function HomePage() {
 									</div>
 								))
 							)}
+						</div>
+					</div>
+				)}
+
+				{/* Информация об управлении */}
+				{showInfo && (
+					<div className="absolute top-[60px] right-3 z-50 w-60 max-h-[70vh] overflow-y-auto rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)]">
+						<div className="sticky top-0 flex items-center justify-between border-b border-[#3a2a1a]/60 bg-[#1a1208] px-3 py-2">
+							<span className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-300">Управление</span>
+							<button onClick={() => setShowInfo(false)} className="text-[12px] font-black leading-none text-[#8a7340] hover:text-sky-300" aria-label="Закрыть">×</button>
+						</div>
+
+						<div className="space-y-2 px-3 py-2">
+							<div>
+								<p className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Камера</p>
+								<ul className="space-y-1 text-[10px] font-bold leading-snug text-amber-100">
+									<li><span className="text-amber-400">WASD / стрелки</span> — движение</li>
+									<li><span className="text-amber-400">ПКМ / СКМ + тянуть</span> — сдвиг карты</li>
+									<li><span className="text-amber-400">Колесо</span> — зум</li>
+									<li><span className="text-amber-400">Край экрана</span> — прокрутка (ПК)</li>
+									<li><span className="text-amber-400">Телефон</span>: свайп — камера, два пальца — зум</li>
+								</ul>
+							</div>
+
+							<div className="border-t border-[#3a2a1a]/50 pt-2">
+								<p className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Игра</p>
+								<ul className="space-y-1 text-[10px] font-bold leading-snug text-amber-100">
+									<li><span className="text-amber-400">ЛКМ</span> по клетке — построить / выбрать башню</li>
+									<li><span className="text-amber-400">Наведение</span> — предпросмотр выбранной башни</li>
+									<li><span className="text-amber-400">1–3</span> — тип башни, <span className="text-amber-400">4 / Esc</span> — снять выбор</li>
+									<li><span className="text-amber-400">U</span> — улучшить, продажа — кнопка в панели</li>
+									<li><span className="text-amber-400">Пробел</span> — запустить волну</li>
+									<li><span className="text-amber-400">R</span> — рестарт после поражения</li>
+								</ul>
+							</div>
+
+							<div className="border-t border-[#3a2a1a]/50 pt-2">
+								<p className="text-[10px] font-bold leading-snug text-[#b5a17b]">
+									Цель — защитить замок в центре карты и не пропустить врагов.
+								</p>
+							</div>
 						</div>
 					</div>
 				)}
@@ -433,7 +646,18 @@ export default function HomePage() {
 					) : null}
 
 					{game.selectedBuiltTower ? (
-						<div className="absolute top-14 right-3 z-50 max-w-[220px] scale-90 origin-top-right md:scale-100 md:right-4 md:top-14">
+						<div
+							className={
+								game.panelPosition
+									? 'absolute z-50 w-[232px]'
+									: 'absolute top-14 right-3 z-50 w-[232px]'
+							}
+							style={
+								game.panelPosition
+									? { left: game.panelPosition.x, top: game.panelPosition.y }
+									: undefined
+							}
+						>
 							<TowerDetails
 								name={game.selectedBuiltTower.name}
 								level={game.selectedBuiltTower.level}
@@ -442,8 +666,10 @@ export default function HomePage() {
 								range={game.selectedBuiltTower.range}
 								attackSpeed={game.selectedBuiltTower.attackSpeed}
 								upgradeCost={game.selectedBuiltTower.upgradeCost}
+								sellValue={game.selectedBuiltTower.sellValue}
 								gold={game.gold}
 								onUpgrade={upgradeTower}
+								onSell={sellTower}
 								onClose={deselectTower}
 							/>
 						</div>
@@ -613,6 +839,5 @@ export default function HomePage() {
 					</div>
 				</div>
 			</main>
-		)
 	)
 }

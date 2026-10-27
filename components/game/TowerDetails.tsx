@@ -8,8 +8,10 @@ type TowerDetailsProps = {
 	range: number
 	attackSpeed: number
 	upgradeCost: number | null
+	sellValue: number
 	gold: number
 	onUpgrade: () => void
+	onSell: () => void
 	onClose: () => void
 }
 
@@ -21,8 +23,10 @@ export default function TowerDetails({
 	range,
 	attackSpeed,
 	upgradeCost,
+	sellValue,
 	gold,
 	onUpgrade,
+	onSell,
 	onClose,
 }: TowerDetailsProps) {
 	const maxed = upgradeCost === null
@@ -72,6 +76,15 @@ export default function TowerDetails({
 					×
 				</button>
 			</div>
+
+			<button
+				type="button"
+				onClick={onSell}
+				title="Продать башню и вернуть часть вложенного золота"
+				className="mt-1.5 flex h-8 w-full items-center justify-center gap-1 rounded-none border border-[#6d2a1f] bg-gradient-to-b from-[#5a2418] to-[#2f120c] px-2 text-[11px] font-black uppercase tracking-[0.1em] text-[#f0b6a6] shadow-[0_2px_0_#1a0a06] transition-all hover:border-red-500 hover:from-[#742d1d] hover:text-red-200 active:translate-y-[1px] active:shadow-[0_1px_0_#1a0a06]"
+			>
+				ПРОДАТЬ · +{sellValue} 🪙
+			</button>
 		</div>
 	)
 }

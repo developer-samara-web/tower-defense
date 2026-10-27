@@ -6,7 +6,7 @@ import {
 	type TowerType,
 } from '../config/game.config.ts'
 import type { Enemy, Tower } from '../types/game.types.ts'
-import { towerStats, towerUpgradeCost } from './game-rules.ts'
+import { towerSellValue, towerStats, towerUpgradeCost } from './game-rules.ts'
 import { createEmptyBuffs, type TowerBuffs } from './game-rules.ts'
 
 // Всё изменяемое состояние одной игры. Живёт в сцене и передаётся системам.
@@ -19,7 +19,7 @@ export type GameState = {
 	spawnRemaining: number
 	spawnedInWave: number
 	spawnCooldown: number
-	selectedTower: TowerType
+	selectedTower: TowerType | null
 	selectedBuiltTower: Tower | null
 	pathCells: Set<string>
 	towerCells: Set<string>
@@ -40,6 +40,7 @@ export type SelectedTowerInfo = {
 	range: number
 	attackSpeed: number
 	upgradeCost: number | null
+	sellValue: number
 }
 
 // Снимок состояния для React-панели.
@@ -48,8 +49,10 @@ export type GameSnapshot = {
 	gold: number
 	lives: number
 	enemies: number
-	selectedTower: TowerType
+	selectedTower: TowerType | null
 	selectedBuiltTower: SelectedTowerInfo | null
+	// Позиция панели башни в координатах игрового полотна.
+	panelPosition: { x: number; y: number } | null
 	status: string
 	waveActive: boolean
 	nextWaveIn: number
@@ -68,7 +71,7 @@ export function createGameState(): GameState {
 		spawnRemaining: 0,
 		spawnedInWave: 0,
 		spawnCooldown: 0,
-		selectedTower: 'fire',
+		selectedTower: null,
 		selectedBuiltTower: null,
 		pathCells: new Set(),
 		towerCells: new Set(),
@@ -91,14 +94,17 @@ export function resetGameState(state: GameState) {
 	state.spawnRemaining = 0
 	state.spawnedInWave = 0
 	state.spawnCooldown = 0
-	state.selectedTower = 'fire'
+	state.selectedTower = null
 	state.selectedBuiltTower = null
 	state.buffs = createEmptyBuffs()
 	state.resultReported = false
 	state.status = ''
 }
 
-export function buildSnapshot(state: GameState): GameSnapshot {
+export function buildSnapshot(
+	state: GameState,
+	panelPosition: { x: number; y: number } | null = null,
+): GameSnapshot {
 	const selected = state.selectedBuiltTower
 
 	return {
@@ -108,6 +114,7 @@ export function buildSnapshot(state: GameState): GameSnapshot {
 		enemies: state.enemies.length,
 		selectedTower: state.selectedTower,
 		selectedBuiltTower: selected ? describeTower(selected, state.buffs) : null,
+		panelPosition: selected ? panelPosition : null,
 		status: state.status || DEFAULT_STATUS,
 		waveActive: state.waveActive,
 		nextWaveIn: Math.ceil(state.waveBreakRemaining / 1000),
@@ -128,5 +135,6 @@ function describeTower(tower: Tower, buffs: TowerBuffs): SelectedTowerInfo {
 		range: stats.range,
 		attackSpeed: stats.attackSpeed,
 		upgradeCost: towerUpgradeCost(tower.type, tower.level),
+		sellValue: towerSellValue(tower.invested),
 	}
 }

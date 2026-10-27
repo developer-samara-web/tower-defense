@@ -1,13 +1,19 @@
 import { connectDB } from '@/lib/db'
 import User from '@/models/User'
 
-export async function GET() {
+export async function GET(req: Request) {
 	await connectDB()
+
+	const { searchParams } = new URL(req.url)
+	const requested = Number(searchParams.get('limit'))
+	const limit = Number.isFinite(requested)
+		? Math.min(Math.max(Math.trunc(requested), 1), 50)
+		: 8
 
 	const users = await User.find({})
 		.select('-password')
 		.sort({ record: -1 })
-		.limit(8)
+		.limit(limit)
 
 	const scores = users.map((u) => ({
 		id: u._id.toString(),
