@@ -19,7 +19,7 @@ export default function MiniMap({
 		const ctx = canvas.getContext('2d')
 		if (!ctx) return
 
-		const size = 128
+		const size = 140
 		const cols = 125
 		const rows = 125
 		const scale = size / Math.max(cols, rows)
@@ -141,7 +141,7 @@ export default function MiniMap({
 	}, [pathCells, towerCells, towers])
 
 	return (
-		<div className="absolute top-[70px] right-3 z-50 w-[128px] h-[128px] border-2 border-[#3a2a1a] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.9)] rounded-none overflow-hidden backdrop-blur-sm">
+		<div className="absolute top-[70px] right-3 z-50 w-[140px] h-[140px] border-2 border-[#3a2a1a] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.9)] rounded-none overflow-hidden backdrop-blur-sm">
 			<p className="absolute top-0.5 left-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#8a7340] select-none pointer-events-none">
 				Карта
 			</p>
