@@ -641,8 +641,8 @@ export default function HomePage() {
 
 					{/* Upgrade cards overlay */}
 					{upgradeCards.length > 0 && !game.gameOver ? (
-						<div className="absolute top-[100px] left-1/2 z-[60] flex w-[92vw] max-w-2xl -translate-x-1/2 items-start justify-center px-2">
-							<div className="w-full rounded-none border-2 border-[#79552c] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,0.85),inset_0_0_20px_rgba(74,55,35,0.15)] backdrop-blur-md sm:p-5">
+						<div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
+							<div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
 								<h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Волна {game.wave}: выбери улучшение</h3>
 								<p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Одна из трёх карточек усилит башни до конца игры</p>
 								<div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -689,10 +689,10 @@ export default function HomePage() {
 					) : null}
 				</section>
 
-				{/* Status above bar — dark text with strong shadow */}
-				<div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+				{/* Wave / status notification — top center, no overlay, control-style */}
+				<div className="absolute top-[100px] left-1/2 z-30 w-full max-w-[640px] -translate-x-1/2 px-2 pointer-events-none">
 					<div className="flex justify-center">
-						<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
+						<div className="rounded-none border-2 border-[#79552c] bg-gradient-to-b from-[#1a1208]/90 to-[#0f0a05]/90 px-4 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.7),0_2px_0_#2a1d0a] backdrop-blur-md">
 							<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
 						</div>
 					</div>
