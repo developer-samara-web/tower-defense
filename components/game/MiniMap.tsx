@@ -60,8 +60,8 @@ export default function MiniMap({
 			3 * scale,
 		)
 
-		// Область просмотра (камера)
-		if (viewport) {
+		// Область просмотра (камера) — показываем только при приближении
+		if (viewport && viewport.zoom > 0.55) {
 			ctx.strokeStyle = '#eab308'
 			ctx.lineWidth = 1.5
 			ctx.setLineDash([3, 2])
