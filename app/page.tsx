@@ -689,10 +689,10 @@ export default function HomePage() {
 					) : null}
 				</section>
 
-				{/* Wave / status notification — top center, no overlay, control-style */}
-				<div className="absolute top-[100px] left-1/2 z-30 w-full max-w-[640px] -translate-x-1/2 px-2 pointer-events-none">
+				{/* Status above bar */}
+				<div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
 					<div className="flex justify-center">
-						<div className="rounded-none border-2 border-[#79552c] bg-gradient-to-b from-[#1a1208]/90 to-[#0f0a05]/90 px-4 py-2 shadow-[0_6px_20px_rgba(0,0,0,0.7),0_2px_0_#2a1d0a] backdrop-blur-md">
+						<div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
 							<p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{game.status}</p>
 						</div>
 					</div>
