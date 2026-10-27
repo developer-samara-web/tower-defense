@@ -24,6 +24,8 @@ export type Enemy = {
   maxHp: number
   speed: number
   reward: number
+  // Опыт за убийство с учётом волны, в которой появился враг.
+  xp: number
   pathIndex: number
   // Индекс дороги в карте: нужен, чтобы восстановить врага из сохранения.
   routeIndex: number

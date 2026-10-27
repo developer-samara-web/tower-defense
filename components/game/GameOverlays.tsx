@@ -11,6 +11,7 @@ type Props = {
     wave: number
     gold: number
     lives: number
+    level: number
     stats?: { monstersKilled: number; buildingsBuilt: number; moneySpent: number; damageDealt: number }
     selectedBuiltTower?: SelectedTowerInfo | null
     panelPosition?: { x: number; y: number } | null
@@ -134,8 +135,8 @@ export default function GameOverlays({
       {upgradeCards.length > 0 && !gameOver ? (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
           <div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
-            <h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Волна {game.wave}: выбери улучшение</h3>
-            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Одна из трёх карточек усилит башни до конца игры</p>
+            <h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Уровень {game.level}: выбери улучшение</h3>
+            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — одна из трёх карточек усилит башни</p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               {upgradeCards.map((card) => (
                 <button key={card.id} onClick={() => onPickUpgrade(card)} className="group flex min-h-[120px] flex-col gap-2 border-2 border-[#4a3728] bg-gradient-to-b from-[#2a1d0a] to-[#171109] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-amber-400 hover:from-[#3a2a12] active:translate-y-0">

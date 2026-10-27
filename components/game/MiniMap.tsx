@@ -9,12 +9,16 @@ export default function MiniMap({
 	pathCells,
 	towerCells,
 	towers,
+	enemies,
 	viewport,
+	onNavigate,
 }: {
 	pathCells?: ReadonlySet<string> | string[]
 	towerCells?: ReadonlySet<string> | string[]
 	towers?: Array<{ id: string; x: number; y: number }>
+	enemies?: Array<{ x: number; y: number }>
 	viewport?: { worldX: number; worldY: number; width: number; height: number; zoom: number }
+	onNavigate?: (worldX: number, worldY: number) => void
 }) {
 	const ref = useRef<HTMLCanvasElement>(null)
 
@@ -139,11 +143,23 @@ export default function MiniMap({
 			}
 		}
 
+		// Враги поверх башен и дороги, чтобы их было видно в любой момент волны.
+		if (enemies) {
+			for (const enemy of enemies) {
+				const ex = Math.round((enemy.x / CELL_SIZE) * scale)
+				const ey = Math.round((enemy.y / CELL_SIZE) * scale)
+				ctx.fillStyle = '#1a0505'
+				ctx.fillRect(ex - 1, ey - 1, 5, 5)
+				ctx.fillStyle = '#ef4444'
+				ctx.fillRect(ex, ey, 3, 3)
+			}
+		}
+
 		// Рамка
 		ctx.strokeStyle = '#79502b'
 		ctx.lineWidth = 1
 		ctx.strokeRect(0.5, 0.5, size - 1, size - 1)
-	}, [pathCells, towerCells, towers, viewport])
+	}, [pathCells, towerCells, towers, enemies, viewport])
 
 	return (
 		<div className="absolute top-[70px] right-3 z-50 w-[136px] h-[136px] border-2 border-[#3a2a1a] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.9)] rounded-none overflow-hidden backdrop-blur-sm">
@@ -155,6 +171,26 @@ export default function MiniMap({
 				className="w-full h-full block"
 				aria-label="Миникарта уровня"
 			/>
+			{onNavigate ? (
+				<button
+					type="button"
+					onClick={(event) => {
+						const canvas = ref.current
+						if (!canvas) return
+
+						const rect = canvas.getBoundingClientRect()
+						if (rect.width === 0 || rect.height === 0) return
+
+						const ratioX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
+						const ratioY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height))
+
+						onNavigate(ratioX * COLS * CELL_SIZE, ratioY * ROWS * CELL_SIZE)
+					}}
+					title="Перейти к точке на карте"
+					aria-label="Перейти к точке на карте"
+					className="absolute inset-0 cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+				/>
+			) : null}
 		</div>
 	)
 }

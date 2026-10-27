@@ -6,7 +6,7 @@ import {
 	type TowerType,
 } from '../config/game.config.ts'
 import type { Enemy, Tower } from '../types/game.types.ts'
-import { towerSellValue, towerStats, towerUpgradeCost } from './game-rules.ts'
+import { towerSellValue, towerStats, towerUpgradeCost, xpToNextLevel } from './game-rules.ts'
 import { createEmptyBuffs, type TowerBuffs } from './game-rules.ts'
 import type { SessionEnemy } from './session-state.ts'
 
@@ -37,6 +37,10 @@ export type GameState = {
 	resultReported: boolean
 	status: string
 	stats: GameStats
+	// Прогресс игрока: опыт, уровень и невыбранные награды за уровни.
+	level: number
+	xp: number
+	pendingUpgrades: number
 }
 
 export type SelectedTowerInfo = {
@@ -92,6 +96,10 @@ export type GameSnapshot = {
 	spawnedInWave: number
 	spawnCooldown: number
 	waveBreakRemaining: number
+	level: number
+	xp: number
+	xpToNextLevel: number
+	pendingUpgrades: number
 }
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
@@ -121,6 +129,9 @@ export function createGameState(): GameState {
 			moneySpent: 0,
 			damageDealt: 0,
 		},
+		level: 1,
+		xp: 0,
+		pendingUpgrades: 0,
 	}
 }
 
@@ -144,6 +155,9 @@ export function resetGameState(state: GameState) {
 	state.stats.buildingsBuilt = 0
 	state.stats.moneySpent = 0
 	state.stats.damageDealt = 0
+	state.level = 1
+	state.xp = 0
+	state.pendingUpgrades = 0
 }
 
 export function buildSnapshot(
@@ -173,6 +187,7 @@ export function buildSnapshot(
 			maxHp: enemy.maxHp,
 			speed: enemy.speed,
 			reward: enemy.reward,
+			xp: enemy.xp,
 			pathIndex: enemy.pathIndex,
 			routeIndex: enemy.routeIndex,
 			slowTimer: enemy.slowTimer,
@@ -187,6 +202,10 @@ export function buildSnapshot(
 		spawnedInWave: state.spawnedInWave,
 		spawnCooldown: state.spawnCooldown,
 		waveBreakRemaining: state.waveBreakRemaining,
+		level: state.level,
+		xp: state.xp,
+		xpToNextLevel: xpToNextLevel(state.level),
+		pendingUpgrades: state.pendingUpgrades,
 	}
 }
 

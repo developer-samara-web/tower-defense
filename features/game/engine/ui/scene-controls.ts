@@ -20,11 +20,14 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	let pressX = 0
 	let pressY = 0
 	let pressed = false
+	// Второй палец превращает жест в pinch-зум: строить башню по нему нельзя.
+	let multiTouch = false
 
 	// Строим и выбираем башню на отпускании кнопки: иначе перетаскивание
 	// левой кнопкой ставило бы башню в точке начала жеста.
 	scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
 		const isLeftButton = pointer.button === 0
+		if (pressed && isLeftButton) multiTouch = true
 		pressed = isLeftButton
 		if (!isLeftButton) return
 
@@ -33,8 +36,13 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	})
 
 	scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+		const gesture = multiTouch
+		const pointersDown = scene.input.manager.pointers.filter((p) => p.isDown).length
+		if (pointersDown === 0) multiTouch = false
+
 		if (!pressed) return
 		pressed = false
+		if (gesture) return
 
 		if (pointer.button !== 0) return
 		if (Math.hypot(pointer.x - pressX, pointer.y - pressY) > CLICK_DISTANCE) return
@@ -44,6 +52,7 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 
 	scene.input.on('pointerupoutside', () => {
 		pressed = false
+		multiTouch = false
 	})
 
 	// Движение курсора показывает проекцию выбранной башни.

@@ -6,7 +6,7 @@ export const CELL_SIZE = 32
 export const COLS = 125
 export const ROWS = 125
 
-export const INITIAL_GOLD = 160
+export const INITIAL_GOLD = 200
 export const INITIAL_LIVES = 20
 
 // Настройки камеры: стартовый масштаб, пределы зума и скорость
@@ -27,8 +27,18 @@ export const HEALTH_BAR_WIDTH = 28
 export const HEALTH_BAR_HEIGHT = 4
 export const HEALTH_BAR_OFFSET = 19
 
+// Волна начинается с 7 врагов, и с каждой волной их становится больше.
+export const ENEMY_COUNT_BASE = 7
+export const ENEMY_COUNT_PER_WAVE = 1.5
+
+// Интервал между врагами сокращается, но не сильнее нижнего предела.
 export const ENEMY_SPAWN_INTERVAL = 800
-export const WAVE_COMPLETION_REWARD = 25
+export const ENEMY_SPAWN_INTERVAL_STEP = 22
+export const ENEMY_SPAWN_INTERVAL_MIN = 320
+
+// Награда за пройденную волну растёт вместе с номером волны.
+export const WAVE_COMPLETION_BASE_REWARD = 20
+export const WAVE_COMPLETION_REWARD_PER_WAVE = 5
 
 // Пауза между волнами.
 export const WAVE_BREAK_DURATION = 3000
@@ -43,9 +53,22 @@ export const TOWER_DAMAGE_GROWTH = 0.3
 export const TOWER_RANGE_GROWTH = 0.08
 export const TOWER_ATTACK_SPEED_GROWTH = 0.9
 
-export const WAVE_HP_GROWTH = 0.25
-export const WAVE_SPEED_GROWTH = 0.018
-export const WAVE_SPEED_GROWTH_CAP = 20
+// Здоровье растёт линейно, скорость — медленнее и с потолком,
+// чтобы поздние волны не превращались в гонку за пикселями.
+export const WAVE_HP_GROWTH = 0.18
+export const WAVE_SPEED_GROWTH = 0.012
+export const WAVE_SPEED_GROWTH_CAP = 50
+export const WAVE_REWARD_GROWTH = 0.06
+
+// Опыт за убийство тоже растёт с номером волны.
+export const XP_WAVE_GROWTH = 0.15
+
+// Сколько опыта нужно для перехода с уровня N на N+1.
+// Квадратичная добавка замедляет уровни в середине игры.
+export const LEVEL_XP_BASE = 80
+export const LEVEL_XP_STEP = 80
+export const LEVEL_XP_SQUARE = 20
+export const MAX_PENDING_UPGRADES = 5
 
 export type TowerType = 'ice' | 'fire' | 'earth'
 export type EnemyType = 'scout' | 'brute' | 'sprinter' | 'boss'
@@ -95,6 +118,7 @@ export type EnemyStats = {
 	baseHp: number
 	baseSpeed: number
 	reward: number
+	xp: number
 	radius: number
 	color: number
 }
@@ -103,32 +127,36 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 	scout: {
 		name: 'Разведчик',
 		baseHp: 55,
-		baseSpeed: 58,
+		baseSpeed: 70,
 		reward: 10,
+		xp: 8,
 		radius: 10,
 		color: 0xe75b67,
 	},
 	brute: {
 		name: 'Громила',
 		baseHp: 130,
-		baseSpeed: 34,
+		baseSpeed: 44,
 		reward: 18,
+		xp: 16,
 		radius: 14,
 		color: 0x9d5de4,
 	},
 	sprinter: {
 		name: 'Спринтер',
 		baseHp: 38,
-		baseSpeed: 92,
+		baseSpeed: 110,
 		reward: 15,
+		xp: 11,
 		radius: 8,
 		color: 0xf59e57,
 	},
 	boss: {
 		name: 'Босс',
 		baseHp: 460,
-		baseSpeed: 27,
+		baseSpeed: 34,
 		reward: 75,
+		xp: 60,
 		radius: 18,
 		color: 0x263746,
 	},

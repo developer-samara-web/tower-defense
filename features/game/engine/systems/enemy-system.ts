@@ -1,5 +1,10 @@
-import { ENEMY_SPAWN_INTERVAL, ENEMY_TYPES } from '../../config/game.config'
-import { enemyStats, isInsideBoardPoint } from '../../domain/game-rules'
+import { ENEMY_TYPES } from '../../config/game.config'
+import {
+	addExperience,
+	enemySpawnInterval,
+	enemyStats,
+	isInsideBoardPoint,
+} from '../../domain/game-rules'
 import type { SessionEnemy } from '../../domain/session-state'
 import type { Enemy } from '../../types/game.types'
 import type { GameContext } from '../game-context'
@@ -30,7 +35,7 @@ export function createEnemySystem(
 		const { scene, state } = ctx
 
 		// Получаем характеристики врага: тип, здоровье, скорость, награду и цвет.
-		const { type, hp, speed, reward, radius, color } = enemyStats(
+		const { type, hp, speed, reward, xp, radius, color } = enemyStats(
 			state.wave,
 			state.spawnedInWave,
 		)
@@ -64,6 +69,7 @@ export function createEnemySystem(
 			maxHp: hp,
 			speed,
 			reward,
+			xp,
 			pathIndex: 1,
 			routeIndex,
 			route,
@@ -109,7 +115,10 @@ export function createEnemySystem(
 		state.spawnCooldown += delta
 
 		// Создаём врага, когда подошло время и в волне ещё остались враги.
-		if (state.spawnRemaining > 0 && state.spawnCooldown >= ENEMY_SPAWN_INTERVAL) {
+		if (
+			state.spawnRemaining > 0 &&
+			state.spawnCooldown >= enemySpawnInterval(state.wave)
+		) {
 			state.spawnCooldown = 0
 			spawn()
 			state.spawnRemaining--
@@ -201,6 +210,13 @@ export function createEnemySystem(
 			state.gold += enemy.reward
 			state.stats.monstersKilled++
 
+			// За убийство даём опыт; заполненная шкала повышает уровень
+			// и добавляет карточку улучшения в очередь.
+			const progress = addExperience(state, enemy.xp)
+			state.level = progress.level
+			state.xp = progress.xp
+			state.pendingUpgrades = progress.pendingUpgrades
+
 			// Удаляем врага без потери жизни.
 			remove(state.enemies.indexOf(enemy), false)
 			return
@@ -240,6 +256,7 @@ export function createEnemySystem(
 				maxHp: saved.maxHp,
 				speed: saved.speed,
 				reward: saved.reward,
+				xp: saved.xp,
 				pathIndex: saved.pathIndex,
 				routeIndex: saved.routeIndex,
 				route,

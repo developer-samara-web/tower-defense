@@ -8,6 +8,7 @@ import {
 	readSessionEnemy,
 	readSessionTower,
 	restoreBuffs,
+	restoreProgress,
 	restoreStats,
 	toSessionGameState,
 	type SessionEnemy,
@@ -21,6 +22,7 @@ const validEnemy: SessionEnemy = {
 	maxHp: 90,
 	speed: 40,
 	reward: 12,
+	xp: 18,
 	pathIndex: 2,
 	routeIndex: 1,
 	slowTimer: 500,
@@ -40,6 +42,9 @@ test('serializes only the fields needed to resume', () => {
 		wave: 3,
 		gold: 250,
 		waveActive: true,
+		level: 4,
+		xp: 120,
+		pendingUpgrades: 1,
 		towers: [{ id: 't1', x: 64, y: 96, type: 'fire' as const, level: 2, invested: 200 }],
 		enemyStates: [validEnemy],
 	}
@@ -49,6 +54,9 @@ test('serializes only the fields needed to resume', () => {
 	assert.equal(session.wave, 3)
 	assert.equal(session.gold, 250)
 	assert.equal(session.waveActive, true)
+	assert.equal(session.level, 4)
+	assert.equal(session.xp, 120)
+	assert.equal(session.pendingUpgrades, 1)
 	assert.deepEqual(session.towers, [{ id: 't1', type: 'fire', level: 2, invested: 200 }])
 	assert.deepEqual(session.enemies, [validEnemy])
 	assert.equal('x' in (session.towers[0] as object), false)
@@ -60,6 +68,14 @@ test('keeps valid enemies and clamps their health to the maximum', () => {
 	assert.ok(enemy)
 	assert.equal(enemy.hp, validEnemy.maxHp)
 	assert.equal(enemy.slowTimer, validEnemy.slowTimer)
+	assert.equal(enemy.xp, validEnemy.xp)
+})
+
+test('gives old enemies without xp a safe default', () => {
+	const enemy = readSessionEnemy({ ...validEnemy, xp: undefined })
+
+	assert.ok(enemy)
+	assert.ok(enemy.xp > 0)
 })
 
 test('rejects enemies with unknown type or broken numbers', () => {
@@ -134,5 +150,23 @@ test('restores stats without negative values', () => {
 			moneySpent: 120,
 			damageDealt: 0,
 		},
+	)
+})
+
+test('restores level progress safely', () => {
+	assert.deepEqual(restoreProgress(undefined), {
+		level: 1,
+		xp: 0,
+		pendingUpgrades: 0,
+	})
+
+	assert.deepEqual(
+		restoreProgress({ level: 7, xp: 210, pendingUpgrades: 2 }),
+		{ level: 7, xp: 210, pendingUpgrades: 2 },
+	)
+
+	assert.deepEqual(
+		restoreProgress({ level: 0, xp: -40, pendingUpgrades: 99 }),
+		{ level: 1, xp: 0, pendingUpgrades: 5 },
 	)
 })

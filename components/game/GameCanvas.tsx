@@ -36,6 +36,11 @@ export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }
 				// стандартное контекстное меню браузера отключаем.
 				disableContextMenu: true,
 				input: {
+					// Два пальца нужны для pinch-зума, третий — запас для мыши.
+					activePointers: 3,
+					// Touch включаем всегда: на гибридных устройствах детект
+					// иногда ошибается, а лишние слушатели ничего не ломают.
+					touch: { capture: true },
 					mouse: {
 						preventDefaultDown: true,
 						preventDefaultUp: true,
@@ -67,7 +72,7 @@ export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }
 			ref={containerRef}
 			role="application"
 			aria-label="Игровое поле Tower Defense"
-			className="relative h-full w-full overflow-hidden"
+			className="game-viewport relative h-full w-full overflow-hidden"
 		/>
 	)
 }

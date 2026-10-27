@@ -1,9 +1,18 @@
 import {
 	CELL_SIZE,
 	COLS,
+	ENEMY_COUNT_BASE,
+	ENEMY_COUNT_PER_WAVE,
+	ENEMY_SPAWN_INTERVAL,
+	ENEMY_SPAWN_INTERVAL_MIN,
+	ENEMY_SPAWN_INTERVAL_STEP,
 	ENEMY_TYPES,
 	INITIAL_GOLD,
 	INITIAL_LIVES,
+	LEVEL_XP_BASE,
+	LEVEL_XP_SQUARE,
+	LEVEL_XP_STEP,
+	MAX_PENDING_UPGRADES,
 	MAX_TOWER_LEVEL,
 	ROWS,
 	TOWER_ATTACK_SPEED_GROWTH,
@@ -12,9 +21,13 @@ import {
 	TOWER_SELL_REFUND,
 	TOWER_TYPES,
 	TOWER_UPGRADE_COST_FACTOR,
+	WAVE_COMPLETION_BASE_REWARD,
+	WAVE_COMPLETION_REWARD_PER_WAVE,
 	WAVE_HP_GROWTH,
+	WAVE_REWARD_GROWTH,
 	WAVE_SPEED_GROWTH,
 	WAVE_SPEED_GROWTH_CAP,
+	XP_WAVE_GROWTH,
 	type EnemyType,
 	type TowerType,
 } from '../config/game.config.ts'
@@ -45,14 +58,40 @@ export function canBuildTower({ position, pathCells, towerCells, gold, towerType
 }
 
 export function waveEnemyCount(wave: number) {
-	return 5 + wave * 2
+	const safeWave = Math.max(1, Math.trunc(wave))
+	return Math.round(ENEMY_COUNT_BASE + (safeWave - 1) * ENEMY_COUNT_PER_WAVE)
 }
 
-export function enemyTypeForSpawn(wave: number, spawnIndex: number): EnemyType {
-	if (wave > 0 && wave % 5 === 0 && spawnIndex === waveEnemyCount(wave) - 1) return 'boss'
+// Враги появляются чаще с каждой волной, но не чаще нижнего предела.
+export function enemySpawnInterval(wave: number) {
+	const steps = Math.max(0, Math.trunc(wave) - 1)
+	return Math.max(
+		ENEMY_SPAWN_INTERVAL_MIN,
+		ENEMY_SPAWN_INTERVAL - steps * ENEMY_SPAWN_INTERVAL_STEP,
+	)
+}
+
+// Бонус за пройденную волну растёт вместе с её номером.
+export function waveCompletionReward(wave: number) {
+	return WAVE_COMPLETION_BASE_REWARD +
+		Math.max(0, Math.trunc(wave) - 1) * WAVE_COMPLETION_REWARD_PER_WAVE
+}
+
+export function enemyTypeForSpawn(
+	wave: number,
+	spawnIndex: number,
+	total: number = waveEnemyCount(wave),
+): EnemyType {
+	if (wave > 0 && wave % 5 === 0 && spawnIndex === total - 1) return 'boss'
 	if (wave >= 3 && spawnIndex % 4 === 2) return 'sprinter'
 	if (wave >= 2 && spawnIndex % 3 === 1) return 'brute'
 	return 'scout'
+}
+
+// Опыт за убийство растёт с каждой волной.
+export function xpForKill(type: EnemyType, wave: number) {
+	const level = Math.max(0, Math.trunc(wave) - 1)
+	return Math.round(ENEMY_TYPES[type].xp * (1 + level * XP_WAVE_GROWTH))
 }
 
 export function enemyStats(wave: number, spawnIndex: number) {
@@ -62,11 +101,54 @@ export function enemyStats(wave: number, spawnIndex: number) {
 	return {
 		type,
 		hp: Math.round(base.baseHp * (1 + level * WAVE_HP_GROWTH)),
-		speed: Math.round(base.baseSpeed * (1 + Math.min(level, WAVE_SPEED_GROWTH_CAP) * WAVE_SPEED_GROWTH)),
-		reward: base.reward + Math.floor(level / 3),
+		speed: Math.round(
+			base.baseSpeed *
+				(1 + Math.min(level, WAVE_SPEED_GROWTH_CAP) * WAVE_SPEED_GROWTH),
+		),
+		reward: Math.round(base.reward * (1 + level * WAVE_REWARD_GROWTH)),
+		xp: xpForKill(type, wave),
 		radius: base.radius,
 		color: base.color,
 	}
+}
+
+// Сколько опыта нужно, чтобы перейти с уровня level на следующий.
+export function xpToNextLevel(level: number) {
+	const steps = Math.max(0, Math.trunc(level) - 1)
+	return LEVEL_XP_BASE + LEVEL_XP_STEP * steps + LEVEL_XP_SQUARE * steps * steps
+}
+
+export type LevelProgress = {
+	level: number
+	xp: number
+	pendingUpgrades: number
+}
+
+// Начисляет опыт и повышает уровень, пока хватает опыта.
+// Каждый новый уровень добавляет одну карточку улучшения в очередь.
+export function addExperience(
+	progress: LevelProgress,
+	amount: number,
+): LevelProgress {
+	let { level, xp, pendingUpgrades } = progress
+	xp += Math.max(0, Math.round(amount))
+
+	let requirement = xpToNextLevel(level)
+
+	while (xp >= requirement) {
+		if (pendingUpgrades >= MAX_PENDING_UPGRADES) {
+			// Больше карточек в очередь не ставим, но прогресс не теряем.
+			xp = requirement - 1
+			break
+		}
+
+		xp -= requirement
+		level += 1
+		pendingUpgrades += 1
+		requirement = xpToNextLevel(level)
+	}
+
+	return { level, xp, pendingUpgrades }
 }
 
 // Характеристики башни с учётом уровня улучшения и бонусов от карточек.

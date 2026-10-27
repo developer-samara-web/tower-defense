@@ -1,4 +1,6 @@
 import {
+	ENEMY_TYPES,
+	MAX_PENDING_UPGRADES,
 	MAX_TOWER_LEVEL,
 	TOWER_TYPES,
 	type EnemyType,
@@ -22,6 +24,7 @@ export type SessionEnemy = {
 	maxHp: number
 	speed: number
 	reward: number
+	xp: number
 	pathIndex: number
 	routeIndex: number
 	slowTimer: number
@@ -45,6 +48,9 @@ export type SessionGameState = {
 	resultReported: boolean
 	towers: SessionTower[]
 	enemies: SessionEnemy[]
+	level: number
+	xp: number
+	pendingUpgrades: number
 }
 
 // Старые сохранения могли содержать DTO выбранной башни и nextWaveIn.
@@ -83,6 +89,9 @@ export function toSessionGameState(snapshot: GameSnapshot): SessionGameState {
 			invested,
 		})),
 		enemies: snapshot.enemyStates.map((enemy) => ({ ...enemy })),
+		level: snapshot.level,
+		xp: snapshot.xp,
+		pendingUpgrades: snapshot.pendingUpgrades,
 	}
 }
 
@@ -132,6 +141,7 @@ export function readSessionEnemy(raw: unknown): SessionEnemy | null {
 		maxHp,
 		speed,
 		reward,
+		xp: Math.trunc(nonNegative(enemy.xp, ENEMY_TYPES[enemy.type].xp)),
 		pathIndex,
 		routeIndex,
 		slowTimer: nonNegative(enemy.slowTimer, 0),
@@ -189,6 +199,28 @@ export function restoreStats(raw: unknown): GameStats {
 		buildingsBuilt: nonNegative(stats.buildingsBuilt, 0),
 		moneySpent: nonNegative(stats.moneySpent, 0),
 		damageDealt: nonNegative(stats.damageDealt, 0),
+	}
+}
+
+export type RestoredProgress = {
+	level: number
+	xp: number
+	pendingUpgrades: number
+}
+
+// Старые сохранения не содержат опыта: тогда игрок начинает с первого уровня.
+export function restoreProgress(raw: unknown): RestoredProgress {
+	const progress = raw && typeof raw === 'object'
+		? (raw as Record<string, unknown>)
+		: {}
+
+	return {
+		level: Math.max(1, Math.trunc(nonNegative(progress.level, 1))),
+		xp: Math.trunc(nonNegative(progress.xp, 0)),
+		pendingUpgrades: Math.min(
+			MAX_PENDING_UPGRADES,
+			Math.trunc(nonNegative(progress.pendingUpgrades, 0)),
+		),
 	}
 }
 

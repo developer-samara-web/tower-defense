@@ -4,11 +4,15 @@ export function useGameUI() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
 
   const toggleLeaderboard = useCallback(() => {
     setShowLeaderboard((prev) => {
       const next = !prev
-      if (next) setShowInfo(false)
+      if (next) {
+        setShowInfo(false)
+        setShowProfile(false)
+      }
       return next
     })
   }, [])
@@ -16,7 +20,10 @@ export function useGameUI() {
   const toggleInfo = useCallback(() => {
     setShowInfo((prev) => {
       const next = !prev
-      if (next) setShowLeaderboard(false)
+      if (next) {
+        setShowLeaderboard(false)
+        setShowProfile(false)
+      }
       return next
     })
   }, [])
@@ -25,18 +32,32 @@ export function useGameUI() {
     setShowGameMenu(true)
     setShowInfo(false)
     setShowLeaderboard(false)
+    setShowProfile(false)
   }, [])
 
   const closeMenu = useCallback(() => setShowGameMenu(false), [])
+
+  // Профиль открывается поверх игры, не уводя со страницы /game.
+  const openProfile = useCallback(() => {
+    setShowProfile(true)
+    setShowGameMenu(false)
+    setShowInfo(false)
+    setShowLeaderboard(false)
+  }, [])
+
+  const closeProfile = useCallback(() => setShowProfile(false), [])
 
   return {
     showLeaderboard,
     showInfo,
     showGameMenu,
+    showProfile,
     toggleLeaderboard,
     toggleInfo,
     openMenu,
     closeMenu,
+    openProfile,
+    closeProfile,
     closeLeaderboard: () => setShowLeaderboard(false),
     closeInfo: () => setShowInfo(false),
   }

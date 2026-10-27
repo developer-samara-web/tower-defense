@@ -4,7 +4,7 @@ import { CELL_SIZE } from '../../config/game.config'
 import { buildSnapshot, type GameState } from '../../domain/game-state'
 
 export type HudBridge = {
-	publish: () => void
+	publish: (force?: boolean) => void
 	reset: () => void
 }
 
@@ -60,12 +60,12 @@ export function createHudBridge(
 		}
 	}
 
-	function publish() {
+	function publish(force = false) {
 		// Пропускаем обновление, если код выполняется вне браузера.
 		if (typeof window === 'undefined') return
 
 		const now = Date.now()
-		if (now - lastPublishedAt < PUBLISH_INTERVAL_MS) return
+		if (!force && now - lastPublishedAt < PUBLISH_INTERVAL_MS) return
 		lastPublishedAt = now
 
 		const snapshot = buildSnapshot(state, getPanelPosition())

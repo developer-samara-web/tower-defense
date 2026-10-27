@@ -1,9 +1,9 @@
+import { WAVE_BREAK_DURATION } from '../../config/game.config'
 import {
-	ENEMY_SPAWN_INTERVAL,
-	WAVE_BREAK_DURATION,
-	WAVE_COMPLETION_REWARD,
-} from '../../config/game.config'
-import { waveEnemyCount } from '../../domain/game-rules'
+	enemySpawnInterval,
+	waveCompletionReward,
+	waveEnemyCount,
+} from '../../domain/game-rules'
 import type { GameContext } from '../game-context'
 import { showWaveNotification } from '../ui/wave-notification'
 
@@ -41,9 +41,10 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 
 		// Показываем игроку, сколько осталось до следующей волны.
 		const seconds = Math.ceil(state.waveBreakRemaining / 1000)
+		const reward = waveCompletionReward(state.wave)
 
 		setStatus(
-			`Волна ${state.wave} пройдена! Бонус: ${WAVE_COMPLETION_REWARD} золота. ` +
+			`Волна ${state.wave} пройдена! Бонус: ${reward} золота. ` +
 				`Волна ${state.wave + 1} через ${seconds}…`,
 		)
 	}
@@ -72,7 +73,7 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 		state.spawnedInWave = 0
 
 		// Первый враг появляется без дополнительной задержки.
-		state.spawnCooldown = ENEMY_SPAWN_INTERVAL
+		state.spawnCooldown = enemySpawnInterval(state.wave)
 
 		setStatus(`Волна ${state.wave}: враги идут!`)
 	}
@@ -91,13 +92,14 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 			state.waveActive = false
 
 			// Начисляем награду за успешное завершение волны.
-			state.gold += WAVE_COMPLETION_REWARD
+			const reward = waveCompletionReward(state.wave)
+			state.gold += reward
 
 			// Запускаем паузу, после которой следующая волна начнётся сама.
 			state.waveBreakRemaining = WAVE_BREAK_DURATION
 
 			setStatus(
-				`Волна ${state.wave} пройдена! Бонус: ${WAVE_COMPLETION_REWARD} золота. ` +
+				`Волна ${state.wave} пройдена! Бонус: ${reward} золота. ` +
 					`Волна ${state.wave + 1} через ${Math.ceil(WAVE_BREAK_DURATION / 1000)}…`,
 			)
 		}

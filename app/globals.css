@@ -26,3 +26,9 @@ body {
 	background: #3e722b;
 	color: var(--foreground);
 }
+
+/* Игровое полотно само обрабатывает жесты: браузер не должен
+   перехватывать pinch-зум и прокрутку страницы на мобильных. */
+.game-viewport canvas {
+	touch-action: none;
+}

@@ -167,11 +167,24 @@ export function bindCameraControls(
 		}
 	}
 
+	// Клик по миникарте переносит камеру в выбранную точку мира.
+	const onFocusPoint = (event: Event) => {
+		const detail = (event as CustomEvent<{ x?: number; y?: number }>).detail
+		const x = detail?.x
+		const y = detail?.y
+
+		if (typeof x !== 'number' || typeof y !== 'number') return
+		if (!Number.isFinite(x) || !Number.isFinite(y)) return
+
+		camera.centerOn(x, y)
+	}
+
 	scene.input.on('pointerdown', onPointerDown)
 	scene.input.on('pointermove', onPointerMove)
 	scene.input.on('pointerup', onPointerUp)
 	scene.input.on('pointerupoutside', onPointerUp)
 	scene.input.on('wheel', onWheel)
+	window.addEventListener('td:camera-focus', onFocusPoint)
 
 	// Плавно двигает камеру, пока зажаты клавиши движения или мышь у края экрана.
 	function update(delta: number) {
@@ -217,6 +230,7 @@ export function bindCameraControls(
 		scene.input.off('pointerup', onPointerUp)
 		scene.input.off('pointerupoutside', onPointerUp)
 		scene.input.off('wheel', onWheel)
+		window.removeEventListener('td:camera-focus', onFocusPoint)
 		keyboard?.removeCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
 	}
 

@@ -2,7 +2,7 @@ import { SelectedTowerInfo } from '@/types'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { TowerType } from '@/features/game/config/game.config'
 import { generateUpgradeCards, type UpgradeCard } from '@/features/game/domain/upgrade-cards'
-import { initialResources } from '@/features/game/domain/game-rules'
+import { initialResources, xpToNextLevel } from '@/features/game/domain/game-rules'
 import type { GameSnapshot } from '@/features/game/domain/game-state'
 import {
   hasSessionProgress,
@@ -19,9 +19,11 @@ type GameState = {
   status: string; waveActive: boolean; nextWaveIn: number; gameOver: boolean
   spawnRemaining: number; spawnedInWave: number; spawnCooldown: number; waveBreakRemaining: number
   towers: Array<{ id: string; x: number; y: number; type: TowerType }>
+  enemyStates: Array<{ x: number; y: number }>
   towerCells: string[]; pathCells: string[]
   viewport: { worldX: number; worldY: number; width: number; height: number; zoom: number } | null
   stats: { monstersKilled: number; buildingsBuilt: number; moneySpent: number; damageDealt: number }
+  level: number; xp: number; xpToNextLevel: number; pendingUpgrades: number
 }
 
 const initialState: GameState = {
@@ -29,8 +31,9 @@ const initialState: GameState = {
   selectedTower: null, selectedBuiltTower: null, panelPosition: null,
   status: 'Выбери башню и подготовь оборону', waveActive: false, nextWaveIn: 0, gameOver: false,
   spawnRemaining: 0, spawnedInWave: 0, spawnCooldown: 0, waveBreakRemaining: 0,
-  towers: [], towerCells: [], pathCells: [], viewport: null,
+  towers: [], enemyStates: [], towerCells: [], pathCells: [], viewport: null,
   stats: { monstersKilled: 0, buildingsBuilt: 0, moneySpent: 0, damageDealt: 0 },
+  level: 1, xp: 0, xpToNextLevel: xpToNextLevel(1), pendingUpgrades: 0,
 }
 
 function createMapSeed() {
@@ -42,11 +45,8 @@ function createMapSeed() {
 }
 
 export function useGame() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [game, setGame] = useState<GameState>(initialState)
-  const [showLeaderboard, setShowLeaderboard] = useState(false)
-  const [showInfo, setShowInfo] = useState(false)
-  const [showGameMenu, setShowGameMenu] = useState(false)
   const [upgradeCards, setUpgradeCards] = useState<UpgradeCard[]>([])
   const [scores, setScores] = useState<PlayerScore[]>([])
   const [checkedToken, setCheckedToken] = useState<string | null>(null)
@@ -83,13 +83,12 @@ export function useGame() {
 
       latestSnapshotRef.current = detail
 
-      const isUpgradeWave = detail.wave > 0 && detail.wave % 5 === 0
-      if (isUpgradeWave && !cardsShownRef.current) {
+      // Новый уровень даёт выбор карточки. Пока игрок выбирает,
+      // сцена стоит на паузе, чтобы бой не продолжался вслепую.
+      if (!detail.gameOver && detail.pendingUpgrades > 0 && !cardsShownRef.current) {
         cardsShownRef.current = true
         setUpgradeCards(generateUpgradeCards(3))
-      } else if (!isUpgradeWave && cardsShownRef.current) {
-        cardsShownRef.current = false
-        setUpgradeCards([])
+        window.dispatchEvent(new Event('td:pause'))
       }
 
       setGame((prev) => {
@@ -185,8 +184,11 @@ export function useGame() {
 
       ;(window as unknown as Record<string, unknown>).__sessionData = data
       latestSnapshotRef.current = null
+      setUpgradeCards([])
+      cardsShownRef.current = false
 
       const waveBreakRemaining = saved.waveBreakRemaining ?? (saved.nextWaveIn ?? 0) * 1000
+      const level = saved.level ?? 1
 
       setGame({
         ...initialState,
@@ -203,6 +205,10 @@ export function useGame() {
         selectedTower: saved.selectedTower ?? null,
         stats: saved.stats ?? initialState.stats,
         towerCells: (saved.towers ?? []).map((tower) => tower.id),
+        level,
+        xp: saved.xp ?? 0,
+        xpToNextLevel: xpToNextLevel(level),
+        pendingUpgrades: saved.pendingUpgrades ?? 0,
       })
       setMapSeed(data.mapSeed || 'default')
       setResuming(false)
@@ -214,6 +220,8 @@ export function useGame() {
 
   const restartGame = useCallback(() => {
     latestSnapshotRef.current = null
+    setUpgradeCards([])
+    cardsShownRef.current = false
     setGame({ ...initialState, stats: initialState.stats })
     setMapSeed(createMapSeed())
     window.dispatchEvent(new CustomEvent('td:restart'))
@@ -239,34 +247,26 @@ export function useGame() {
   const pickUpgrade = useCallback((card: UpgradeCard) => {
     window.dispatchEvent(new CustomEvent('td:pick-upgrade', { detail: { card } }))
     setUpgradeCards([])
-    cardsShownRef.current = true
+    cardsShownRef.current = false
+
+    // Если уровней накопилось несколько, сразу показываем следующий выбор.
+    const pending = latestSnapshotRef.current?.pendingUpgrades ?? 0
+    if (pending > 0) {
+      cardsShownRef.current = true
+      setUpgradeCards(generateUpgradeCards(3))
+    } else {
+      window.dispatchEvent(new Event('td:resume'))
+    }
   }, [])
 
-  const toggleLeaderboard = useCallback(() => {
-    const opening = !showLeaderboard
-    setShowLeaderboard(opening)
-    if (opening) {
-      setShowInfo(false)
-      void refreshScores()
-    }
-  }, [showLeaderboard, refreshScores])
-
   return {
-    game, setGame,
+    game, setGame, user,
     scores,
-    showLeaderboard, setShowLeaderboard,
-    showInfo, setShowInfo,
-    showGameMenu, setShowGameMenu,
     upgradeCards,
     checkingSession, resuming, sessionId, mapSeed,
     restartGame, resumeGame, startNew,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     waveButtonDisabled,
-    closeLeaderboard: () => setShowLeaderboard(false),
-    closeInfo: () => setShowInfo(false),
-    openMenu: () => { setShowGameMenu(true); setShowInfo(false); setShowLeaderboard(false) },
-    closeMenu: () => setShowGameMenu(false),
-    toggleLeaderboard,
-    toggleInfo: () => { setShowInfo(p => { const n = !p; if (n) setShowLeaderboard(false); return n }) },
+    refreshScores,
   }
 }

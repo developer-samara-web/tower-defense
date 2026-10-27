@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { INITIAL_GOLD, MAX_TOWER_LEVEL, TOWER_TYPES } from '../config/game.config.ts'
-import { canBuildTower, enemyStats, enemyTypeForSpawn, towerStats, towerUpgradeCost, waveEnemyCount } from './game-rules.ts'
+import {
+	ENEMY_SPAWN_INTERVAL_MIN,
+	INITIAL_GOLD,
+	MAX_TOWER_LEVEL,
+	TOWER_TYPES,
+} from '../config/game.config.ts'
+import {
+	addExperience,
+	canBuildTower,
+	enemySpawnInterval,
+	enemyStats,
+	enemyTypeForSpawn,
+	towerStats,
+	towerUpgradeCost,
+	waveCompletionReward,
+	waveEnemyCount,
+	xpForKill,
+	xpToNextLevel,
+} from './game-rules.ts'
 
 test('allows building on an empty board cell when resources are sufficient', () => {
 	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
@@ -16,18 +33,70 @@ test('prevents invalid building placements', () => {
 
 test('scales wave composition predictably', () => {
 	assert.equal(waveEnemyCount(1), 7)
+	assert.deepEqual(
+		[1, 2, 3, 5, 10, 20].map(waveEnemyCount),
+		[7, 9, 10, 13, 21, 36],
+	)
 	assert.equal(enemyTypeForSpawn(1, 0), 'scout')
 	assert.equal(enemyTypeForSpawn(2, 1), 'brute')
 	assert.equal(enemyTypeForSpawn(3, 2), 'sprinter')
 	assert.equal(enemyTypeForSpawn(5, waveEnemyCount(5) - 1), 'boss')
-	assert.deepEqual(enemyStats(3, 2), { type: 'sprinter', hp: 57, speed: 95, reward: 15, radius: 8, color: 0xf59e57 })
+	assert.deepEqual(enemyStats(3, 2), {
+		type: 'sprinter',
+		hp: 52,
+		speed: 113,
+		reward: 17,
+		xp: 14,
+		radius: 8,
+		color: 0xf59e57,
+	})
+})
+
+test('spawns enemies faster each wave, but not faster than the limit', () => {
+	assert.ok(enemySpawnInterval(2) < enemySpawnInterval(1))
+	assert.ok(enemySpawnInterval(10) < enemySpawnInterval(2))
+	assert.equal(enemySpawnInterval(100), ENEMY_SPAWN_INTERVAL_MIN)
+})
+
+test('pays a bigger bonus for later waves', () => {
+	assert.equal(waveCompletionReward(1), 20)
+	assert.ok(waveCompletionReward(10) > waveCompletionReward(1))
+	assert.equal(
+		waveCompletionReward(10) - waveCompletionReward(9),
+		waveCompletionReward(2) - waveCompletionReward(1),
+	)
+})
+
+test('increases experience from kills with every wave', () => {
+	assert.equal(xpForKill('scout', 1), 8)
+	assert.ok(xpForKill('scout', 5) > xpForKill('scout', 1))
+	assert.ok(xpForKill('boss', 10) > xpForKill('boss', 5))
+})
+
+test('levels up and queues an upgrade for each filled bar', () => {
+	const first = addExperience({ level: 1, xp: 0, pendingUpgrades: 0 }, xpToNextLevel(1))
+	assert.deepEqual(first, { level: 2, xp: 0, pendingUpgrades: 1 })
+
+	// Один крупный пакет опыта может дать сразу несколько уровней.
+	const many = addExperience({ level: 1, xp: 0, pendingUpgrades: 0 }, 1000)
+	assert.equal(many.level, 4)
+	assert.equal(many.pendingUpgrades, 3)
+	assert.ok(many.xp < xpToNextLevel(many.level))
+})
+
+test('caps the queued upgrades and preserves progress', () => {
+	const capped = addExperience({ level: 1, xp: 0, pendingUpgrades: 5 }, 5000)
+	assert.equal(capped.pendingUpgrades, 5)
+	assert.equal(capped.level, 1)
+	assert.equal(capped.xp, xpToNextLevel(1) - 1)
 })
 
 test('makes each wave noticeably stronger than the previous one', () => {
 	const firstWave = enemyStats(1, 0)
 	const tenthWave = enemyStats(10, 0)
-	assert.ok(tenthWave.hp >= firstWave.hp * 3)
+	assert.ok(tenthWave.hp >= firstWave.hp * 2.5)
 	assert.ok(tenthWave.speed > firstWave.speed)
+	assert.ok(tenthWave.reward > firstWave.reward)
 })
 
 test('improves tower stats with each level', () => {

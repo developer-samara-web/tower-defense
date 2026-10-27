@@ -15,6 +15,7 @@ import {
 	readSessionEnemies,
 	readSessionTower,
 	restoreBuffs,
+	restoreProgress,
 	restoreStats,
 	type SessionPayload,
 } from '@/features/game/domain/session-state'
@@ -64,6 +65,9 @@ export class MainScene extends Phaser.Scene {
 
 	// Seed определяет дороги, поэтому карта восстанавливается вместе с игрой.
 	private readonly mapSeed: string
+
+	// Пауза может прийти до первого кадра, когда сцена ещё не активна.
+	private pauseRequested = false
 
 	constructor(mapSeed = 'default') {
 		super('MainScene')
@@ -144,6 +148,7 @@ export class MainScene extends Phaser.Scene {
 		// Подключаем управление с клавиатуры, мыши и из React-панели.
 		this.bindControls()
 		this.connectPanel()
+		this.bindPauseControls()
 
 		// Отправляем первоначальное состояние в интерфейс.
 		this.hud.publish()
@@ -187,6 +192,11 @@ export class MainScene extends Phaser.Scene {
 		state.buffs = restoreBuffs(saved.buffs)
 		state.stats = restoreStats(saved.stats ?? payload.stats)
 		state.resultReported = saved.resultReported === true
+
+		const progress = restoreProgress(saved)
+		state.level = progress.level
+		state.xp = progress.xp
+		state.pendingUpgrades = progress.pendingUpgrades
 
 		// Башни восстанавливаем вручную, чтобы не списывать золото повторно.
 		for (const entry of saved.towers ?? []) {
@@ -269,6 +279,12 @@ export class MainScene extends Phaser.Scene {
 
 	// Основной игровой цикл Phaser. Вызывается каждый кадр.
 	update(_time: number, delta: number) {
+		if (this.pauseRequested) {
+			this.pauseRequested = false
+			this.scene.pause()
+			return
+		}
+
 		this.cameraControls.update(delta)
 		this.waves.update(delta)
 		this.enemies.updateSpawning(delta)
@@ -308,9 +324,34 @@ export class MainScene extends Phaser.Scene {
 			onPickUpgrade: (card) => {
 				// Постоянно усиливаем выбранный тип башни.
 				this.state.buffs = applyUpgradeCard(this.state.buffs, card)
+				this.state.pendingUpgrades = Math.max(
+					0,
+					this.state.pendingUpgrades - 1,
+				)
 				this.context.setStatus(`${upgradeCardTitle(card)} — ${card.description}.`)
-				this.hud.publish()
+				// Форсируем отправку: сцена на паузе, а React ждёт снимок сразу.
+				this.hud.publish(true)
 			},
+		})
+	}
+
+	// React ставит игру на паузу, пока открыто меню, профиль или выбор улучшения.
+	private bindPauseControls() {
+		const pauseScene = () => {
+			this.pauseRequested = true
+			if (this.scene.isActive()) this.scene.pause()
+		}
+		const resumeScene = () => {
+			this.pauseRequested = false
+			if (this.scene.isPaused()) this.scene.resume()
+		}
+
+		window.addEventListener('td:pause', pauseScene)
+		window.addEventListener('td:resume', resumeScene)
+
+		this.events.once('shutdown', () => {
+			window.removeEventListener('td:pause', pauseScene)
+			window.removeEventListener('td:resume', resumeScene)
 		})
 	}
 
@@ -321,7 +362,9 @@ export class MainScene extends Phaser.Scene {
 		resetGameState(this.state)
 		this.cameraControls.reset()
 		this.hud.reset()
-		this.hud.publish()
+		this.hud.publish(true)
+		// Новая игра всегда начинается с активной сцены.
+		window.dispatchEvent(new Event('td:resume'))
 	}
 
 	// Завершает игру, когда у игрока закончились жизни.

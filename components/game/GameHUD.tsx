@@ -9,6 +9,9 @@ type Props = {
   gameOver: boolean
   selectedTower: TowerType | null
   status: string
+  level: number
+  xp: number
+  xpToNextLevel: number
   onSelectTower: (id: TowerType) => void
   onStartWave: () => void
   onRestart: () => void
@@ -27,12 +30,13 @@ const towerDefs = (
 
 export default function GameHUD({
   gold, lives, wave, waveActive, gameOver, selectedTower,
-  status, onSelectTower, onStartWave, onRestart, waveButtonDisabled,
+  status, level, xp, xpToNextLevel, onSelectTower, onStartWave, onRestart, waveButtonDisabled,
 }: Props) {
+  const xpPercent = xpToNextLevel > 0 ? Math.max(0, Math.min(100, (xp / xpToNextLevel) * 100)) : 0
   return (
     <>
       {/* Status above bar */}
-      <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
+      <div className="absolute bottom-[150px] sm:bottom-[172px] left-1/2 -translate-x-1/2 z-30 w-full max-w-[640px] px-2 pointer-events-none">
         <div className="flex justify-center">
           <div className="rounded-none bg-[#0f0a05]/90 border-[3px] border-[#2a1d0a] px-4 py-1 shadow-[4px_4px_0_#1a0f05,0_0_0_#000] backdrop-blur-sm">
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f5e6c8] drop-shadow-[0_2px_4px_rgba(0,0,0,1),0_1px_0_#5c2d0e]">{status}</p>
@@ -42,13 +46,26 @@ export default function GameHUD({
 
       {/* Bottom bar */}
       <div className="absolute bottom-[16px] sm:bottom-[50px] left-1/2 z-40 w-[98vw] sm:w-max max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-24px)] -translate-x-1/2 px-1 sm:px-2">
-        {/* HP */}
-        <div className="relative h-[13px] w-full overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]" role="progressbar" aria-label="Здоровье замка" aria-valuemin={0} aria-valuemax={20} aria-valuenow={Math.max(0, Math.min(20, lives))}>
-          <div className={`absolute inset-y-0 left-0 transition-[width] duration-300 ${lives / 20 <= 0.25 ? 'bg-[#e53935]' : lives / 20 <= 0.5 ? 'bg-[#f2b632]' : 'bg-[#65c943]'}`} style={{ width: `${Math.max(0, Math.min(100, (lives / 20) * 100))}%` }}>
-            <div className="absolute inset-x-0 top-0 h-[2px] bg-white/30" />
+        {/* Level and experience */}
+        <div className="mb-1 flex items-center gap-2">
+          <span className="inline-flex w-12 shrink-0 items-center justify-center border border-[#5b4a8a] bg-[#150f28] px-1 py-[1px] text-[9px] font-black uppercase tracking-[0.12em] text-violet-300 shadow-[0_2px_0_#0a0714]">Ур. {level}</span>
+          <div className="relative h-[12px] flex-1 overflow-hidden border-2 border-[#4c3a6b] bg-[#120d22] shadow-[inset_0_1px_3px_#000]" role="progressbar" aria-label="Опыт уровня" aria-valuemin={0} aria-valuemax={xpToNextLevel} aria-valuenow={Math.min(xp, xpToNextLevel)}>
+            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-700 to-fuchsia-400 transition-[width] duration-300" style={{ width: `${xpPercent}%` }}>
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-white/30" />
+            </div>
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-black tabular-nums text-white/90 drop-shadow-[0_1px_1px_#000]">{xp} / {xpToNextLevel}</span>
           </div>
-          <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(to right, transparent 0, transparent calc(5% - 1px), #21100c calc(5% - 1px), #21100c 5%)' }} />
-          <div className="pointer-events-none absolute inset-0 border-t border-white/10 border-b border-black/40" />
+        </div>
+
+        {/* HP */}
+        <div className="mb-1 flex items-center gap-2">
+          <span className="inline-flex w-12 shrink-0 items-center justify-center border border-[#68451f] bg-[#21100c] px-1 py-[1px] text-[9px] font-black uppercase tracking-[0.12em] text-orange-200 shadow-[0_2px_0_#0a0714]">♥ {lives}</span>
+          <div className="relative h-[12px] flex-1 overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]" role="progressbar" aria-label="Здоровье замка" aria-valuemin={0} aria-valuemax={20} aria-valuenow={Math.max(0, Math.min(20, lives))}>
+            <div className={`absolute inset-y-0 left-0 transition-[width] duration-300 ${lives / 20 <= 0.25 ? 'bg-[#e53935]' : lives / 20 <= 0.5 ? 'bg-[#f2b632]' : 'bg-[#65c943]'}`} style={{ width: `${Math.max(0, Math.min(100, (lives / 20) * 100))}%` }}>
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-white/30" />
+            </div>
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-black tabular-nums text-white/90 drop-shadow-[0_1px_1px_#000]">{Math.max(0, lives)} / 20</span>
+          </div>
         </div>
 
         <div className="relative flex h-[52px] sm:h-[72px] max-w-full items-center gap-1.5 sm:gap-2 rounded-b-sm border-2 border-t-0 border-[#79552c] bg-[#0f0a05]/90 px-1.5 sm:px-2 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md">
