@@ -57,6 +57,8 @@ export type GameSnapshot = {
 	waveActive: boolean
 	nextWaveIn: number
 	gameOver: boolean
+	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
+	towerCells: string[]
 }
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
@@ -119,6 +121,8 @@ export function buildSnapshot(
 		waveActive: state.waveActive,
 		nextWaveIn: Math.ceil(state.waveBreakRemaining / 1000),
 		gameOver: state.lives <= 0,
+		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type })),
+		towerCells: Array.from(state.towerCells),
 	}
 }
 

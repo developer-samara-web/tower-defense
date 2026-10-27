@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 
 import GameCanvas from '@/components/game/GameCanvas'
+import MiniMap from '@/components/game/MiniMap'
 import GameMenu from '@/components/game/GameMenu'
 import TowerDetails from '@/components/game/TowerDetails'
 import AuthScreen from '@/components/menu/AuthScreen'
@@ -41,6 +42,8 @@ type GameState = {
 	waveActive: boolean
 	nextWaveIn: number
 	gameOver: boolean
+	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
+	towerCells: string[]
 }
 
 type Score = { id: string; login?: string; wave: number; gold: number; createdAt: string }
@@ -60,6 +63,8 @@ const initialState: GameState = {
 	waveActive: false,
 	nextWaveIn: 0,
 	gameOver: false,
+	towers: [],
+	towerCells: [],
 }
 
 const towers = (
@@ -625,6 +630,11 @@ export default function HomePage() {
 				<section className="relative min-h-0 flex-1 overflow-hidden">
 					<GameCanvas />
 
+					{/* Миникарта */}
+					<MiniMap
+						towerCells={game.towerCells}
+						towers={game.towers}
+					/>
 
 					{/* Upgrade cards overlay */}
 					{upgradeCards.length > 0 && !game.gameOver ? (
