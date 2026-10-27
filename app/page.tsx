@@ -44,6 +44,7 @@ type GameState = {
 	gameOver: boolean
 	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
 	towerCells: string[]
+	pathCells: string[]
 }
 
 type Score = { id: string; login?: string; wave: number; gold: number; createdAt: string }
@@ -65,6 +66,7 @@ const initialState: GameState = {
 	gameOver: false,
 	towers: [],
 	towerCells: [],
+	pathCells: [],
 }
 
 const towers = (
@@ -380,9 +382,6 @@ export default function HomePage() {
 
 				{/* Top-right: hint + leaderboard + menu/profile */}
 				<div className="absolute top-3 right-3 z-40 flex items-center gap-2">
-					<div className="rounded-none border border-[#3a2a1a]/70 bg-[#0f0a05]/70 px-2 py-1 shadow-[2px_2px_0_#1a1008] backdrop-blur-sm">
-						<p className="text-[8px] font-black uppercase tracking-[0.08em] text-[#b5a17b]">WASD · Колесо</p>
-					</div>
 					<button
 						onClick={() => {
 							setShowLeaderboard(!showLeaderboard)
@@ -632,6 +631,7 @@ export default function HomePage() {
 
 					{/* Миникарта */}
 					<MiniMap
+						pathCells={new Set(game.pathCells)}
 						towerCells={game.towerCells}
 						towers={game.towers}
 					/>

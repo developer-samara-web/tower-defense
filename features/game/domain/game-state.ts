@@ -59,6 +59,7 @@ export type GameSnapshot = {
 	gameOver: boolean
 	towers: Array<{ id: string; x: number; y: number; type: TowerType }>
 	towerCells: string[]
+	pathCells: string[]
 }
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
@@ -123,6 +124,7 @@ export function buildSnapshot(
 		gameOver: state.lives <= 0,
 		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type })),
 		towerCells: Array.from(state.towerCells),
+		pathCells: Array.from(state.pathCells),
 	}
 }
 
