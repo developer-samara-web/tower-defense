@@ -2,16 +2,23 @@ import { SelectedTowerInfo } from '@/types'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { TowerType } from '@/features/game/config/game.config'
 import { generateUpgradeCards, type UpgradeCard } from '@/features/game/domain/upgrade-cards'
-import { initialResources, xpToNextLevel } from '@/features/game/domain/game-rules'
+import {
+  createEmptyBuffs,
+  initialResources,
+  type TowerBuffs,
+  xpToNextLevel,
+} from '@/features/game/domain/game-rules'
 import type { GameSnapshot } from '@/features/game/domain/game-state'
 import {
   hasSessionProgress,
   toSessionGameState,
+  type SessionPayload,
 } from '@/features/game/domain/session-state'
 import type { PlayerScore } from '@/features/account/types'
 import { useAuth } from './useAuth'
 import { saveSession, loadSession, deleteSession, fetchLatestSession } from '@/lib/services/session-service'
 import { fetchTopScores, updateUserScore } from '@/lib/services/score-service'
+import { recordGame } from '@/lib/services/game-service'
 
 type GameState = {
   wave: number; gold: number; lives: number; enemies: number; selectedTower: TowerType | null
@@ -20,9 +27,10 @@ type GameState = {
   spawnRemaining: number; spawnedInWave: number; spawnCooldown: number; waveBreakRemaining: number
   towers: Array<{ id: string; x: number; y: number; type: TowerType }>
   enemyStates: Array<{ x: number; y: number }>
-  towerCells: string[]; pathCells: string[]
+  towerCells: string[]; pathCells: string[]; waterCells: string[]
   viewport: { worldX: number; worldY: number; width: number; height: number; zoom: number } | null
   stats: { monstersKilled: number; buildingsBuilt: number; moneySpent: number; damageDealt: number }
+  buffs: TowerBuffs
   level: number; xp: number; xpToNextLevel: number; pendingUpgrades: number
 }
 
@@ -31,8 +39,9 @@ const initialState: GameState = {
   selectedTower: null, selectedBuiltTower: null, panelPosition: null,
   status: 'Выбери башню и подготовь оборону', waveActive: false, nextWaveIn: 0, gameOver: false,
   spawnRemaining: 0, spawnedInWave: 0, spawnCooldown: 0, waveBreakRemaining: 0,
-  towers: [], enemyStates: [], towerCells: [], pathCells: [], viewport: null,
+  towers: [], enemyStates: [], towerCells: [], pathCells: [], waterCells: [], viewport: null,
   stats: { monstersKilled: 0, buildingsBuilt: 0, moneySpent: 0, damageDealt: 0 },
+  buffs: createEmptyBuffs(),
   level: 1, xp: 0, xpToNextLevel: xpToNextLevel(1), pendingUpgrades: 0,
 }
 
@@ -52,6 +61,9 @@ export function useGame() {
   const [checkedToken, setCheckedToken] = useState<string | null>(null)
   const [resuming, setResuming] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  // Токен читается из localStorage, которого нет на сервере: до монтирования
+  // не показываем ветку «Загрузка…», иначе ломается гидратация.
+  const [mounted, setMounted] = useState(false)
   // На сервере сид должен быть стабильным: randomUUID во время пререндера
   // считается нестабильным значением и ломает сборку /game.
   const [mapSeed, setMapSeed] = useState(() =>
@@ -61,8 +73,18 @@ export function useGame() {
   const mapSeedRef = useRef(mapSeed)
   const cardsShownRef = useRef(false)
   const lastSavedRef = useRef('')
+  // Одна завершённая игра должна попасть в историю ровно один раз.
+  const gameRecordedRef = useRef(false)
+  // Данные сохранённой игры нужны, если игрок начнёт новую вместо продолжения:
+  // старый забег тоже закрывается и должен попасть в историю.
+  const savedSessionRef = useRef<SessionPayload | null>(null)
 
-  const checkingSession = Boolean(token) && checkedToken !== token
+  const checkingSession = mounted && Boolean(token) && checkedToken !== token
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true)
+  }, [])
 
   const refreshScores = useCallback(async () => {
     try {
@@ -71,6 +93,27 @@ export function useGame() {
       // Турнирная таблица не должна мешать игре.
     }
   }, [])
+
+  // Закрывает прерванный забег: игрок выбрал новую игру вместо продолжения.
+  const recordAbandonedGame = useCallback(
+    (payload: SessionPayload | null) => {
+      const saved = payload?.gameState
+      if (!token || !saved || !hasSessionProgress(saved)) return
+
+      const stats = saved.stats ?? payload.stats
+
+      void recordGame(token, {
+        wave: Math.max(0, Math.trunc(saved.wave ?? 0)),
+        gold: Math.max(0, Math.trunc(saved.gold ?? 0)),
+        level: saved.level ?? 1,
+        monstersKilled: stats?.monstersKilled ?? 0,
+        buildingsBuilt: stats?.buildingsBuilt ?? 0,
+        moneySpent: stats?.moneySpent ?? 0,
+        damageDealt: stats?.damageDealt ?? 0,
+      }).catch(() => {})
+    },
+    [token],
+  )
 
   useEffect(() => {
     mapSeedRef.current = mapSeed
@@ -87,12 +130,11 @@ export function useGame() {
       // сцена стоит на паузе, чтобы бой не продолжался вслепую.
       if (!detail.gameOver && detail.pendingUpgrades > 0 && !cardsShownRef.current) {
         cardsShownRef.current = true
-        setUpgradeCards(generateUpgradeCards(3))
+        setUpgradeCards(generateUpgradeCards(3, { wave: detail.wave }))
         window.dispatchEvent(new Event('td:pause'))
       }
 
       setGame((prev) => {
-        if (detail.towers.length === 0 && prev.towers.length > 0) return prev
         if (detail.wave === 0 && prev.wave > 0) return prev
         return { ...prev, ...detail }
       })
@@ -102,6 +144,19 @@ export function useGame() {
       if (detail && Number.isFinite(detail.wave) && Number.isFinite(detail.gold)) {
         setGame((prev) => ({ ...prev, gameOver: true }))
         if (token) {
+          if (!gameRecordedRef.current) {
+            gameRecordedRef.current = true
+            const snapshot = latestSnapshotRef.current
+            void recordGame(token, {
+              wave: Math.max(0, Math.trunc(detail.wave)),
+              gold: Math.max(0, Math.trunc(detail.gold)),
+              level: snapshot?.level ?? 1,
+              monstersKilled: snapshot?.stats.monstersKilled ?? 0,
+              buildingsBuilt: snapshot?.stats.buildingsBuilt ?? 0,
+              moneySpent: snapshot?.stats.moneySpent ?? 0,
+              damageDealt: snapshot?.stats.damageDealt ?? 0,
+            }).catch(() => {})
+          }
           updateUserScore(token, detail.gold, detail.wave)
             .then(() => refreshScores())
             .catch(() => {})
@@ -132,9 +187,12 @@ export function useGame() {
           && hasSessionProgress(saved ?? {})
 
         if (canResume) {
+          savedSessionRef.current = data
           setMapSeed(data.mapSeed || 'default')
           setSessionId(data.sessionId ?? null)
           setResuming(true)
+        } else {
+          savedSessionRef.current = null
         }
       })
       .catch(() => {})
@@ -183,9 +241,11 @@ export function useGame() {
       if (!saved) return false
 
       ;(window as unknown as Record<string, unknown>).__sessionData = data
+      savedSessionRef.current = null
       latestSnapshotRef.current = null
       setUpgradeCards([])
       cardsShownRef.current = false
+      gameRecordedRef.current = false
 
       const waveBreakRemaining = saved.waveBreakRemaining ?? (saved.nextWaveIn ?? 0) * 1000
       const level = saved.level ?? 1
@@ -222,18 +282,21 @@ export function useGame() {
     latestSnapshotRef.current = null
     setUpgradeCards([])
     cardsShownRef.current = false
+    gameRecordedRef.current = false
     setGame({ ...initialState, stats: initialState.stats })
     setMapSeed(createMapSeed())
     window.dispatchEvent(new CustomEvent('td:restart'))
   }, [])
 
   const startNew = useCallback(() => {
+    recordAbandonedGame(savedSessionRef.current)
+    savedSessionRef.current = null
     latestSnapshotRef.current = null
     setResuming(false)
     setSessionId(null)
     if (token) void deleteSession(token).catch(() => {})
     restartGame()
-  }, [token, restartGame])
+  }, [token, restartGame, recordAbandonedGame])
 
   const waveButtonDisabled = !game.gameOver && (game.waveActive || game.wave > 0)
 
@@ -253,7 +316,9 @@ export function useGame() {
     const pending = latestSnapshotRef.current?.pendingUpgrades ?? 0
     if (pending > 0) {
       cardsShownRef.current = true
-      setUpgradeCards(generateUpgradeCards(3))
+      setUpgradeCards(
+        generateUpgradeCards(3, { wave: latestSnapshotRef.current?.wave ?? 0 }),
+      )
     } else {
       window.dispatchEvent(new Event('td:resume'))
     }
