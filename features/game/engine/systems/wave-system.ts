@@ -5,7 +5,6 @@ import {
 	waveEnemyCount,
 } from '../../domain/game-rules'
 import type { GameContext } from '../game-context'
-import { showWaveNotification } from '../ui/wave-notification'
 
 // Отвечает за старт волн, паузу между ними и награду за прохождение.
 export type WaveSystem = {
@@ -14,7 +13,14 @@ export type WaveSystem = {
 	checkComplete: () => void
 }
 
-export function createWaveSystem(ctx: GameContext): WaveSystem {
+type WaveHooks = {
+	onWaveComplete: () => void
+}
+
+export function createWaveSystem(
+	ctx: GameContext,
+	hooks: WaveHooks,
+): WaveSystem {
 	// Запускает первую волну по команде игрока.
 	// Последующие волны стартуют автоматически после короткой паузы.
 	function requestStart() {
@@ -51,7 +57,7 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 
 	// Запускает новую волну врагов.
 	function start() {
-		const { scene, state, setStatus } = ctx
+		const { state, setStatus } = ctx
 
 		// Запрещаем запуск волны одновременно с другой
 		// и не разрешаем продолжать игру после поражения.
@@ -63,8 +69,6 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 
 		// Сбрасываем паузу между волнами.
 		state.waveBreakRemaining = 0
-
-		showWaveNotification(scene, state.wave)
 
 		// Рассчитываем количество врагов в зависимости от номера волны.
 		state.spawnRemaining = waveEnemyCount(state.wave)
@@ -94,6 +98,9 @@ export function createWaveSystem(ctx: GameContext): WaveSystem {
 			// Начисляем награду за успешное завершение волны.
 			const reward = waveCompletionReward(state.wave)
 			state.gold += reward
+
+			// Следы от убитых врагов держатся только до конца волны.
+			hooks.onWaveComplete()
 
 			// Запускаем паузу, после которой следующая волна начнётся сама.
 			state.waveBreakRemaining = WAVE_BREAK_DURATION

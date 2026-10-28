@@ -25,6 +25,10 @@ export type SelectedTowerInfo = {
   damage: number
   range: number
   attackSpeed: number
+  crit: number
+  burn: number
+  chain: number
+  execute: number
   upgradeCost: number | null
   sellValue: number
 }

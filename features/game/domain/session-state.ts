@@ -1,4 +1,6 @@
 import {
+	BURN_DURATION,
+	CRIT_MULTIPLIER,
 	ENEMY_TYPES,
 	MAX_PENDING_UPGRADES,
 	MAX_TOWER_LEVEL,
@@ -28,6 +30,8 @@ export type SessionEnemy = {
 	pathIndex: number
 	routeIndex: number
 	slowTimer: number
+	burnDamage: number
+	burnTimer: number
 }
 
 // Только те поля, которые нужны для продолжения игры.
@@ -145,6 +149,8 @@ export function readSessionEnemy(raw: unknown): SessionEnemy | null {
 		pathIndex,
 		routeIndex,
 		slowTimer: nonNegative(enemy.slowTimer, 0),
+		burnDamage: nonNegative(enemy.burnDamage, 0),
+		burnTimer: nonNegative(enemy.burnTimer, 0),
 	}
 }
 
@@ -180,9 +186,16 @@ export function restoreBuffs(raw: unknown): TowerBuffs {
 
 		const buff = value as Record<string, unknown>
 		buffs[type] = {
+			...buffs[type],
 			damage: positive(buff.damage, 1),
 			range: positive(buff.range, 1),
 			speed: positive(buff.speed, 1),
+			crit: clamp(nonNegative(buff.crit, 0), 0, 0.75),
+			critPower: positive(buff.critPower, CRIT_MULTIPLIER),
+			burn: nonNegative(buff.burn, 0),
+			burnDuration: positive(buff.burnDuration, BURN_DURATION),
+			chain: clamp(Math.trunc(nonNegative(buff.chain, 0)), 0, 4),
+			execute: clamp(nonNegative(buff.execute, 0), 0, 0.5),
 		}
 	}
 
@@ -228,6 +241,10 @@ function positive(value: unknown, fallback: number) {
 	return typeof value === 'number' && Number.isFinite(value) && value > 0
 		? value
 		: fallback
+}
+
+function clamp(value: number, min: number, max: number) {
+	return Math.min(max, Math.max(min, value))
 }
 
 function nonNegative(value: unknown, fallback: number) {

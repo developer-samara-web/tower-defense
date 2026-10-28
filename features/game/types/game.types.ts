@@ -33,4 +33,7 @@ export type Enemy = {
   body: Phaser.GameObjects.Image
   healthBar: Phaser.GameObjects.Graphics
   slowTimer: number
+  // Поджог от карточек: урон в секунду и оставшееся время горения.
+  burnDamage: number
+  burnTimer: number
 }

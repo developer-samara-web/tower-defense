@@ -18,6 +18,18 @@ export type CameraController = {
 
 type CameraTarget = { x: number; y: number }
 
+// Минимальный зум, при котором камера ещё не показывает пустоту
+// за границами поля. Зависит от размера окна.
+export function minCameraZoom(camera: Phaser.Cameras.Scene2D.Camera) {
+	const bounds = camera.getBounds()
+	const fitZoom = Math.max(
+		camera.width / bounds.width,
+		camera.height / bounds.height,
+	)
+
+	return Math.max(CAMERA_MIN_ZOOM, Math.min(fitZoom, CAMERA_MAX_ZOOM))
+}
+
 // Подключает перемещение камеры: WASD/стрелки, перетаскивание
 // средней или правой кнопкой мыши и зум колесом.
 export function bindCameraControls(
@@ -48,18 +60,7 @@ export function bindCameraControls(
 
 	// Минимальный зум зависит от размера окна: нельзя отдалить карту
 	// сильнее, чем позволяют её границы, иначе камера начнёт «дрожать».
-	const minZoom = () => {
-		const bounds = camera.getBounds()
-		const fitZoom = Math.max(
-			camera.width / bounds.width,
-			camera.height / bounds.height,
-		)
-
-		return Math.max(
-			CAMERA_MIN_ZOOM,
-			Math.min(fitZoom, CAMERA_MAX_ZOOM),
-		)
-	}
+	const minZoom = () => minCameraZoom(camera)
 
 	const clampZoom = (zoom: number) =>
 		Phaser.Math.Clamp(zoom, minZoom(), CAMERA_MAX_ZOOM)

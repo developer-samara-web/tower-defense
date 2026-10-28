@@ -1,10 +1,6 @@
 import Phaser from 'phaser'
 
 import {
-	CAMERA_MAX_ZOOM,
-	CAMERA_MIN_ZOOM,
-} from '@/features/game/config/game.config'
-import {
 	createGameState,
 	resetGameState,
 	type GameState,
@@ -40,6 +36,7 @@ import { createWaveSystem, type WaveSystem } from '../systems/wave-system'
 import { connectBrowserControls } from '../ui/browser-controls'
 import {
 	bindCameraControls,
+	minCameraZoom,
 	type CameraController,
 } from '../ui/camera-controls'
 import { createHudBridge, type HudBridge } from '../ui/hud-bridge'
@@ -116,6 +113,7 @@ export class MainScene extends Phaser.Scene {
 			map,
 			mapSeedToNumber(this.mapSeed),
 		)
+		this.state.waterCells = new Set(map.waterCells)
 
 		// Создаём мост состояния и общий контекст для систем.
 		this.hud = createHudBridge(this.state, this)
@@ -134,7 +132,9 @@ export class MainScene extends Phaser.Scene {
 			onGameOver: () => this.handleGameOver(),
 		})
 		this.towers = createTowerSystem(this.context, this.enemies)
-		this.waves = createWaveSystem(this.context)
+		this.waves = createWaveSystem(this.context, {
+			onWaveComplete: () => this.enemies.clearBlood(),
+		})
 
 		// Загружаем сохранённую сессию, если она была передана из React.
 		this.restoreSession()
@@ -242,13 +242,9 @@ export class MainScene extends Phaser.Scene {
 			BOARD_PIXEL_HEIGHT,
 		)
 
-		const fitZoom = Math.min(
-			this.scale.width / BOARD_PIXEL_WIDTH,
-			this.scale.height / BOARD_PIXEL_HEIGHT,
-		)
-		const startZoom = Math.min(Math.max(fitZoom, CAMERA_MIN_ZOOM), CAMERA_MAX_ZOOM)
-
-		camera.setZoom(startZoom)
+		// Стартуем с зума, при котором поле заполняет окно целиком:
+		// иначе на широких экранах по краям видна пустота за границей поля.
+		camera.setZoom(minCameraZoom(camera))
 		camera.centerOn(CENTER_POINT.x, CENTER_POINT.y)
 	}
 
@@ -256,15 +252,7 @@ export class MainScene extends Phaser.Scene {
 	// а только не даём отдалить камеру сильнее границ мира.
 	private handleResize = () => {
 		const camera = this.cameras.main
-		const bounds = camera.getBounds()
-		const fitZoom = Math.max(
-			camera.width / bounds.width,
-			camera.height / bounds.height,
-		)
-		const minZoom = Math.max(
-			CAMERA_MIN_ZOOM,
-			Math.min(fitZoom, CAMERA_MAX_ZOOM),
-		)
+		const minZoom = minCameraZoom(camera)
 
 		if (camera.zoom < minZoom) {
 			camera.setZoom(minZoom)
@@ -333,20 +321,28 @@ export class MainScene extends Phaser.Scene {
 	private bindPauseControls() {
 		const pauseScene = () => {
 			this.pauseRequested = true
+			// После destroy() у ScenePlugin нет manager — событие прилетает
+			// от ещё не снятого слушателя, на паузу ставить уже нечего.
+			if (!this.scene.manager) return
 			if (this.scene.isActive()) this.scene.pause()
 		}
 		const resumeScene = () => {
 			this.pauseRequested = false
+			if (!this.scene.manager) return
 			if (this.scene.isPaused()) this.scene.resume()
 		}
 
 		window.addEventListener('td:pause', pauseScene)
 		window.addEventListener('td:resume', resumeScene)
 
-		this.events.once('shutdown', () => {
+		// При уничтожении игры SceneManager вызывает sys.destroy() без
+		// события shutdown, поэтому чистим слушатели на обоих событиях.
+		const cleanup = () => {
 			window.removeEventListener('td:pause', pauseScene)
 			window.removeEventListener('td:resume', resumeScene)
-		})
+		}
+		this.events.once('shutdown', cleanup)
+		this.events.once('destroy', cleanup)
 	}
 
 	// Возвращает игру в начальное состояние, не пересоздавая сцену.

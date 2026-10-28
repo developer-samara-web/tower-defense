@@ -1,10 +1,10 @@
 
-// Большой мир 125 × 125 клеток по 32 px = ровно 4000 × 4000 px.
+// Мир 100 × 100 клеток по 32 px = ровно 3200 × 3200 px.
 // Камера показывает только часть карты, поэтому игроку есть куда
 // исследовать и где строить оборону вдоль длинных дорог.
 export const CELL_SIZE = 32
-export const COLS = 125
-export const ROWS = 125
+export const COLS = 100
+export const ROWS = 100
 
 export const INITIAL_GOLD = 200
 export const INITIAL_LIVES = 20
@@ -23,18 +23,31 @@ export const FIRE_SPLASH_RADIUS = 55
 
 export const ICE_SLOW_DURATION = 1500
 
+// Модификаторы атаки из карточек улучшений.
+export const BURN_DURATION = 3000
+export const CHAIN_RADIUS = 100
+export const CHAIN_DAMAGE_FACTOR = 0.6
+export const CRIT_MULTIPLIER = 2
+
 export const HEALTH_BAR_WIDTH = 28
 export const HEALTH_BAR_HEIGHT = 4
 export const HEALTH_BAR_OFFSET = 19
 
-// Волна начинается с 7 врагов, и с каждой волной их становится больше.
-export const ENEMY_COUNT_BASE = 7
-export const ENEMY_COUNT_PER_WAVE = 1.5
+// Волна начинается с 10 врагов, и с каждой волной их становится больше.
+export const ENEMY_COUNT_BASE = 10
+export const ENEMY_COUNT_PER_WAVE = 2
 
-// Интервал между врагами сокращается, но не сильнее нижнего предела.
-export const ENEMY_SPAWN_INTERVAL = 800
-export const ENEMY_SPAWN_INTERVAL_STEP = 22
-export const ENEMY_SPAWN_INTERVAL_MIN = 320
+// Враги идут группами: внутри группы они появляются почти одновременно,
+// а между группами выдерживается пауза, чтобы игрок успевал реагировать.
+export const ENEMY_GROUP_SIZE_BASE = 3
+export const ENEMY_GROUP_SIZE_MAX = 6
+export const ENEMY_GROUP_SIZE_WAVES_PER_STEP = 4
+export const ENEMY_GROUP_SPAWN_INTERVAL = 140
+
+// Пауза перед новой группой сокращается, но не сильнее нижнего предела.
+export const ENEMY_SPAWN_INTERVAL = 950
+export const ENEMY_SPAWN_INTERVAL_STEP = 20
+export const ENEMY_SPAWN_INTERVAL_MIN = 380
 
 // Награда за пройденную волну растёт вместе с номером волны.
 export const WAVE_COMPLETION_BASE_REWARD = 20
@@ -127,7 +140,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 	scout: {
 		name: 'Разведчик',
 		baseHp: 55,
-		baseSpeed: 70,
+		baseSpeed: 77,
 		reward: 10,
 		xp: 8,
 		radius: 10,
@@ -136,7 +149,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 	brute: {
 		name: 'Громила',
 		baseHp: 130,
-		baseSpeed: 44,
+		baseSpeed: 48,
 		reward: 18,
 		xp: 16,
 		radius: 14,
@@ -145,7 +158,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 	sprinter: {
 		name: 'Спринтер',
 		baseHp: 38,
-		baseSpeed: 110,
+		baseSpeed: 121,
 		reward: 15,
 		xp: 11,
 		radius: 8,
@@ -154,7 +167,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 	boss: {
 		name: 'Босс',
 		baseHp: 460,
-		baseSpeed: 34,
+		baseSpeed: 37,
 		reward: 75,
 		xp: 60,
 		radius: 18,

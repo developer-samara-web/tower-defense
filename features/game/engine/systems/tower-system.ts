@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 
 import {
 	CELL_SIZE,
+	CHAIN_DAMAGE_FACTOR,
+	CHAIN_RADIUS,
 	FIRE_SPLASH_RADIUS,
 	ICE_SLOW_DURATION,
 	TOWER_TYPES,
@@ -40,6 +42,8 @@ export type TowerSystem = {
 	update: (delta: number) => void
 	clear: () => void
 }
+
+type TowerCombatStats = ReturnType<typeof towerStats>
 
 // Отвечает за выбор, строительство, улучшение и атаки башен.
 export function createTowerSystem(
@@ -84,10 +88,11 @@ export function createTowerSystem(
 		}
 
 		// Зелёная подсветка — строить можно, красная — клетка занята,
-		// это дорога или не хватает золота.
+		// это дорога, вода или не хватает золота.
 		const buildCheck = canBuildTower({
 			position: { x, y },
 			pathCells: state.pathCells,
+			waterCells: state.waterCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -212,10 +217,11 @@ export function createTowerSystem(
 		}
 
 		// Проверяем, можно ли строить башню: границы поля, дорогу,
-		// занятые клетки, золото и тип башни.
+		// воду, занятые клетки, золото и тип башни.
 		const buildCheck = canBuildTower({
 			position: { x, y },
 			pathCells: state.pathCells,
+			waterCells: state.waterCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -231,6 +237,12 @@ export function createTowerSystem(
 		// Запрещаем строительство на дороге.
 		if (buildCheck.reason === 'path') {
 			setStatus('На дороге строить нельзя.')
+			publish()
+			return
+		}
+
+		if (buildCheck.reason === 'water') {
+			setStatus('На воде строить нельзя.')
 			publish()
 			return
 		}
@@ -380,6 +392,61 @@ export function createTowerSystem(
 		return closest
 	}
 
+	// Наносит урон с учётом модификаторов: поджог и добивание.
+	function hitEnemy(enemy: Enemy, damage: number, stats: TowerCombatStats) {
+		enemies.damage(enemy, damage)
+
+		// Враг мог погибнуть от основного удара.
+		if (!ctx.state.enemies.includes(enemy)) return
+
+		if (stats.burn > 0) {
+			enemies.applyBurn(enemy, stats.burn, stats.burnDuration)
+		}
+
+		if (stats.execute > 0 && enemy.hp / enemy.maxHp <= stats.execute) {
+			enemies.damage(enemy, enemy.hp)
+		}
+	}
+
+	// Перекидывает часть урона на ближайших врагов рядом с целью.
+	function chainHit(source: Enemy, stats: TowerCombatStats, damage: number) {
+		const jumps = Math.floor(stats.chain)
+		if (jumps <= 0) return
+
+		const { scene, state } = ctx
+		const hit = new Set<Enemy>([source])
+		let current = source
+
+		for (let jump = 0; jump < jumps; jump++) {
+			let next: Enemy | null = null
+			let closestDistance = CHAIN_RADIUS
+
+			for (const enemy of state.enemies) {
+				if (hit.has(enemy)) continue
+				if (!isInsideBoardPoint(enemy.x, enemy.y)) continue
+
+				const distance = Phaser.Math.Distance.Between(
+					current.x,
+					current.y,
+					enemy.x,
+					enemy.y,
+				)
+
+				if (distance <= closestDistance) {
+					next = enemy
+					closestDistance = distance
+				}
+			}
+
+			if (!next) return
+
+			hit.add(next)
+			hitEnemy(next, Math.round(damage * CHAIN_DAMAGE_FACTOR), stats)
+			showHitFlash(scene, next.x, next.y, stats.color, 12)
+			current = next
+		}
+	}
+
 	// Обновляет башни: перезарядку, поиск целей и атаки.
 	function update(delta: number) {
 		const { scene, state } = ctx
@@ -412,6 +479,10 @@ export function createTowerSystem(
 			tower.cooldown = stats.attackSpeed
 			fireProjectile(scene, tower, target, stats.color)
 
+			// Критический удар наносит повышенный урон.
+			const crit = stats.crit > 0 && Math.random() < stats.crit
+			const damage = Math.round(stats.damage * (crit ? stats.critPower : 1))
+
 			// Огненная башня наносит урон всем врагам в радиусе взрыва вокруг цели.
 			if (tower.type === 'fire') {
 				for (const enemy of [...state.enemies]) {
@@ -423,12 +494,12 @@ export function createTowerSystem(
 					)
 
 					if (distance <= FIRE_SPLASH_RADIUS) {
-						enemies.damage(enemy, stats.damage)
+						hitEnemy(enemy, damage, stats)
 					}
 				}
 			} else {
 				// Остальные башни наносят урон только выбранной цели.
-				enemies.damage(target, stats.damage)
+				hitEnemy(target, damage, stats)
 
 				// Ледяная башня дополнительно замедляет выжившую цель.
 				if (tower.type === 'ice' && state.enemies.includes(target)) {
@@ -436,13 +507,16 @@ export function createTowerSystem(
 				}
 			}
 
+			// Карточки цепной атаки задевают врагов рядом с целью.
+			chainHit(target, stats, damage)
+
 			// Создаём визуальную вспышку в точке попадания.
 			showHitFlash(
 				scene,
 				target.x,
 				target.y,
 				stats.color,
-				tower.type === 'fire' ? 22 : 15,
+				crit ? 24 : tower.type === 'fire' ? 22 : 15,
 			)
 		}
 	}

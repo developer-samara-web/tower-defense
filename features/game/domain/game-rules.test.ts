@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+	BURN_DURATION,
+	CRIT_MULTIPLIER,
+	ENEMY_GROUP_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL_MIN,
 	INITIAL_GOLD,
 	MAX_TOWER_LEVEL,
@@ -9,6 +12,8 @@ import {
 import {
 	addExperience,
 	canBuildTower,
+	enemyGroupSize,
+	enemySpawnDelay,
 	enemySpawnInterval,
 	enemyStats,
 	enemyTypeForSpawn,
@@ -21,21 +26,22 @@ import {
 } from './game-rules.ts'
 
 test('allows building on an empty board cell when resources are sufficient', () => {
-	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
+	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
 })
 
 test('prevents invalid building placements', () => {
-	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
 })
 
 test('scales wave composition predictably', () => {
-	assert.equal(waveEnemyCount(1), 7)
+	assert.equal(waveEnemyCount(1), 10)
 	assert.deepEqual(
 		[1, 2, 3, 5, 10, 20].map(waveEnemyCount),
-		[7, 9, 10, 13, 21, 36],
+		[10, 12, 14, 18, 28, 48],
 	)
 	assert.equal(enemyTypeForSpawn(1, 0), 'scout')
 	assert.equal(enemyTypeForSpawn(2, 1), 'brute')
@@ -44,12 +50,23 @@ test('scales wave composition predictably', () => {
 	assert.deepEqual(enemyStats(3, 2), {
 		type: 'sprinter',
 		hp: 52,
-		speed: 113,
+		speed: 124,
 		reward: 17,
 		xp: 14,
 		radius: 8,
 		color: 0xf59e57,
 	})
+})
+
+test('sends enemies in growing groups', () => {
+	assert.deepEqual([1, 5, 9, 13, 100].map(enemyGroupSize), [3, 4, 5, 6, 6])
+
+	// Внутри группы враги появляются почти одновременно,
+	// а перед новой группой выдерживается заметная пауза.
+	assert.equal(enemySpawnDelay(1, 0), enemySpawnInterval(1))
+	assert.equal(enemySpawnDelay(1, 1), ENEMY_GROUP_SPAWN_INTERVAL)
+	assert.equal(enemySpawnDelay(1, 2), ENEMY_GROUP_SPAWN_INTERVAL)
+	assert.equal(enemySpawnDelay(1, 3), enemySpawnInterval(1))
 })
 
 test('spawns enemies faster each wave, but not faster than the limit', () => {
@@ -100,7 +117,18 @@ test('makes each wave noticeably stronger than the previous one', () => {
 })
 
 test('improves tower stats with each level', () => {
-	assert.deepEqual(towerStats('ice', 1), { damage: 10, range: 140, attackSpeed: 600, color: TOWER_TYPES.ice.color })
+	assert.deepEqual(towerStats('ice', 1), {
+		damage: 10,
+		range: 140,
+		attackSpeed: 600,
+		color: TOWER_TYPES.ice.color,
+		crit: 0,
+		critPower: CRIT_MULTIPLIER,
+		burn: 0,
+		burnDuration: BURN_DURATION,
+		chain: 0,
+		execute: 0,
+	})
 
 	const levelThree = towerStats('ice', 3)
 	assert.equal(levelThree.damage, 16)

@@ -30,6 +30,7 @@ export type GameState = {
 	selectedTower: TowerType | null
 	selectedBuiltTower: Tower | null
 	pathCells: Set<string>
+	waterCells: Set<string>
 	towerCells: Set<string>
 	towers: Tower[]
 	enemies: Enemy[]
@@ -52,6 +53,10 @@ export type SelectedTowerInfo = {
 	damage: number
 	range: number
 	attackSpeed: number
+	crit: number
+	burn: number
+	chain: number
+	execute: number
 	upgradeCost: number | null
 	sellValue: number
 }
@@ -82,6 +87,7 @@ export type GameSnapshot = {
 	enemyStates: SessionEnemy[]
 	towerCells: string[]
 	pathCells: string[]
+	waterCells: string[]
 	viewport: {
 		worldX: number
 		worldY: number
@@ -117,6 +123,7 @@ export function createGameState(): GameState {
 		selectedTower: null,
 		selectedBuiltTower: null,
 		pathCells: new Set(),
+		waterCells: new Set(),
 		towerCells: new Set(),
 		towers: [],
 		enemies: [],
@@ -155,9 +162,6 @@ export function resetGameState(state: GameState) {
 	state.stats.buildingsBuilt = 0
 	state.stats.moneySpent = 0
 	state.stats.damageDealt = 0
-	state.level = 1
-	state.xp = 0
-	state.pendingUpgrades = 0
 }
 
 export function buildSnapshot(
@@ -191,9 +195,12 @@ export function buildSnapshot(
 			pathIndex: enemy.pathIndex,
 			routeIndex: enemy.routeIndex,
 			slowTimer: enemy.slowTimer,
+			burnDamage: enemy.burnDamage,
+			burnTimer: enemy.burnTimer,
 		})),
 		towerCells: Array.from(state.towerCells),
 		pathCells: Array.from(state.pathCells),
+		waterCells: Array.from(state.waterCells),
 		viewport: null,
 		stats: state.stats,
 		buffs: state.buffs,
@@ -221,6 +228,10 @@ function describeTower(tower: Tower, buffs: TowerBuffs): SelectedTowerInfo {
 		damage: stats.damage,
 		range: stats.range,
 		attackSpeed: stats.attackSpeed,
+		crit: stats.crit,
+		burn: stats.burn,
+		chain: stats.chain,
+		execute: stats.execute,
 		upgradeCost: towerUpgradeCost(tower.type, tower.level),
 		sellValue: towerSellValue(tower.invested),
 	}

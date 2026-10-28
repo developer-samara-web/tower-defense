@@ -1,8 +1,14 @@
 import {
+	BURN_DURATION,
 	CELL_SIZE,
 	COLS,
+	CRIT_MULTIPLIER,
 	ENEMY_COUNT_BASE,
 	ENEMY_COUNT_PER_WAVE,
+	ENEMY_GROUP_SIZE_BASE,
+	ENEMY_GROUP_SIZE_MAX,
+	ENEMY_GROUP_SIZE_WAVES_PER_STEP,
+	ENEMY_GROUP_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL_MIN,
 	ENEMY_SPAWN_INTERVAL_STEP,
@@ -42,9 +48,10 @@ export function isBoardPosition({ x, y }: BoardPosition) {
 	return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < COLS && y >= 0 && y < ROWS
 }
 
-export function canBuildTower({ position, pathCells, towerCells, gold, towerType }: {
+export function canBuildTower({ position, pathCells, waterCells, towerCells, gold, towerType }: {
 	position: BoardPosition
 	pathCells: ReadonlySet<string>
+	waterCells: ReadonlySet<string>
 	towerCells: ReadonlySet<string>
 	gold: number
 	towerType: TowerType
@@ -52,6 +59,7 @@ export function canBuildTower({ position, pathCells, towerCells, gold, towerType
 	const key = cellKey(position)
 	if (!isBoardPosition(position)) return { allowed: false, reason: 'outside' as const }
 	if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
+	if (waterCells.has(key)) return { allowed: false, reason: 'water' as const }
 	if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
 	if (gold < TOWER_TYPES[towerType].cost) return { allowed: false, reason: 'gold' as const }
 	return { allowed: true, reason: null }
@@ -62,13 +70,29 @@ export function waveEnemyCount(wave: number) {
 	return Math.round(ENEMY_COUNT_BASE + (safeWave - 1) * ENEMY_COUNT_PER_WAVE)
 }
 
-// Враги появляются чаще с каждой волной, но не чаще нижнего предела.
+// Пауза перед новой группой врагов: сокращается с ростом волны.
 export function enemySpawnInterval(wave: number) {
 	const steps = Math.max(0, Math.trunc(wave) - 1)
 	return Math.max(
 		ENEMY_SPAWN_INTERVAL_MIN,
 		ENEMY_SPAWN_INTERVAL - steps * ENEMY_SPAWN_INTERVAL_STEP,
 	)
+}
+
+// Сколько врагов идёт в одной группе: на поздних волнах группы крупнее.
+export function enemyGroupSize(wave: number) {
+	const steps = Math.floor(
+		Math.max(0, Math.trunc(wave) - 1) / ENEMY_GROUP_SIZE_WAVES_PER_STEP,
+	)
+	return Math.min(ENEMY_GROUP_SIZE_MAX, ENEMY_GROUP_SIZE_BASE + steps)
+}
+
+// Задержка перед следующим врагом: короткая внутри группы
+// и длинная перед началом новой группы.
+export function enemySpawnDelay(wave: number, spawnedCount: number) {
+	const groupSize = enemyGroupSize(wave)
+	const startsNewGroup = spawnedCount === 0 || spawnedCount % groupSize === 0
+	return startsNewGroup ? enemySpawnInterval(wave) : ENEMY_GROUP_SPAWN_INTERVAL
 }
 
 // Бонус за пройденную волну растёт вместе с её номером.
@@ -152,14 +176,42 @@ export function addExperience(
 }
 
 // Характеристики башни с учётом уровня улучшения и бонусов от карточек.
-export type TowerBuff = { damage: number; range: number; speed: number }
+export type TowerBuff = {
+	damage: number
+	range: number
+	speed: number
+	// Шанс критического удара (0..1) и его множитель.
+	crit: number
+	critPower: number
+	// Урон в секунду от поджога и длительность горения.
+	burn: number
+	burnDuration: number
+	// Сколько дополнительных целей задевает атака.
+	chain: number
+	// Доля здоровья, ниже которой враг погибает сразу (0..1).
+	execute: number
+}
 export type TowerBuffs = Record<TowerType, TowerBuff>
+
+function createBuff(): TowerBuff {
+	return {
+		damage: 1,
+		range: 1,
+		speed: 1,
+		crit: 0,
+		critPower: CRIT_MULTIPLIER,
+		burn: 0,
+		burnDuration: BURN_DURATION,
+		chain: 0,
+		execute: 0,
+	}
+}
 
 export function createEmptyBuffs(): TowerBuffs {
 	return {
-		ice: { damage: 1, range: 1, speed: 1 },
-		fire: { damage: 1, range: 1, speed: 1 },
-		earth: { damage: 1, range: 1, speed: 1 },
+		ice: createBuff(),
+		fire: createBuff(),
+		earth: createBuff(),
 	}
 }
 
@@ -171,7 +223,7 @@ export function isInsideBoardPoint(x: number, y: number) {
 export function towerStats(type: TowerType, level: number, buffs?: TowerBuffs) {
 	const base = TOWER_TYPES[type]
 	const steps = Math.max(0, Math.min(level, MAX_TOWER_LEVEL) - 1)
-	const buff = buffs?.[type] ?? { damage: 1, range: 1, speed: 1 }
+	const buff = buffs?.[type] ?? createBuff()
 
 	return {
 		damage: Math.round(base.damage * (1 + steps * TOWER_DAMAGE_GROWTH) * buff.damage),
@@ -180,6 +232,12 @@ export function towerStats(type: TowerType, level: number, buffs?: TowerBuffs) {
 			base.attackSpeed * Math.pow(TOWER_ATTACK_SPEED_GROWTH, steps) * buff.speed,
 		),
 		color: base.color,
+		crit: buff.crit,
+		critPower: buff.critPower,
+		burn: buff.burn,
+		burnDuration: buff.burnDuration,
+		chain: buff.chain,
+		execute: buff.execute,
 	}
 }
 

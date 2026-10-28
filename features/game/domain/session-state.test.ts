@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { MAX_TOWER_LEVEL, TOWER_TYPES } from '../config/game.config.ts'
+import { BURN_DURATION, CRIT_MULTIPLIER, MAX_TOWER_LEVEL, TOWER_TYPES } from '../config/game.config.ts'
 import { buildSnapshot, createGameState } from './game-state.ts'
 import {
 	hasSessionProgress,
@@ -26,6 +26,20 @@ const validEnemy: SessionEnemy = {
 	pathIndex: 2,
 	routeIndex: 1,
 	slowTimer: 500,
+	burnDamage: 0,
+	burnTimer: 0,
+}
+
+const defaultBuff = {
+	damage: 1,
+	range: 1,
+	speed: 1,
+	crit: 0,
+	critPower: CRIT_MULTIPLIER,
+	burn: 0,
+	burnDuration: BURN_DURATION,
+	chain: 0,
+	execute: 0,
 }
 
 test('detects whether a game is worth saving', () => {
@@ -119,17 +133,17 @@ test('clamps restored towers to valid levels and falls back on invested gold', (
 
 test('restores buffs with safe defaults', () => {
 	assert.deepEqual(restoreBuffs(undefined), {
-		ice: { damage: 1, range: 1, speed: 1 },
-		fire: { damage: 1, range: 1, speed: 1 },
-		earth: { damage: 1, range: 1, speed: 1 },
+		ice: { ...defaultBuff },
+		fire: { ...defaultBuff },
+		earth: { ...defaultBuff },
 	})
 
 	assert.deepEqual(
-		restoreBuffs({ ice: { damage: 1.5, range: -2, speed: 0 } }),
+		restoreBuffs({ ice: { damage: 1.5, range: -2, speed: 0, crit: 2, chain: 9 } }),
 		{
-			ice: { damage: 1.5, range: 1, speed: 1 },
-			fire: { damage: 1, range: 1, speed: 1 },
-			earth: { damage: 1, range: 1, speed: 1 },
+			ice: { ...defaultBuff, damage: 1.5, crit: 0.75, chain: 4 },
+			fire: { ...defaultBuff },
+			earth: { ...defaultBuff },
 		},
 	)
 })

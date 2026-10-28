@@ -1,7 +1,8 @@
 import { ENEMY_TYPES } from '../../config/game.config'
 import {
 	addExperience,
-	enemySpawnInterval,
+	enemyGroupSize,
+	enemySpawnDelay,
 	enemyStats,
 	isInsideBoardPoint,
 } from '../../domain/game-rules'
@@ -18,7 +19,9 @@ export type EnemySystem = {
 	updateSpawning: (delta: number) => void
 	update: (delta: number) => void
 	damage: (enemy: Enemy, damage: number) => void
+	applyBurn: (enemy: Enemy, damagePerSecond: number, duration: number) => void
 	restore: (enemies: readonly SessionEnemy[]) => void
+	clearBlood: () => void
 	clear: () => void
 }
 
@@ -30,6 +33,33 @@ export function createEnemySystem(
 	ctx: GameContext,
 	hooks: EnemyHooks,
 ): EnemySystem {
+	// Маршрут текущей группы: враги внутри группы идут одной дорогой.
+	let groupRouteIndex: number | null = null
+
+	// Слой кровавых следов: лежит над дорогой, но под врагами,
+	// и живёт до конца текущей волны.
+	const bloodLayer = ctx.scene.add.graphics().setDepth(1.5)
+
+	// Оставляет красный след на месте гибели врага.
+	function leaveBlood(enemy: Enemy) {
+		const radius = ENEMY_TYPES[enemy.type].radius
+		const blobs = 4 + Math.floor(Math.random() * 4)
+
+		for (let i = 0; i < blobs; i++) {
+			const angle = Math.random() * Math.PI * 2
+			const distance = Math.random() * radius * 1.2
+			const size = radius * (0.25 + Math.random() * 0.5)
+
+			bloodLayer.fillStyle(i === 0 ? 0x7f0f14 : 0xa3181f, i === 0 ? 0.85 : 0.62)
+			bloodLayer.fillEllipse(
+				enemy.x + Math.cos(angle) * distance,
+				enemy.y + Math.sin(angle) * distance,
+				size * 2.1,
+				size * 1.6,
+			)
+		}
+	}
+
 	// Создаёт нового врага и добавляет его в игровой массив.
 	function spawn() {
 		const { scene, state } = ctx
@@ -40,12 +70,24 @@ export function createEnemySystem(
 			state.spawnedInWave,
 		)
 
+		// Начало новой группы выбирает случайную дорогу, остальные
+		// враги группы идут по ней же, чтобы двигаться плотно.
+		const { roadPoints } = ctx.map
+		const groupSize = enemyGroupSize(state.wave)
+		const startsNewGroup =
+			state.spawnedInWave === 0 || state.spawnedInWave % groupSize === 0
+		if (
+			startsNewGroup ||
+			groupRouteIndex === null ||
+			groupRouteIndex >= roadPoints.length
+		) {
+			groupRouteIndex = Math.floor(Math.random() * roadPoints.length)
+		}
+
 		// Увеличиваем счётчик созданных врагов текущей волны.
 		state.spawnedInWave++
 
-		// Получаем координаты начала случайной дороги.
-		const { roadPoints } = ctx.map
-		const routeIndex = Math.floor(Math.random() * roadPoints.length)
+		const routeIndex = groupRouteIndex
 		const route = roadPoints[routeIndex]
 		const start = route[0]
 
@@ -75,6 +117,8 @@ export function createEnemySystem(
 			route,
 			body,
 			healthBar,
+			burnDamage: 0,
+			burnTimer: 0,
 		}
 
 		state.enemies.push(enemy)
@@ -117,7 +161,7 @@ export function createEnemySystem(
 		// Создаём врага, когда подошло время и в волне ещё остались враги.
 		if (
 			state.spawnRemaining > 0 &&
-			state.spawnCooldown >= enemySpawnInterval(state.wave)
+			state.spawnCooldown >= enemySpawnDelay(state.wave, state.spawnedInWave)
 		) {
 			state.spawnCooldown = 0
 			spawn()
@@ -135,6 +179,16 @@ export function createEnemySystem(
 		// Обходим массив с конца, чтобы безопасно удалять врагов по индексу.
 		for (let i = state.enemies.length - 1; i >= 0; i--) {
 			const enemy = state.enemies[i]
+
+			// Поджог тикает независимо от движения и может добить врага.
+			if (enemy.burnTimer > 0 && enemy.burnDamage > 0) {
+				enemy.burnTimer = Math.max(0, enemy.burnTimer - delta)
+				damage(enemy, enemy.burnDamage * distancePerFrame)
+
+				// Враг погиб от огня — дальше обновлять нечего.
+				if (!state.enemies.includes(enemy)) continue
+				if (enemy.burnTimer === 0) enemy.body.clearTint()
+			}
 
 			// Определяем следующую точку маршрута для этого врага.
 			const target = enemy.route[enemy.pathIndex]
@@ -206,6 +260,9 @@ export function createEnemySystem(
 
 		// Если здоровье закончилось, уничтожаем врага.
 		if (enemy.hp <= 0) {
+			// Оставляем на дороге след, который держится до конца волны.
+			leaveBlood(enemy)
+
 			// Начисляем игроку награду за уничтожение.
 			state.gold += enemy.reward
 			state.stats.monstersKilled++
@@ -224,6 +281,16 @@ export function createEnemySystem(
 
 		// Если враг выжил, обновляем его полоску здоровья.
 		drawHealthBar(enemy)
+	}
+
+	// Поджигает врага: берём самый сильный поджог и продлеваем горение.
+	function applyBurn(enemy: Enemy, damagePerSecond: number, duration: number) {
+		const { state } = ctx
+		if (!state.enemies.includes(enemy)) return
+
+		enemy.burnDamage = Math.max(enemy.burnDamage, damagePerSecond)
+		enemy.burnTimer = Math.max(enemy.burnTimer, duration)
+		enemy.body.setTint(0xff7b3a)
 	}
 
 	// Возвращает на поле врагов, которые были живы на момент сохранения.
@@ -261,13 +328,22 @@ export function createEnemySystem(
 				routeIndex: saved.routeIndex,
 				route,
 				slowTimer: saved.slowTimer,
+				burnDamage: saved.burnDamage,
+				burnTimer: saved.burnTimer,
 				body,
 				healthBar,
 			}
 
 			state.enemies.push(enemy)
+			// Горящий враг должен выглядеть горящим и после загрузки.
+			if (enemy.burnTimer > 0) enemy.body.setTint(0xff7b3a)
 			drawHealthBar(enemy)
 		}
+	}
+
+	// Убирает все следы с дороги: следы живут только до конца волны.
+	function clearBlood() {
+		bloodLayer.clear()
 	}
 
 	// Удаляет всех врагов со сцены.
@@ -280,7 +356,17 @@ export function createEnemySystem(
 		}
 
 		state.enemies.length = 0
+		groupRouteIndex = null
+		bloodLayer.clear()
 	}
 
-	return { updateSpawning, update, damage, restore, clear }
+	return {
+		updateSpawning,
+		update,
+		damage,
+		applyBurn,
+		restore,
+		clearBlood,
+		clear,
+	}
 }

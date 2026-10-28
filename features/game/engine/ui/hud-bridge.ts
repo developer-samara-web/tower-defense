@@ -10,7 +10,7 @@ export type HudBridge = {
 
 // Размеры панели башни в React-интерфейсе (px).
 const PANEL_WIDTH = 232
-const PANEL_HEIGHT = 204
+const PANEL_HEIGHT = 260
 const PANEL_MARGIN = 8
 const PANEL_GAP = 10
 
