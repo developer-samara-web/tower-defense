@@ -8,12 +8,17 @@ type Props = {
   showInfo: boolean
 }
 
+// Логотип на игровом поле перекрывает карту — по умолчанию скрыт, ассет остаётся.
+const SHOW_FIELD_LOGO = false
+
 export default function GameHeader({ onLeaderboard, onInfo, onMenu, showLeaderboard, showInfo }: Props) {
   return (
     <>
-      <div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
-        <Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
-      </div>
+      {SHOW_FIELD_LOGO && (
+        <div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
+          <Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
+        </div>
+      )}
 
       <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
         <button

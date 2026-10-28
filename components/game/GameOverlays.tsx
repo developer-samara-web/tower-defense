@@ -1,7 +1,40 @@
 import { TOWER_TYPES } from '@/features/game/config/game.config'
-import type { UpgradeCard } from '@/features/game/domain/upgrade-cards'
+import {
+  RARITY_NAME,
+  type UpgradeCard,
+  type UpgradeRarity,
+} from '@/features/game/domain/upgrade-cards'
+import CloseButton from '@/components/ui/CloseButton'
 import { SelectedTowerInfo } from '@/types'
 import TowerDetails from './TowerDetails'
+
+// Цветовые схемы карточек по редкости: S — золото, A — фиолет,
+// B — тёмно-синий, C — синий.
+const RARITY_STYLE: Record<
+  UpgradeRarity,
+  { card: string; badge: string; accent: string }
+> = {
+  S: {
+    card: 'border-[#a97b1f] bg-gradient-to-b from-[#3a2a08] to-[#171109] shadow-[inset_0_0_18px_rgba(250,204,21,0.14)] hover:border-yellow-300',
+    badge: 'border-[#a97b1f] bg-[#4a3408] text-amber-200',
+    accent: 'text-amber-300',
+  },
+  A: {
+    card: 'border-[#6d4b9e] bg-gradient-to-b from-[#241a3a] to-[#12101c] shadow-[inset_0_0_16px_rgba(167,139,250,0.12)] hover:border-purple-300',
+    badge: 'border-[#7a5bb0] bg-[#2e1f4a] text-purple-200',
+    accent: 'text-purple-300',
+  },
+  B: {
+    card: 'border-[#2f4f7a] bg-gradient-to-b from-[#111d2e] to-[#0b0f16] shadow-[inset_0_0_16px_rgba(59,130,246,0.12)] hover:border-sky-400',
+    badge: 'border-[#3a6390] bg-[#15263c] text-sky-200',
+    accent: 'text-sky-300',
+  },
+  C: {
+    card: 'border-[#2c566e] bg-gradient-to-b from-[#0f2028] to-[#0b0f16] shadow-[inset_0_0_16px_rgba(34,211,238,0.1)] hover:border-cyan-400',
+    badge: 'border-[#2f6a7f] bg-[#12303c] text-cyan-200',
+    accent: 'text-cyan-300',
+  },
+}
 
 type Props = {
   gameOver: boolean
@@ -44,7 +77,7 @@ export default function GameOverlays({
         <div className="absolute top-[60px] right-3 z-50 w-56 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
           <div className="flex items-center justify-between border-b border-[#3a2a1a]/60 px-2 py-1.5">
             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">Топ</span>
-            <button onClick={onCloseLeaderboard} className="text-[10px] font-black text-[#8a7340] hover:text-amber-300">×</button>
+            <CloseButton onClick={onCloseLeaderboard} label="Закрыть топ игроков" />
           </div>
           <div className="max-h-48 overflow-y-auto px-2 py-1 space-y-0.5">
             {scores.length === 0 ? (
@@ -67,7 +100,7 @@ export default function GameOverlays({
         <div className="absolute top-[60px] right-3 z-50 w-60 max-h-[70vh] overflow-y-auto rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)]">
           <div className="sticky top-0 flex items-center justify-between border-b border-[#3a2a1a]/60 bg-[#1a1208] px-3 py-2">
             <span className="text-[10px] font-black uppercase tracking-[0.15em] text-sky-300">Управление</span>
-            <button onClick={onCloseInfo} className="text-[12px] font-black leading-none text-[#8a7340] hover:text-sky-300" aria-label="Закрыть">×</button>
+            <CloseButton onClick={onCloseInfo} label="Закрыть подсказки" />
           </div>
           <div className="space-y-2 px-3 py-2">
             <div>
@@ -137,14 +170,27 @@ export default function GameOverlays({
           <div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
             <h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Уровень {game.level}: выбери улучшение</h3>
             <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — одна из трёх карточек усилит башни</p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {upgradeCards.map((card) => (
-                <button key={card.id} onClick={() => onPickUpgrade(card)} className="group flex min-h-[120px] flex-col gap-2 border-2 border-[#4a3728] bg-gradient-to-b from-[#2a1d0a] to-[#171109] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-amber-400 hover:from-[#3a2a12] active:translate-y-0">
-                  <span className="w-fit border border-[#5c2d0e] bg-[#0f0a05]/60 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">{TOWER_TYPES[card.type].name}</span>
-                  <span className="text-[11px] font-black uppercase tracking-[0.08em] text-amber-100">{card.name}</span>
-                  <span className="mt-auto text-[10px] font-bold text-[#b5a17b]">{card.description}</span>
-                </button>
+            <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
+              {(['S', 'A', 'B', 'C'] as UpgradeRarity[]).map((rarity) => (
+                <span key={rarity} className={`text-[9px] font-black uppercase tracking-[0.12em] ${RARITY_STYLE[rarity].accent}`}>
+                  {rarity} · {RARITY_NAME[rarity]}
+                </span>
               ))}
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {upgradeCards.map((card) => {
+                const style = RARITY_STYLE[card.rarity]
+                return (
+                  <button key={card.id} onClick={() => onPickUpgrade(card)} title={RARITY_NAME[card.rarity]} className={`group flex min-h-[132px] flex-col gap-2 border-2 p-3 text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${style.card}`}>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="w-fit border border-[#5c2d0e] bg-[#0f0a05]/60 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">{TOWER_TYPES[card.type].name}</span>
+                      <span className={`border px-1.5 py-0.5 text-[10px] font-black leading-none ${style.badge}`}>{card.rarity}</span>
+                    </span>
+                    <span className="text-[11px] font-black uppercase tracking-[0.08em] text-amber-100">{card.name}</span>
+                    <span className={`mt-auto text-[10px] font-bold ${style.accent}`}>{card.description}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -154,12 +200,15 @@ export default function GameOverlays({
       {game.selectedBuiltTower && (
         <div className={game.panelPosition ? 'absolute z-50 w-[232px]' : 'absolute top-14 right-3 z-50 w-[232px]'} style={game.panelPosition ? { left: game.panelPosition.x, top: game.panelPosition.y } : undefined}>
           <TowerDetails
-            name={game.selectedBuiltTower.name}
             level={game.selectedBuiltTower.level}
             maxLevel={game.selectedBuiltTower.maxLevel}
             damage={game.selectedBuiltTower.damage}
             range={game.selectedBuiltTower.range}
             attackSpeed={game.selectedBuiltTower.attackSpeed}
+            crit={game.selectedBuiltTower.crit}
+            burn={game.selectedBuiltTower.burn}
+            chain={game.selectedBuiltTower.chain}
+            execute={game.selectedBuiltTower.execute}
             upgradeCost={game.selectedBuiltTower.upgradeCost}
             sellValue={game.selectedBuiltTower.sellValue}
             gold={game.gold}

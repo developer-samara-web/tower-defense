@@ -44,7 +44,7 @@ export default function GamePage() {
         <GameMenu
           onClose={ui.closeMenu}
           onStats={ui.openProfile}
-          onMainMenu={() => { startNew(); router.push('/menu') }}
+          onMainMenu={() => { ui.closeMenu(); router.push('/menu') }}
         />
       )}
       {ui.showProfile && (
@@ -62,19 +62,6 @@ export default function GamePage() {
           <div className="absolute inset-0 z-[95] flex items-center justify-center bg-[#0f0a05]/70">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">Загрузка…</p>
           </div>
-        )}
-        {/* Панели топа и подсказок занимают тот же угол, что и миникарта. */}
-        {!ui.showLeaderboard && !ui.showInfo && (
-          <MiniMap
-            pathCells={new Set(game.pathCells)}
-            towerCells={game.towerCells}
-            towers={game.towers}
-            enemies={game.enemyStates}
-            viewport={game.viewport ?? undefined}
-            onNavigate={(worldX, worldY) => {
-              window.dispatchEvent(new CustomEvent('td:camera-focus', { detail: { x: worldX, y: worldY } }))
-            }}
-          />
         )}
       </section>
 
@@ -97,7 +84,7 @@ export default function GamePage() {
         onResume={resumeGame}
         onStartNew={startNew}
         onRestart={restartGame}
-        onBackToMenu={() => router.push('/menu')}
+        onBackToMenu={() => { restartGame(); router.push('/menu') }}
         onPickUpgrade={pickUpgrade}
         onUpgrade={upgradeTower}
         onSell={sellTower}
@@ -117,6 +104,20 @@ export default function GamePage() {
         level={game.level}
         xp={game.xp}
         xpToNextLevel={game.xpToNextLevel}
+        buffs={game.buffs}
+        minimap={(
+          <MiniMap
+            pathCells={new Set(game.pathCells)}
+            waterCells={new Set(game.waterCells)}
+            towerCells={game.towerCells}
+            towers={game.towers}
+            enemies={game.enemyStates}
+            viewport={game.viewport ?? undefined}
+            onNavigate={(worldX, worldY) => {
+              window.dispatchEvent(new CustomEvent('td:camera-focus', { detail: { x: worldX, y: worldY } }))
+            }}
+          />
+        )}
         onSelectTower={selectTower}
         onStartWave={startWave}
         onRestart={restartGame}

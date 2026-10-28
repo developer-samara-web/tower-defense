@@ -2,11 +2,12 @@ import { useEffect, useRef } from 'react'
 
 import { CELL_SIZE, COLS, ROWS } from '@/features/game/config/game.config'
 
-const SIZE = 136
+const SIZE = 96
 const GRID_STEP = 25
 
 export default function MiniMap({
 	pathCells,
+	waterCells,
 	towerCells,
 	towers,
 	enemies,
@@ -14,6 +15,7 @@ export default function MiniMap({
 	onNavigate,
 }: {
 	pathCells?: ReadonlySet<string> | string[]
+	waterCells?: ReadonlySet<string> | string[]
 	towerCells?: ReadonlySet<string> | string[]
 	towers?: Array<{ id: string; x: number; y: number }>
 	enemies?: Array<{ x: number; y: number }>
@@ -102,6 +104,27 @@ export default function MiniMap({
 			}
 		}
 
+		// Реки — голубые пятна, чтобы их было видно и на миникарте.
+		if (waterCells) {
+			const setWater = typeof (waterCells as Set<string>).has === 'function'
+				? (waterCells as ReadonlySet<string>)
+				: new Set(waterCells as string[])
+
+			ctx.fillStyle = '#4fb8dd'
+
+			for (const key of setWater) {
+				const [cx, cy] = key.split(',').map(Number)
+				if (cx !== undefined && cy !== undefined) {
+					ctx.fillRect(
+						Math.round(cx * scale),
+						Math.round(cy * scale),
+						Math.max(1, Math.ceil(scale)),
+						Math.max(1, Math.ceil(scale)),
+					)
+				}
+			}
+		}
+
 		// Башни
 		const towerArr = towers ?? []
 		if (towerArr.length > 0) {
@@ -159,13 +182,10 @@ export default function MiniMap({
 		ctx.strokeStyle = '#79502b'
 		ctx.lineWidth = 1
 		ctx.strokeRect(0.5, 0.5, size - 1, size - 1)
-	}, [pathCells, towerCells, towers, enemies, viewport])
+	}, [pathCells, waterCells, towerCells, towers, enemies, viewport])
 
 	return (
-		<div className="absolute top-[70px] right-3 z-50 w-[136px] h-[136px] border-2 border-[#3a2a1a] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.9)] rounded-none overflow-hidden backdrop-blur-sm">
-			<p className="absolute top-0.5 left-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#8a7340] select-none pointer-events-none">
-				Карта
-			</p>
+		<div className="relative h-[77px] w-[77px] shrink-0 overflow-hidden border-2 border-[#3a2a1a] bg-[#0f0a05]/90 shadow-[0_4px_12px_rgba(0,0,0,0.6)] backdrop-blur-sm sm:h-[92px] sm:w-[92px]">
 			<canvas
 				ref={ref}
 				className="w-full h-full block"

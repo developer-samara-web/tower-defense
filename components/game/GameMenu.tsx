@@ -1,3 +1,5 @@
+import CloseButton from '@/components/ui/CloseButton'
+
 type GameMenuProps = {
 	onClose: () => void
 	onStats: () => void
@@ -17,14 +19,7 @@ export default function GameMenu({ onClose, onStats, onMainMenu }: GameMenuProps
 					<h2 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">
 						Меню
 					</h2>
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label="Закрыть меню"
-						className="text-lg font-black leading-none text-[#8a7340] transition-colors hover:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-					>
-						×
-					</button>
+					<CloseButton onClick={onClose} label="Закрыть меню" size="md" />
 				</div>
 
 				<div className="space-y-2">
