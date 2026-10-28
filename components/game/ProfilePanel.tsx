@@ -4,6 +4,9 @@ import Image from 'next/image'
 import { useEffect } from 'react'
 
 import type { PlayerProfile, PlayerScore } from '@/features/account/types'
+import CloseButton from '@/components/ui/CloseButton'
+import GameHistory from './GameHistory'
+import { useGameHistory } from '@/hooks/useGameHistory'
 
 type Props = {
   user: PlayerProfile | null
@@ -13,6 +16,8 @@ type Props = {
 }
 
 export default function ProfilePanel({ user, scores, onRefresh, onClose }: Props) {
+  const history = useGameHistory()
+
   useEffect(() => {
     void onRefresh()
   }, [onRefresh])
@@ -32,14 +37,7 @@ export default function ProfilePanel({ user, scores, onRefresh, onClose }: Props
       <div className="max-h-[88vh] w-full max-w-md overflow-y-auto border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)]">
         <div className="mb-3 flex items-center justify-between border-b border-[#3a2a1a] pb-2">
           <h2 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Статистика</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Закрыть статистику"
-            className="text-lg font-black leading-none text-[#8a7340] transition-colors hover:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-          >
-            ×
-          </button>
+          <CloseButton onClick={onClose} label="Закрыть статистику" size="md" />
         </div>
 
         <div className="flex items-center gap-3">
@@ -77,21 +75,20 @@ export default function ProfilePanel({ user, scores, onRefresh, onClose }: Props
 
         <div className="mt-3 border border-[#3a2a1a] bg-[#0f0a05]/60">
           <div className="flex items-center justify-between border-b border-[#3a2a1a] px-2 py-1.5">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Топ игроков</span>
-            <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">Лучшие результаты</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-300">Мои игры</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">Последние результаты</span>
           </div>
-          <div className="max-h-52 overflow-y-auto px-2 py-1">
-            {scores.length === 0 ? (
-              <p className="px-1 py-3 text-center text-[9px] font-bold text-[#5c3a1a]">Нет рекордов</p>
-            ) : (
-              scores.map((score, index) => (
-                <div key={score.id} className={`flex items-center gap-2 border-b border-[#3a2a1a]/40 py-1 text-[10px] font-bold last:border-b-0 ${score.id === user?.id ? 'text-lime-300' : 'text-amber-100'}`}>
-                  <span className="w-4 text-center font-black text-amber-400">{index + 1}</span>
-                  <span className="min-w-0 truncate">{score.login || 'Герой'}</span>
-                  <span className="ml-auto tabular-nums text-amber-300">{score.wave}в · {score.gold}з</span>
-                </div>
-              ))
-            )}
+          <div className="max-h-64 overflow-y-auto">
+            <GameHistory
+              games={history.games}
+              hasMore={history.hasMore}
+              loading={history.loading}
+              loadingMore={history.loadingMore}
+              error={history.error}
+              locked={history.locked}
+              onLoadMore={history.loadMore}
+              onRetry={history.refresh}
+            />
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 import Image from 'next/image'
 
-import ScoreTable from '@/components/menu/ScoreTable'
+import GameHistory from '@/components/game/GameHistory'
 import type { PlayerProfile, PlayerScore } from '@/features/account/types'
+import { useGameHistory } from '@/hooks/useGameHistory'
 
 type ProfileScreenProps = {
 	user: PlayerProfile | null
@@ -11,6 +12,7 @@ type ProfileScreenProps = {
 }
 
 export default function ProfileScreen({ user, scores, onBack, backLabel }: ProfileScreenProps) {
+	const history = useGameHistory()
 	const record = user?.record ?? 0
 	const rankIndex = user ? scores.findIndex((score) => score.id === user.id) : -1
 	const rank = rankIndex >= 0 ? rankIndex + 1 : null
@@ -71,11 +73,22 @@ export default function ProfileScreen({ user, scores, onBack, backLabel }: Profi
 
 				<div className="mt-3 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
 					<div className="flex items-center justify-between border-b border-[#3a2a1a] px-3 py-2">
-						<span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Топ игроков</span>
-						<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">Лучшие результаты</span>
+						<span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Мои игры</span>
+						<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">Последние результаты</span>
 					</div>
 
-					<ScoreTable scores={scores} currentUserId={user?.id} />
+					<div className="max-h-[52vh] overflow-y-auto">
+						<GameHistory
+							games={history.games}
+							hasMore={history.hasMore}
+							loading={history.loading}
+							loadingMore={history.loadingMore}
+							error={history.error}
+							locked={history.locked}
+							onLoadMore={history.loadMore}
+							onRetry={history.refresh}
+						/>
+					</div>
 				</div>
 			</div>
 		</main>
