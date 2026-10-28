@@ -6,6 +6,8 @@ export type RoadPoint = { x: number; y: number }
 export type GameMap = {
 	roads: Road[]
 	roadPoints: RoadPoint[][]
+	// Клетки, занятые водой: на них нельзя строить башни.
+	waterCells: string[]
 }
 
 // Центр карты — здесь стоит замок, который защищает игрок.
@@ -16,6 +18,26 @@ export const CENTER_CELL: [number, number] = [
 
 // Замок занимает квадрат 3×3 клетки вокруг центра.
 export const CASTLE_SIZE = 3
+
+// Водоёмы занимают рамку не больше 6×6 клеток, но форму набирают
+// случайно: это связная фигура из клеток, а не обязательно прямоугольник.
+export const RIVER_COUNT = 18
+export const RIVER_MAX_SIZE = 6
+const RIVER_MIN_CELLS = 3
+
+// Дороги, замок и ворота должны оставаться на суше.
+const ROAD_CLEARANCE = 2
+
+// Между водоёмами оставляем полосу травы, иначе они сливаются в одно озеро.
+const RIVER_CLEARANCE = 1
+
+const CELL_NEIGHBORS: Array<[number, number]> = [
+	[1, 0],
+	[-1, 0],
+	[0, 1],
+	[0, -1],
+]
+
 export const CASTLE_CELLS: string[] = (() => {
 	const [cx, cy] = CENTER_CELL
 	const cells: string[] = []
@@ -182,14 +204,179 @@ function toPoint([x, y]: [number, number]): RoadPoint {
 	}
 }
 
+function parseCell(key: string): [number, number] {
+	const [x = 0, y = 0] = key.split(',').map(Number)
+	return [x, y]
+}
+
+// Помечает клетку вместе с запасом вокруг неё.
+function reserveCell(reserved: Set<string>, key: string, clearance: number) {
+	const [x, y] = parseCell(key)
+	reserveArea(reserved, x, y, 1, 1, clearance)
+}
+
+// Помечает прямоугольник вместе с запасом вокруг него.
+function reserveArea(
+	reserved: Set<string>,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	clearance: number,
+) {
+	for (let cy = y - clearance; cy < y + height + clearance; cy++) {
+		for (let cx = x - clearance; cx < x + width + clearance; cx++) {
+			reserved.add(`${cx},${cy}`)
+		}
+	}
+}
+
+// Клетки вдоль осей дороги — по ним строим запас вокруг дорог.
+function roadCells(roads: Road[]): string[] {
+	const cells = new Set<string>()
+
+	for (const road of roads) {
+		for (let i = 0; i < road.length - 1; i++) {
+			const [startX, startY] = road[i]
+			const [endX, endY] = road[i + 1]
+			const steps = Math.max(Math.abs(endX - startX), Math.abs(endY - startY))
+
+			for (let step = 0; step <= steps; step++) {
+				const t = step / Math.max(1, steps)
+				const x = Math.round(startX + (endX - startX) * t)
+				const y = Math.round(startY + (endY - startY) * t)
+				cells.add(`${x},${y}`)
+			}
+		}
+	}
+
+	return Array.from(cells)
+}
+
+type WaterShape = {
+	width: number
+	height: number
+	cells: Array<[number, number]>
+}
+
+// Случайная связная фигура внутри рамки: стартуем с одной клетки
+// и наращиваем форму соседними клетками.
+function buildWaterShape(random: () => number): WaterShape {
+	const width = randomInt(random, 2, RIVER_MAX_SIZE)
+	const height = randomInt(random, 2, RIVER_MAX_SIZE)
+	const target = randomInt(random, RIVER_MIN_CELLS, width * height)
+
+	const cells = new Set<string>()
+	cells.add(`${randomInt(random, 0, width - 1)},${randomInt(random, 0, height - 1)}`)
+
+	for (let attempt = 0; attempt < 200 && cells.size < target; attempt++) {
+		const keys = Array.from(cells)
+		const [x, y] = parseCell(keys[Math.floor(random() * keys.length)] ?? '0,0')
+		const [dx, dy] = CELL_NEIGHBORS[Math.floor(random() * CELL_NEIGHBORS.length)] ?? [0, 0]
+		const nx = x + dx
+		const ny = y + dy
+
+		if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
+
+		cells.add(`${nx},${ny}`)
+	}
+
+	fillWaterHoles(cells, width, height)
+
+	return {
+		width,
+		height,
+		cells: Array.from(cells).map((key) => parseCell(key)),
+	}
+}
+
+// Наращивание формы может оставить внутри пустую клетку — водоём
+// получится бубликом. Берег такого бублика рисует кольцо в воде,
+// поэтому все замкнутые пустоты внутри рамки заливаем.
+function fillWaterHoles(cells: Set<string>, width: number, height: number) {
+	const outside = new Set<string>()
+	const queue: Array<[number, number]> = []
+
+	for (let x = 0; x < width; x++) {
+		queue.push([x, 0], [x, height - 1])
+	}
+
+	for (let y = 0; y < height; y++) {
+		queue.push([0, y], [width - 1, y])
+	}
+
+	// Всё, до чего можно дойти от края рамки по сухим клеткам, — не дырка.
+	while (queue.length > 0) {
+		const [x, y] = queue.pop() as [number, number]
+		const key = `${x},${y}`
+
+		if (cells.has(key) || outside.has(key)) continue
+		outside.add(key)
+
+		for (const [dx, dy] of CELL_NEIGHBORS) {
+			const nx = x + dx
+			const ny = y + dy
+
+			if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
+			if (!outside.has(`${nx},${ny}`)) queue.push([nx, ny])
+		}
+	}
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const key = `${x},${y}`
+			if (!cells.has(key) && !outside.has(key)) cells.add(key)
+		}
+	}
+}
+
+// Разбрасывает водоёмы по свободной траве. Неудачные попытки просто
+// пропускаем: карта должна остаться просторной, а не забитой водой.
+function buildWaterCells(random: () => number, roads: Road[]): string[] {
+	const reserved = new Set<string>()
+	const [cx, cy] = CENTER_CELL
+	const castleHalf = Math.floor(CASTLE_SIZE / 2)
+
+	reserveArea(reserved, cx - castleHalf, cy - castleHalf, CASTLE_SIZE, CASTLE_SIZE, ROAD_CLEARANCE)
+
+	for (const key of roadCells(roads)) {
+		reserveCell(reserved, key, ROAD_CLEARANCE)
+	}
+
+	const water: string[] = []
+
+	for (let i = 0; i < RIVER_COUNT; i++) {
+		for (let attempt = 0; attempt < 80; attempt++) {
+			const shape = buildWaterShape(random)
+			// Одна клетка отступа от края, чтобы водоём целиком лежал на поле.
+			const offsetX = randomInt(random, 1, COLS - shape.width - 1)
+			const offsetY = randomInt(random, 1, ROWS - shape.height - 1)
+
+			const placed = shape.cells.map(
+				([x, y]) => `${x + offsetX},${y + offsetY}`,
+			)
+
+			if (!placed.every((key) => !reserved.has(key))) continue
+
+			water.push(...placed)
+			for (const key of placed) reserveCell(reserved, key, RIVER_CLEARANCE)
+			break
+		}
+	}
+
+	return water
+}
+
 // 4 дороги с разных сторон к воротам центрального замка.
 export function createGameMap(seed: string | number): GameMap {
 	const random = createSeededRandom(mapSeedToNumber(seed))
 	const roads = buildRoads(random)
+	const waterCells = buildWaterCells(random, roads)
 
 	return {
 		roads,
 		roadPoints: roads.map((road) => road.map(toPoint)),
+		waterCells,
 	}
 }
 
