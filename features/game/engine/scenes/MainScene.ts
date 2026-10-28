@@ -91,17 +91,11 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('gate-right', '/game/path/gate-right.png')
 		this.load.image('gate-top', '/game/path/gate-top.png')
 
-		// Квадратные пропсы для живой карты.
+		// Квадратные текстуры для живой карты.
 		;[
-			'tree-1', 'tree-2', 'tree-3',
-			'stone-1', 'stone-2', 'stone-3',
-			'bush-1', 'bush-2', 'bush-3',
-			'grass-1', 'grass-2',
-			'grass_flowers-1', 'grass_flowers-2', 'grass_flowers-3', 'grass_flowers-4',
-			'road-1', 'road-2', 'road-3', 'road-main',
-			'shore-side-top', 'shore-side-right', 'shore-side-left', 'shore-side-bottom',
-			'shore-right-top', 'shore-right-bottom', 'shore-left-top', 'shore-left-bottom',
-			'bridge-1',
+			'grass',
+			'river',
+			'path',
 		].forEach((key) => this.load.image(key, `/game/grid/${key}.png`))
 	}
 
