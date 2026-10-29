@@ -1,17 +1,13 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import MainMenu from '@/components/menu/MainMenu'
-import PlayMenu from '@/components/menu/PlayMenu'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function MenuPage() {
   const router = useRouter()
-  const { user, logout } = useAuth()
-  const [showPlayMenu, setShowPlayMenu] = useState(false)
+  const { user, token, logout, setUser } = useAuth()
 
-  const goRandomMap = () => router.push('/game')
   const goProfile = () => router.push('/profile')
   const goLeaderboard = () => router.push('/leaderboard')
   const handleLogout = () => {
@@ -19,20 +15,12 @@ export default function MenuPage() {
     router.push('/auth')
   }
 
-  if (showPlayMenu) {
-    return (
-      <PlayMenu
-        user={user}
-        onBack={() => setShowPlayMenu(false)}
-        onRandomMap={goRandomMap}
-      />
-    )
-  }
-
   return (
     <MainMenu
       user={user}
-      onPlay={() => setShowPlayMenu(true)}
+      token={token}
+      onUserChange={setUser}
+      onPlay={() => router.push('/play')}
       onProfile={goProfile}
       onLeaderboard={goLeaderboard}
       onLogout={handleLogout}

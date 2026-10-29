@@ -1,14 +1,21 @@
-import { ENEMY_TYPES } from '../../config/game.config'
+import {
+	CUSTOM_ENEMY_SPAWN_INTERVAL,
+	ENEMY_TYPES,
+	WAVE_REWARD_GROWTH,
+	type EnemyType,
+} from '../../config/game.config'
 import {
 	addExperience,
 	enemyGroupSize,
 	enemySpawnDelay,
 	enemyStats,
 	isInsideBoardPoint,
+	xpForKill,
 } from '../../domain/game-rules'
 import type { SessionEnemy } from '../../domain/session-state'
 import type { Enemy } from '../../types/game.types'
 import type { GameContext } from '../game-context'
+import { waveModifiers, waveSpawnUnits } from '../map/custom-waves'
 import { createEnemyView, drawHealthBar } from '../rendering/enemy-view'
 
 type EnemyHooks = {
@@ -63,55 +70,96 @@ export function createEnemySystem(
 	// Создаёт нового врага и добавляет его в игровой массив.
 	function spawn() {
 		const { scene, state } = ctx
+		const roads = ctx.map.routes ?? ctx.map.roadPoints
+		const spawners = ctx.map.spawners
 
-		// Получаем характеристики врага: тип, здоровье, скорость, награду и цвет.
-		const { type, hp, speed, reward, xp, radius, color } = enemyStats(
-			state.wave,
-			state.spawnedInWave,
-		)
+		// В пользовательской карте план волны задаёт, какая казарма
+		// и какой вид монстров выпускает врага следующим.
+		const unit =
+			spawners.length > 0
+				? waveSpawnUnits(ctx.map, state.wave)[state.spawnedInWave]
+				: undefined
 
-		// Начало новой группы выбирает случайную дорогу, остальные
-		// враги группы идут по ней же, чтобы двигаться плотно.
-		const { roadPoints } = ctx.map
-		const groupSize = enemyGroupSize(state.wave)
-		const startsNewGroup =
-			state.spawnedInWave === 0 || state.spawnedInWave % groupSize === 0
-		if (
-			startsNewGroup ||
-			groupRouteIndex === null ||
-			groupRouteIndex >= roadPoints.length
-		) {
-			groupRouteIndex = Math.floor(Math.random() * roadPoints.length)
+		let routeIndex: number
+		let stats: {
+			type: EnemyType
+			hp: number
+			speed: number
+			reward: number
+			xp: number
+			radius: number
+			color: number
+			damage: number
+		}
+
+		if (unit) {
+			const troop = unit.troop
+			const base = ENEMY_TYPES[troop.type]
+			const level = Math.max(0, state.wave - 1)
+			const modifiers = waveModifiers(ctx.map.waves, state.wave)
+
+			routeIndex = unit.spawnerIndex
+			stats = {
+				type: troop.type,
+				hp: Math.max(1, Math.round(troop.health * modifiers.health)),
+				speed: Math.max(1, Math.round(troop.speed * modifiers.speed)),
+				reward: Math.round(base.reward * (1 + level * WAVE_REWARD_GROWTH)),
+				xp: xpForKill(troop.type, state.wave),
+				radius: base.radius,
+				color: base.color,
+				damage: troop.strength,
+			}
+		} else if (spawners.length > 0) {
+			// План волны закончился (например, сохранение от старой карты).
+			return
+		} else {
+			// Начало новой группы выбирает случайную дорогу, остальные
+			// враги группы идут по ней же, чтобы двигаться плотно.
+			const groupSize = enemyGroupSize(state.wave)
+			const startsNewGroup =
+				state.spawnedInWave === 0 || state.spawnedInWave % groupSize === 0
+			if (
+				startsNewGroup ||
+				groupRouteIndex === null ||
+				groupRouteIndex >= roads.length
+			) {
+				groupRouteIndex = Math.floor(Math.random() * roads.length)
+			}
+
+			routeIndex = groupRouteIndex
+			stats = { ...enemyStats(state.wave, state.spawnedInWave), damage: 1 }
 		}
 
 		// Увеличиваем счётчик созданных врагов текущей волны.
 		state.spawnedInWave++
 
-		const routeIndex = groupRouteIndex
-		const route = roadPoints[routeIndex]
-		const start = route[0]
+		if (routeIndex < 0 || routeIndex >= roads.length) routeIndex = 0
+		const route = roads[routeIndex]
+		const start = route?.[0]
+		if (!route || !start) return
 
 		// Создаём тело врага и полоску здоровья.
 		const { body, healthBar } = createEnemyView(
 			scene,
 			start.x,
 			start.y,
-			radius,
-			color,
-			type,
+			stats.radius,
+			stats.color,
+			stats.type,
 		)
 
 		// Добавляем врага в массив активных врагов.
 		const enemy: Enemy = {
-			type,
+			type: stats.type,
 			x: start.x,
 			y: start.y,
 			slowTimer: 0,
-			hp,
-			maxHp: hp,
-			speed,
-			reward,
-			xp,
+			hp: stats.hp,
+			maxHp: stats.hp,
+			speed: stats.speed,
+			damage: stats.damage,
+			reward: stats.reward,
+			xp: stats.xp,
 			pathIndex: 1,
 			routeIndex,
 			route,
@@ -138,11 +186,17 @@ export function createEnemySystem(
 
 		if (!reachedExit) return
 
-		// Если враг достиг выхода, игрок теряет одну жизнь.
-		state.lives--
+		// Каждый враг снимает прочность замка: у обычных карт это одна
+		// жизнь, у пользовательских — сила, заданная в казарме.
+		const damageToCastle = Math.max(1, Math.round(enemy.damage))
+		state.lives = Math.max(0, state.lives - damageToCastle)
 
 		// Сообщаем игроку о прорыве врага.
-		setStatus('Враг прорвался! Потеряна 1 жизнь.')
+		setStatus(
+			ctx.map.spawners.length > 0
+				? `Враг прорвался! Замок потерял ${damageToCastle} прочности.`
+				: 'Враг прорвался! Потеряна 1 жизнь.',
+		)
 
 		// Если жизни закончились, игра завершена.
 		if (state.lives <= 0) {
@@ -158,11 +212,14 @@ export function createEnemySystem(
 		// Увеличиваем таймер появления врагов на время прошедшего кадра.
 		state.spawnCooldown += delta
 
+		// В пользовательской карте казармы выпускают врагов ровным потоком.
+		const delay =
+			ctx.map.spawners.length > 0
+				? CUSTOM_ENEMY_SPAWN_INTERVAL
+				: enemySpawnDelay(state.wave, state.spawnedInWave)
+
 		// Создаём врага, когда подошло время и в волне ещё остались враги.
-		if (
-			state.spawnRemaining > 0 &&
-			state.spawnCooldown >= enemySpawnDelay(state.wave, state.spawnedInWave)
-		) {
+		if (state.spawnRemaining > 0 && state.spawnCooldown >= delay) {
 			state.spawnCooldown = 0
 			spawn()
 			state.spawnRemaining--
@@ -296,7 +353,7 @@ export function createEnemySystem(
 	// Возвращает на поле врагов, которые были живы на момент сохранения.
 	function restore(entries: readonly SessionEnemy[]) {
 		const { scene, state } = ctx
-		const routes = ctx.map.roadPoints
+		const routes = ctx.map.routes ?? ctx.map.roadPoints
 
 		for (const saved of entries.slice(0, MAX_RESTORED_ENEMIES)) {
 			const route = routes[saved.routeIndex]
@@ -322,6 +379,7 @@ export function createEnemySystem(
 				hp: saved.hp,
 				maxHp: saved.maxHp,
 				speed: saved.speed,
+				damage: 1,
 				reward: saved.reward,
 				xp: saved.xp,
 				pathIndex: saved.pathIndex,

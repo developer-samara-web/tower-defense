@@ -6,6 +6,8 @@ import { towerStats, type TowerBuffs } from '@/features/game/domain/game-rules'
 type Props = {
   gold: number
   lives: number
+  // Прочность замка на старте: у пользовательской карты она своя.
+  maxLives: number
   wave: number
   waveActive: boolean
   gameOver: boolean
@@ -33,12 +35,14 @@ const towerDefs = (
 }))
 
 export default function GameHUD({
-  gold, lives, wave, waveActive, gameOver, selectedTower,
+  gold, lives, maxLives, wave, waveActive, gameOver, selectedTower,
   status, level, xp, xpToNextLevel, buffs, minimap,
   onSelectTower, onStartWave, onRestart, waveButtonDisabled,
 }: Props) {
   const xpPercent = xpToNextLevel > 0 ? Math.max(0, Math.min(100, (xp / xpToNextLevel) * 100)) : 0
-  const livesPercent = Math.max(0, Math.min(100, (lives / 20) * 100))
+  const livesTotal = Math.max(1, maxLives)
+  const livesRatio = lives / livesTotal
+  const livesPercent = Math.max(0, Math.min(100, livesRatio * 100))
   return (
     <>
       {/* Status above bar */}
@@ -61,11 +65,11 @@ export default function GameHUD({
               {/* Health and experience */}
               <div className="flex flex-col gap-1 border-b-2 border-[#3c2a16] pb-1">
                 {/* Health */}
-                <div className="group relative h-[12px] sm:h-[14px] w-full overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]" role="progressbar" aria-label="Здоровье замка" aria-valuemin={0} aria-valuemax={20} aria-valuenow={Math.max(0, Math.min(20, lives))}>
-                  <div className={`absolute inset-y-0 left-0 transition-[width] duration-300 ${lives / 20 <= 0.25 ? 'bg-[#e53935]' : lives / 20 <= 0.5 ? 'bg-[#f2b632]' : 'bg-[#65c943]'}`} style={{ width: `${livesPercent}%` }}>
+                <div className="group relative h-[12px] sm:h-[14px] w-full overflow-hidden border-2 border-[#68451f] bg-[#21100c] shadow-[inset_0_1px_3px_#000]" role="progressbar" aria-label="Здоровье замка" aria-valuemin={0} aria-valuemax={livesTotal} aria-valuenow={Math.max(0, Math.min(livesTotal, lives))}>
+                  <div className={`absolute inset-y-0 left-0 transition-[width] duration-300 ${livesRatio <= 0.25 ? 'bg-[#e53935]' : livesRatio <= 0.5 ? 'bg-[#f2b632]' : 'bg-[#65c943]'}`} style={{ width: `${livesPercent}%` }}>
                     <div className="absolute inset-x-0 top-0 h-[2px] bg-white/30" />
                   </div>
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-black tabular-nums text-white/90 drop-shadow-[0_1px_1px_#000] transition-opacity duration-150 group-hover:opacity-0">{Math.max(0, lives)} / 20</span>
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[8px] font-black tabular-nums text-white/90 drop-shadow-[0_1px_1px_#000] transition-opacity duration-150 group-hover:opacity-0">{Math.max(0, lives)} / {livesTotal}</span>
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                     <span className="bg-[#0b0703]/85 px-2 py-[1px] text-[8px] font-black uppercase tracking-[0.14em] text-[#f5cf9a]">Здоровье замка</span>
                   </span>

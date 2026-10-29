@@ -18,6 +18,12 @@ export type CameraController = {
 
 type CameraTarget = { x: number; y: number }
 
+type CameraOptions = {
+	// В редакторе левая кнопка рисует, поэтому камера едет только
+	// при перетаскивании правой или средней кнопкой.
+	shouldDrag?: (pointer: Phaser.Input.Pointer) => boolean
+}
+
 // Минимальный зум, при котором камера ещё не показывает пустоту
 // за границами поля. Зависит от размера окна.
 export function minCameraZoom(camera: Phaser.Cameras.Scene2D.Camera) {
@@ -35,6 +41,7 @@ export function minCameraZoom(camera: Phaser.Cameras.Scene2D.Camera) {
 export function bindCameraControls(
 	scene: Phaser.Scene,
 	target: CameraTarget,
+	options: CameraOptions = {},
 ): CameraController {
 	const camera = scene.cameras.main
 	const keyboard = scene.input.keyboard
@@ -114,6 +121,11 @@ export function bindCameraControls(
 			const dx = pointer.x - dragStartX
 			const dy = pointer.y - dragStartY
 			if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+				if (options.shouldDrag && !options.shouldDrag(pointer)) {
+					dragStartX = 0
+					dragStartY = 0
+					return
+				}
 				dragging = true
 				lastPointerX = pointer.x
 				lastPointerY = pointer.y

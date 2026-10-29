@@ -26,10 +26,16 @@ import type { GameContext } from '../game-context'
 import {
 	BOARD_PIXEL_HEIGHT,
 	BOARD_PIXEL_WIDTH,
-	CENTER_POINT,
 	createGameMap,
 	mapSeedToNumber,
+	type GameMap,
+	type MapCastle,
 } from '../map/game-map'
+import {
+	castleCenterPoint,
+	createCustomGameMap,
+	type MapDraft,
+} from '../map/custom-map'
 import { createEnemySystem, type EnemySystem } from '../systems/enemy-system'
 import { createTowerSystem, type TowerSystem } from '../systems/tower-system'
 import { createWaveSystem, type WaveSystem } from '../systems/wave-system'
@@ -63,12 +69,19 @@ export class MainScene extends Phaser.Scene {
 	// Seed определяет дороги, поэтому карта восстанавливается вместе с игрой.
 	private readonly mapSeed: string
 
+	// Пользовательская карта из редактора: заменяет генерацию по сиду.
+	private readonly customDraft: MapDraft | null
+
+	// Карта игры: нужна для перезапуска с тем же замком и дорогами.
+	private map!: GameMap
+
 	// Пауза может прийти до первого кадра, когда сцена ещё не активна.
 	private pauseRequested = false
 
-	constructor(mapSeed = 'default') {
+	constructor(mapSeed = 'default', customDraft: MapDraft | null = null) {
 		super('MainScene')
 		this.mapSeed = mapSeed
+		this.customDraft = customDraft
 	}
 
 	preload() {
@@ -76,6 +89,7 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('tower-fire', '/game/towers/fire.png')
 		this.load.image('tower-earth', '/game/towers/earth.png')
 		this.load.image('castle', '/game/path/castle.png')
+		this.load.image('barracks', '/game/monsters/barracks.png')
 		this.load.image('logo', '/game/logo.png')
 
 		this.load.image('enemy-small', '/game/enemy/small.png')
@@ -88,6 +102,24 @@ export class MainScene extends Phaser.Scene {
 		this.load.image('gate-right', '/game/path/gate-right.png')
 		this.load.image('gate-top', '/game/path/gate-top.png')
 
+		// Кромка дороги и её декор: полоса утоптанной земли, трава и камешки.
+		this.load.image('road-edge', '/game/path/road-edge.png')
+		this.load.image('road-grass-fringe-1', '/game/path/road-grass-fringe-1.png')
+		this.load.image('road-grass-fringe-2', '/game/path/road-grass-fringe-2.png')
+		this.load.image('road-grass-fringe-3', '/game/path/road-grass-fringe-3.png')
+		this.load.image('road-grass-fringe-4', '/game/path/road-grass-fringe-4.png')
+		this.load.image('road-pebbles-1', '/game/path/road-pebbles-1.png')
+		this.load.image('road-pebbles-2', '/game/path/road-pebbles-2.png')
+		this.load.image('road-pebbles-3', '/game/path/road-pebbles-3.png')
+
+		// Берег рек: сухой песок с камешками и его мокрый вариант у кромки воды.
+		this.load.image('river-bank', '/game/rivers/river-bank.png')
+		this.load.image('river-bank-wet', '/game/rivers/river-bank-wet.png')
+
+		// Лес собран в атлас: одна текстура и рамки деревьев из JSON.
+		this.load.image('forest-atlas', '/game/forest/atlas.png')
+		this.load.json('forest-frames', '/game/forest/atlas.json')
+
 		// Квадратные текстуры для живой карты.
 		;[
 			'grass',
@@ -98,16 +130,20 @@ export class MainScene extends Phaser.Scene {
 
 	// Вызывается Phaser при создании сцены.
 	create() {
-		// Готовим состояние и рисуем поле. Карта возвращает занятые дорогой клетки.
-		this.state = createGameState()
+		// Готовим карту и состояние. Прочность замка в пользовательской
+		// карте задаётся игроком, поэтому жизни берём из неё.
+		const map = this.customDraft
+			? createCustomGameMap(this.customDraft)
+			: createGameMap(this.mapSeed)
+		this.map = map
+		this.state = createGameState(map.castle.hp)
 
 		// Фон за пределами поля рисует CSS-слой с картинкой леса,
 		// поэтому камера остаётся прозрачной.
-		this.setupCamera()
-		this.cameraControls = bindCameraControls(this, CENTER_POINT)
+		this.setupCamera(map.castle)
+		this.cameraControls = bindCameraControls(this, castleCenterPoint(map.castle))
 		this.scale.on('resize', this.handleResize)
 
-		const map = createGameMap(this.mapSeed)
 		this.state.pathCells = drawBoard(
 			this,
 			map,
@@ -137,7 +173,9 @@ export class MainScene extends Phaser.Scene {
 		})
 
 		// Загружаем сохранённую сессию, если она была передана из React.
-		this.restoreSession()
+		// Пользовательская карта всегда начинается заново: её сохранения
+		// не относятся к сиду и не должны подмешиваться.
+		if (!this.customDraft) this.restoreSession()
 
 		// Подключаем управление с клавиатуры, мыши и из React-панели.
 		this.bindControls()
@@ -229,7 +267,7 @@ export class MainScene extends Phaser.Scene {
 	}
 
 	// Готовит камеру к путешествию по большому миру.
-	private setupCamera() {
+	private setupCamera(castle: MapCastle) {
 		const camera = this.cameras.main
 
 		camera.setBackgroundColor('rgba(74,127,42,1)')
@@ -245,7 +283,8 @@ export class MainScene extends Phaser.Scene {
 		// Стартуем с зума, при котором поле заполняет окно целиком:
 		// иначе на широких экранах по краям видна пустота за границей поля.
 		camera.setZoom(minCameraZoom(camera))
-		camera.centerOn(CENTER_POINT.x, CENTER_POINT.y)
+		const center = castleCenterPoint(castle)
+		camera.centerOn(center.x, center.y)
 	}
 
 	// При изменении размера окна не сбрасываем позицию игрока,
@@ -349,7 +388,7 @@ export class MainScene extends Phaser.Scene {
 	private restartGame() {
 		this.enemies.clear()
 		this.towers.clear()
-		resetGameState(this.state)
+		resetGameState(this.state, this.map.castle.hp)
 		this.cameraControls.reset()
 		this.hud.reset()
 		this.hud.publish(true)

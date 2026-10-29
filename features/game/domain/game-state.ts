@@ -21,6 +21,8 @@ export type GameStats = {
 export type GameState = {
 	gold: number
 	lives: number
+	// Запас прочности на старте: у пользовательской карты он свой.
+	maxLives: number
 	wave: number
 	waveActive: boolean
 	waveBreakRemaining: number
@@ -66,6 +68,7 @@ export type GameSnapshot = {
 	wave: number
 	gold: number
 	lives: number
+	maxLives: number
 	enemies: number
 	selectedTower: TowerType | null
 	selectedBuiltTower: SelectedTowerInfo | null
@@ -110,10 +113,11 @@ export type GameSnapshot = {
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
 
-export function createGameState(): GameState {
+export function createGameState(lives = INITIAL_LIVES): GameState {
 	return {
 		gold: INITIAL_GOLD,
-		lives: INITIAL_LIVES,
+		lives,
+		maxLives: lives,
 		wave: 0,
 		waveActive: false,
 		waveBreakRemaining: 0,
@@ -144,9 +148,11 @@ export function createGameState(): GameState {
 
 // Возвращает скалярные поля к началу игры. Массивы и множества
 // очищают системы, потому что им нужно сначала удалить объекты Phaser.
-export function resetGameState(state: GameState) {
+// lives — прочность замка пользовательской карты.
+export function resetGameState(state: GameState, lives = INITIAL_LIVES) {
 	state.gold = INITIAL_GOLD
-	state.lives = INITIAL_LIVES
+	state.lives = lives
+	state.maxLives = lives
 	state.wave = 0
 	state.waveActive = false
 	state.waveBreakRemaining = 0
@@ -174,6 +180,7 @@ export function buildSnapshot(
 		wave: state.wave,
 		gold: state.gold,
 		lives: state.lives,
+		maxLives: state.maxLives,
 		enemies: state.enemies.length,
 		selectedTower: state.selectedTower,
 		selectedBuiltTower: selected ? describeTower(selected, state.buffs) : null,

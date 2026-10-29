@@ -7,6 +7,7 @@ import {
 	CASTLE_CELLS,
 	CENTER_CELL,
 	createGameMap,
+	FOREST_ROAD_CLEARANCE,
 	mapSeedToNumber,
 	RIVER_COUNT,
 	RIVER_MAX_SIZE,
@@ -124,6 +125,69 @@ test('leaves no dry holes inside rivers', () => {
 			}
 		}
 	}
+})
+
+test('keeps a five-cell clearing around roads for towers', () => {
+	const map = createGameMap('forest')
+	const nearRoads = expandCells(
+		[...roadLineCells(map.roads), ...CASTLE_CELLS],
+		FOREST_ROAD_CLEARANCE,
+	)
+
+	for (const key of map.forestCells) {
+		const [x = -1, y = -1] = key.split(',').map(Number)
+		assert.ok(x >= 0 && x < COLS && y >= 0 && y < ROWS, `forest cell ${key} is outside the board`)
+		assert.equal(nearRoads.has(key), false, `forest cell ${key} blocks the build area`)
+	}
+})
+
+test('keeps forest out of rivers and off their shores', () => {
+	const map = createGameMap('forest')
+	const water = new Set(map.waterCells)
+	const shore = expandCells(water, 1)
+
+	assert.equal(new Set(map.forestCells).size, map.forestCells.length)
+
+	for (const key of map.forestCells) {
+		assert.equal(water.has(key), false, `forest grows in water at ${key}`)
+		assert.equal(shore.has(key), false, `forest covers the shore at ${key}`)
+	}
+})
+
+test('fills the free ground with forest but leaves clearings', () => {
+	const map = createGameMap('forest')
+	const forest = new Set(map.forestCells)
+
+	assert.ok(forest.size > 1500, `forest is too sparse: ${forest.size} cells`)
+
+	// Разнообразие по рядам: где-то лес разрывается поляной, а не лежит
+	// сплошным прямоугольником.
+	const runsByRow = new Map<number, number>()
+	const sorted = map.forestCells
+		.map((key) => key.split(',').map(Number) as [number, number])
+		.sort((a, b) => a[1] - b[1] || a[0] - b[0])
+
+	let previousRow = -1
+	let previousX = -2
+	let runs = 0
+
+	for (const [x, y] of sorted) {
+		if (y !== previousRow) {
+			runs = 0
+			previousX = -2
+		}
+
+		if (x !== previousX + 1) runs++
+
+		runsByRow.set(y, runs)
+		previousRow = y
+		previousX = x
+	}
+
+	assert.ok(
+		Array.from(runsByRow.values()).some((count) => count >= 3),
+		'forest has no clearings: every row is a single solid run',
+	)
 })
 
 test('keeps rivers off roads, the castle and each other', () => {

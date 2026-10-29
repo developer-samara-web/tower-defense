@@ -1,13 +1,72 @@
-import { CELL_SIZE, COLS, ROWS } from '../../config/game.config.ts'
+import {
+	CELL_SIZE,
+	COLS,
+	INITIAL_LIVES,
+	ROWS,
+	type EnemyType,
+} from '../../config/game.config.ts'
 
 export type Road = [number, number][]
 export type RoadPoint = { x: number; y: number }
 
+// Замок в редакторе ставится в любую точку поля. x, y — центральная
+// клетка площадки 3×3, hp — запас прочности на всю игру.
+export type MapCastle = {
+	x: number
+	y: number
+	hp: number
+}
+
+// Один вид монстров в казарме: сколько выпустить за волну и с какими
+// базовыми характеристиками. strength — сколько прочности замка
+// снимает прорвавшийся монстр.
+export type SpawnerTroop = {
+	type: EnemyType
+	count: number
+	speed: number
+	strength: number
+	health: number
+}
+
+// Казарма может выпускать несколько видов монстров: они чередуются.
+export type MapSpawner = {
+	id: string
+	x: number
+	y: number
+	troops: SpawnerTroop[]
+}
+
+// Правки характеристик волны в процентах от базовых значений казарм.
+export type MapWave = {
+	id: string
+	health: number
+	speed: number
+	count: number
+}
+
+// План волн карты. useCommon — характеристики растут с номером волны
+// по общим правилам игры; иначе берётся список waves, а после
+// последней волны повторяется её настройка.
+export type MapWaves = {
+	useCommon: boolean
+	waves: MapWave[]
+}
+
 export type GameMap = {
 	roads: Road[]
 	roadPoints: RoadPoint[][]
+	// Маршруты врагов, если дороги нарисованы вручную: roadPoints тогда
+	// описывают всю сеть дорог для отрисовки, а не путь каждой казармы.
+	routes?: RoadPoint[][]
 	// Клетки, занятые водой: на них нельзя строить башни.
 	waterCells: string[]
+	// Клетки, занятые лесом: тоже не застраиваются.
+	forestCells: string[]
+	castle: MapCastle
+	// Пусто у карт, сгенерированных по сиду: там враги выходят с краёв.
+	spawners: MapSpawner[]
+	// Настройки волн пользовательской карты.
+	waves?: MapWaves
 }
 
 // Центр карты — здесь стоит замок, который защищает игрок.
@@ -30,6 +89,16 @@ const ROAD_CLEARANCE = 2
 
 // Между водоёмами оставляем полосу травы, иначе они сливаются в одно озеро.
 const RIVER_CLEARANCE = 1
+
+// Лес заполняет всё свободное место, но пять клеток вдоль дорог
+// остаются открытыми: только там игрок ставит башни.
+export const FOREST_ROAD_CLEARANCE = 5
+
+// Насколько кромка леса гуляет вглубь свободного поля.
+const FOREST_EDGE_VARIANCE = 2
+
+// Ниже этого значения шума вырастает поляна внутри чащи.
+const FOREST_CLEARING_THRESHOLD = 0.12
 
 const CELL_NEIGHBORS: Array<[number, number]> = [
 	[1, 0],
@@ -367,16 +436,162 @@ function buildWaterCells(random: () => number, roads: Road[]): string[] {
 	return water
 }
 
+// Расстояние до ближайшей дороги или замка в клетках (шахматная метрика).
+// Хватает самого поля: за его краем строить всё равно нельзя.
+function buildRoadDistances(roads: Road[]): Int16Array {
+	const distance = new Int16Array(COLS * ROWS).fill(-1)
+	const queue: number[] = []
+
+	const start = (x: number, y: number) => {
+		if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return
+
+		const index = y * COLS + x
+		if (distance[index] !== -1) return
+
+		distance[index] = 0
+		queue.push(index)
+	}
+
+	for (const key of roadCells(roads)) {
+		const [x, y] = parseCell(key)
+		start(x, y)
+	}
+
+	for (const key of CASTLE_CELLS) {
+		const [x, y] = parseCell(key)
+		start(x, y)
+	}
+
+	for (let head = 0; head < queue.length; head++) {
+		const index = queue[head] ?? 0
+		const x = index % COLS
+		const y = Math.floor(index / COLS)
+		const next = (distance[index] ?? 0) + 1
+
+		for (let dy = -1; dy <= 1; dy++) {
+			for (let dx = -1; dx <= 1; dx++) {
+				if (dx === 0 && dy === 0) continue
+
+				const nx = x + dx
+				const ny = y + dy
+				if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue
+
+				const neighbor = ny * COLS + nx
+				if (distance[neighbor] !== -1) continue
+
+				distance[neighbor] = next
+				queue.push(neighbor)
+			}
+		}
+	}
+
+	return distance
+}
+
+// Плавный шум по решётке: нужен, чтобы кромка леса и поляны были
+// пятнами, а не ровной линией вдоль дороги.
+function valueNoise(x: number, y: number, seed: number) {
+	const x0 = Math.floor(x)
+	const y0 = Math.floor(y)
+	const fx = x - x0
+	const fy = y - y0
+	const sx = fx * fx * (3 - 2 * fx)
+	const sy = fy * fy * (3 - 2 * fy)
+
+	const top = lerp(nodeNoise(x0, y0, seed), nodeNoise(x0 + 1, y0, seed), sx)
+	const bottom = lerp(nodeNoise(x0, y0 + 1, seed), nodeNoise(x0 + 1, y0 + 1, seed), sx)
+
+	return lerp(top, bottom, sy)
+}
+
+function nodeNoise(x: number, y: number, seed: number) {
+	let hash = seed ^ Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1)
+	hash = Math.imul(hash ^ (hash >>> 15), 0x85ebca6b)
+	hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35)
+
+	return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296
+}
+
+function lerp(from: number, to: number, t: number) {
+	return from + (to - from) * t
+}
+
+// Лес — не жёсткая сетка клеток: у кромки он редеет, в глубине становится
+// сплошным, а поляны разбивают массив на купы. Воду деревья не занимают.
+function buildForestCells(
+	random: () => number,
+	roads: Road[],
+	waterCells: string[],
+): string[] {
+	const distance = buildRoadDistances(roads)
+	const water = new Set(waterCells)
+
+	// Берег водоёма оставляем открытым: кроны не должны заслонять воду.
+	const shore = new Set(waterCells)
+	for (const key of waterCells) {
+		const [x, y] = parseCell(key)
+		for (let dy = -1; dy <= 1; dy++) {
+			for (let dx = -1; dx <= 1; dx++) shore.add(`${x + dx},${y + dy}`)
+		}
+	}
+
+	const forest: string[] = []
+
+	const edgeSeed = (random() * 0xffffffff) >>> 0
+	const meadowSeed = (random() * 0xffffffff) >>> 0
+
+	for (let y = 0; y < ROWS; y++) {
+		for (let x = 0; x < COLS; x++) {
+			const key = `${x},${y}`
+			if (water.has(key) || shore.has(key)) continue
+
+			const roadDistance = distance[y * COLS + x] ?? 0
+			if (roadDistance <= FOREST_ROAD_CLEARANCE) continue
+
+			// Кромка гуляет: где-то лес подходит к дороге почти вплотную,
+			// где-то отступает на несколько клеток.
+			const edge =
+				valueNoise(x / 9, y / 9, edgeSeed) * FOREST_EDGE_VARIANCE
+			if (roadDistance <= FOREST_ROAD_CLEARANCE + edge) continue
+
+			const meadow = valueNoise(x / 6 + 13.5, y / 6 + 7.25, meadowSeed)
+			if (meadow < FOREST_CLEARING_THRESHOLD) continue
+
+			// У самой кромки деревья стоят реже, в глубине — сплошной массив.
+			const depth = roadDistance - FOREST_ROAD_CLEARANCE - edge
+			const density = Math.min(1, 0.7 + depth / 2)
+			if (random() > density) continue
+
+			forest.push(key)
+		}
+	}
+
+	return forest
+}
+
 // 4 дороги с разных сторон к воротам центрального замка.
 export function createGameMap(seed: string | number): GameMap {
-	const random = createSeededRandom(mapSeedToNumber(seed))
+	const seedNumber = mapSeedToNumber(seed)
+	const random = createSeededRandom(seedNumber)
 	const roads = buildRoads(random)
 	const waterCells = buildWaterCells(random, roads)
+	const forestCells = buildForestCells(
+		createSeededRandom(seedNumber ^ 0x9e3779b9),
+		roads,
+		waterCells,
+	)
 
 	return {
 		roads,
 		roadPoints: roads.map((road) => road.map(toPoint)),
 		waterCells,
+		forestCells,
+		castle: {
+			x: CENTER_CELL[0],
+			y: CENTER_CELL[1],
+			hp: INITIAL_LIVES,
+		},
+		spawners: [],
 	}
 }
 

@@ -9,6 +9,7 @@ import {
   xpToNextLevel,
 } from '@/features/game/domain/game-rules'
 import type { GameSnapshot } from '@/features/game/domain/game-state'
+import type { MapDraft } from '@/features/game/engine/map/custom-map'
 import {
   hasSessionProgress,
   toSessionGameState,
@@ -17,11 +18,12 @@ import {
 import type { PlayerScore } from '@/features/account/types'
 import { useAuth } from './useAuth'
 import { saveSession, loadSession, deleteSession, fetchLatestSession } from '@/lib/services/session-service'
+import { fetchMap } from '@/lib/services/map-service'
 import { fetchTopScores, updateUserScore } from '@/lib/services/score-service'
 import { recordGame } from '@/lib/services/game-service'
 
 type GameState = {
-  wave: number; gold: number; lives: number; enemies: number; selectedTower: TowerType | null
+  wave: number; gold: number; lives: number; maxLives: number; enemies: number; selectedTower: TowerType | null
   selectedBuiltTower: SelectedTowerInfo | null; panelPosition: { x: number; y: number } | null
   status: string; waveActive: boolean; nextWaveIn: number; gameOver: boolean
   spawnRemaining: number; spawnedInWave: number; spawnCooldown: number; waveBreakRemaining: number
@@ -35,7 +37,7 @@ type GameState = {
 }
 
 const initialState: GameState = {
-  wave: 0, gold: initialResources.gold, lives: initialResources.lives, enemies: 0,
+  wave: 0, gold: initialResources.gold, lives: initialResources.lives, maxLives: initialResources.lives, enemies: 0,
   selectedTower: null, selectedBuiltTower: null, panelPosition: null,
   status: 'Выбери башню и подготовь оборону', waveActive: false, nextWaveIn: 0, gameOver: false,
   spawnRemaining: 0, spawnedInWave: 0, spawnCooldown: 0, waveBreakRemaining: 0,
@@ -53,9 +55,17 @@ function createMapSeed() {
   return Math.random().toString(36).slice(2)
 }
 
-export function useGame() {
-  const { token, user } = useAuth()
+export function useGame(initialSeed?: string, initialMapId?: string) {
+  const { token, user, checked } = useAuth()
+  // Сид из URL означает, что игрок выбрал конкретную сохранённую карту.
+  // Для такой игры не показываем предложение продолжить старый забег.
+  const explicitSeed = initialSeed?.trim() || null
+  // id карты из редактора: черновик загружается с сервера до создания сцены.
+  const explicitMap = initialMapId?.trim() || null
   const [game, setGame] = useState<GameState>(initialState)
+  const [mapDraft, setMapDraft] = useState<MapDraft | null>(null)
+  const [mapLoading, setMapLoading] = useState(Boolean(explicitMap))
+  const [mapError, setMapError] = useState<string | null>(null)
   const [upgradeCards, setUpgradeCards] = useState<UpgradeCard[]>([])
   const [scores, setScores] = useState<PlayerScore[]>([])
   const [checkedToken, setCheckedToken] = useState<string | null>(null)
@@ -67,7 +77,7 @@ export function useGame() {
   // На сервере сид должен быть стабильным: randomUUID во время пререндера
   // считается нестабильным значением и ломает сборку /game.
   const [mapSeed, setMapSeed] = useState(() =>
-    typeof window === 'undefined' ? 'default' : createMapSeed(),
+    explicitSeed ?? (typeof window === 'undefined' ? 'default' : createMapSeed()),
   )
   const latestSnapshotRef = useRef<GameSnapshot | null>(null)
   const mapSeedRef = useRef(mapSeed)
@@ -79,12 +89,56 @@ export function useGame() {
   // старый забег тоже закрывается и должен попасть в историю.
   const savedSessionRef = useRef<SessionPayload | null>(null)
 
-  const checkingSession = mounted && Boolean(token) && checkedToken !== token
+  const checkingSession = mounted && Boolean(token) && !explicitSeed && !explicitMap && checkedToken !== token
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
   }, [])
+
+  // Пользовательская карта загружается до первого кадра: сцена должна
+  // получить готовый черновик, иначе отрисует карту по сиду.
+  useEffect(() => {
+    if (!explicitMap || !checked) return
+
+    let cancelled = false
+
+    const load = async () => {
+      if (!token) {
+        setMapLoading(false)
+        setMapError('Войдите в аккаунт, чтобы играть на своей карте')
+        return
+      }
+
+      setMapLoading(true)
+      setMapError(null)
+
+      try {
+        const map = await fetchMap(token, explicitMap)
+        if (cancelled) return
+
+        setMapSeed(map.seed)
+        if (!map.data) {
+          setMapError('У этой карты нет данных редактора')
+          return
+        }
+        setMapDraft(map.data)
+      } catch (loadError) {
+        if (cancelled) return
+        setMapError(
+          loadError instanceof Error ? loadError.message : 'Не удалось загрузить карту',
+        )
+      } finally {
+        if (!cancelled) setMapLoading(false)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [explicitMap, token, checked])
 
   const refreshScores = useCallback(async () => {
     try {
@@ -172,8 +226,9 @@ export function useGame() {
   }, [token, refreshScores])
 
   // Ищем сохранение до того, как автосейв получит право писать на сервер.
+  // Для выбранной карты сохранение не подгружаем: игрок хочет начать её заново.
   useEffect(() => {
-    if (!token) return
+    if (!token || explicitSeed || explicitMap) return
 
     let cancelled = false
 
@@ -203,11 +258,11 @@ export function useGame() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, explicitSeed, explicitMap])
 
   // Интервал не зависит от кадров игры: снимок читается из ref.
   useEffect(() => {
-    if (!token || checkingSession || resuming) return
+    if (!token || explicitMap || checkingSession || resuming) return
 
     const interval = setInterval(() => {
       const snapshot = latestSnapshotRef.current
@@ -230,7 +285,7 @@ export function useGame() {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [token, checkingSession, resuming])
+  }, [token, explicitMap, checkingSession, resuming])
 
   const resumeGame = useCallback(async () => {
     if (!sessionId || !token) return false
@@ -255,6 +310,8 @@ export function useGame() {
         wave: saved.wave ?? 0,
         gold: saved.gold ?? initialState.gold,
         lives: saved.lives ?? initialState.lives,
+        // Старые сохранения не хранили запас: для сидовых карт он равен 20.
+        maxLives: saved.maxLives ?? saved.lives ?? initialState.maxLives,
         waveActive: saved.waveActive ?? false,
         status: saved.status ?? initialState.status,
         spawnRemaining: saved.spawnRemaining ?? 0,
@@ -284,9 +341,12 @@ export function useGame() {
     cardsShownRef.current = false
     gameRecordedRef.current = false
     setGame({ ...initialState, stats: initialState.stats })
-    setMapSeed(createMapSeed())
+    // Выбранную карту перезапускаем на том же сиде, случайную — на новом.
+    setMapSeed((current) =>
+      explicitSeed ?? (explicitMap ? current : createMapSeed()),
+    )
     window.dispatchEvent(new CustomEvent('td:restart'))
-  }, [])
+  }, [explicitSeed, explicitMap])
 
   const startNew = useCallback(() => {
     recordAbandonedGame(savedSessionRef.current)
@@ -329,6 +389,7 @@ export function useGame() {
     scores,
     upgradeCards,
     checkingSession, resuming, sessionId, mapSeed,
+    mapDraft, mapLoading, mapError,
     restartGame, resumeGame, startNew,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     waveButtonDisabled,

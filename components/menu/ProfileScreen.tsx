@@ -3,6 +3,7 @@ import Image from 'next/image'
 import GameHistory from '@/components/game/GameHistory'
 import type { PlayerProfile, PlayerScore } from '@/features/account/types'
 import { useGameHistory } from '@/hooks/useGameHistory'
+import { avatarSrc, frameSrc } from '@/lib/account/avatar-options'
 
 type ProfileScreenProps = {
 	user: PlayerProfile | null
@@ -13,6 +14,7 @@ type ProfileScreenProps = {
 
 export default function ProfileScreen({ user, scores, onBack, backLabel }: ProfileScreenProps) {
 	const history = useGameHistory()
+	const frame = frameSrc(user?.avatarFrame)
 	const record = user?.record ?? 0
 	const rankIndex = user ? scores.findIndex((score) => score.id === user.id) : -1
 	const rank = rankIndex >= 0 ? rankIndex + 1 : null
@@ -34,15 +36,28 @@ export default function ProfileScreen({ user, scores, onBack, backLabel }: Profi
 
 				<div className="rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.9)] sm:p-5">
 					<div className="flex items-center gap-4">
-						<Image
-							src="/game/avatar-default.svg"
-							alt="Аватар игрока"
-							width={96}
-							height={96}
-							unoptimized
-							loading="eager"
-							className="h-20 w-20 shrink-0 border-2 border-[#79502b] bg-[#0f0a05] shadow-[inset_0_0_0_2px_#21150c] [image-rendering:pixelated] sm:h-24 sm:w-24"
-						/>
+						<span className="relative block h-20 w-20 shrink-0 border-2 border-[#79502b] bg-[#0f0a05] shadow-[inset_0_0_0_2px_#21150c] sm:h-24 sm:w-24">
+							<Image
+								src={avatarSrc(user?.avatar)}
+								alt="Аватар игрока"
+								width={96}
+								height={96}
+								unoptimized
+								loading="eager"
+								className="h-full w-full [image-rendering:pixelated]"
+							/>
+							{frame ? (
+								<Image
+									src={frame}
+									alt=""
+									width={96}
+									height={96}
+									unoptimized
+									aria-hidden="true"
+									className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
+								/>
+							) : null}
+						</span>
 
 						<div className="min-w-0">
 							<p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8a7340]">Профиль игрока</p>

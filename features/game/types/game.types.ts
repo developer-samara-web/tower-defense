@@ -23,6 +23,8 @@ export type Enemy = {
   hp: number
   maxHp: number
   speed: number
+  // Сколько прочности замка снимает прорвавшийся враг.
+  damage: number
   reward: number
   // Опыт за убийство с учётом волны, в которой появился враг.
   xp: number

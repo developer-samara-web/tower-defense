@@ -3,7 +3,15 @@
 
 import { useEffect, useRef } from 'react'
 
-export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }) {
+import type { MapDraft } from '@/features/game/engine/map/custom-map'
+
+type Props = {
+	mapSeed?: string
+	// Черновик из редактора: если он есть, сид не используется.
+	customDraft?: MapDraft | null
+}
+
+export default function GameCanvas({ mapSeed = 'default', customDraft = null }: Props) {
 	const containerRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -31,7 +39,7 @@ export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }
 				width: parent.clientWidth,
 				height: parent.clientHeight,
 				parent,
-				scene: [new MainScene(mapSeed)],
+				scene: [new MainScene(mapSeed, customDraft)],
 				// Правая кнопка перетаскивает камеру, поэтому
 				// стандартное контекстное меню браузера отключаем.
 				disableContextMenu: true,
@@ -65,7 +73,7 @@ export default function GameCanvas({ mapSeed = 'default' }: { mapSeed?: string }
 			disposed = true
 			game?.destroy(true)
 		}
-	}, [mapSeed])
+	}, [mapSeed, customDraft])
 
 	return (
 		<div

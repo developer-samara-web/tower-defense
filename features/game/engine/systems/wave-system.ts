@@ -1,9 +1,13 @@
-import { WAVE_BREAK_DURATION } from '../../config/game.config'
+import {
+	CUSTOM_ENEMY_SPAWN_INTERVAL,
+	WAVE_BREAK_DURATION,
+} from '../../config/game.config'
 import {
 	enemySpawnInterval,
 	waveCompletionReward,
 	waveEnemyCount,
 } from '../../domain/game-rules'
+import { waveSpawnTotal } from '../map/custom-waves'
 import type { GameContext } from '../game-context'
 
 // Отвечает за старт волн, паузу между ними и награду за прохождение.
@@ -70,14 +74,22 @@ export function createWaveSystem(
 		// Сбрасываем паузу между волнами.
 		state.waveBreakRemaining = 0
 
-		// Рассчитываем количество врагов в зависимости от номера волны.
-		state.spawnRemaining = waveEnemyCount(state.wave)
+		// Рассчитываем количество врагов: на пользовательской карте
+		// казармы выпускают монстров по плану волны.
+		const customSpawners = ctx.map.spawners
+		state.spawnRemaining =
+			customSpawners.length > 0
+				? waveSpawnTotal(ctx.map, state.wave)
+				: waveEnemyCount(state.wave)
 
 		// Сбрасываем счётчик созданных врагов для новой волны.
 		state.spawnedInWave = 0
 
 		// Первый враг появляется без дополнительной задержки.
-		state.spawnCooldown = enemySpawnInterval(state.wave)
+		state.spawnCooldown =
+			customSpawners.length > 0
+				? CUSTOM_ENEMY_SPAWN_INTERVAL
+				: enemySpawnInterval(state.wave)
 
 		setStatus(`Волна ${state.wave}: враги идут!`)
 	}

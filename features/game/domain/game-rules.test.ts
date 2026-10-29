@@ -26,15 +26,16 @@ import {
 } from './game-rules.ts'
 
 test('allows building on an empty board cell when resources are sufficient', () => {
-	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
+	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
 })
 
 test('prevents invalid building placements', () => {
-	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'forest')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
 })
 
 test('scales wave composition predictably', () => {

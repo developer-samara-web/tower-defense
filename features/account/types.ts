@@ -4,6 +4,10 @@ export type PlayerProfile = {
 	email: string
 	record: number
 	bestWave?: number
+	role?: 'user' | 'admin'
+	avatar?: string
+	avatarFrame?: string
+	gamesPlayed?: number
 }
 
 export type PlayerScore = {

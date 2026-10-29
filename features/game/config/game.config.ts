@@ -53,6 +53,10 @@ export const ENEMY_SPAWN_INTERVAL_MIN = 380
 export const WAVE_COMPLETION_BASE_REWARD = 20
 export const WAVE_COMPLETION_REWARD_PER_WAVE = 5
 
+// Пауза между врагами в пользовательской карте: казармы выпускают
+// монстров ровным потоком, без деления на группы.
+export const CUSTOM_ENEMY_SPAWN_INTERVAL = 700
+
 // Пауза между волнами.
 export const WAVE_BREAK_DURATION = 3000
 

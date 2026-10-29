@@ -48,10 +48,11 @@ export function isBoardPosition({ x, y }: BoardPosition) {
 	return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < COLS && y >= 0 && y < ROWS
 }
 
-export function canBuildTower({ position, pathCells, waterCells, towerCells, gold, towerType }: {
+export function canBuildTower({ position, pathCells, waterCells, forestCells, towerCells, gold, towerType }: {
 	position: BoardPosition
 	pathCells: ReadonlySet<string>
 	waterCells: ReadonlySet<string>
+	forestCells: ReadonlySet<string>
 	towerCells: ReadonlySet<string>
 	gold: number
 	towerType: TowerType
@@ -60,6 +61,7 @@ export function canBuildTower({ position, pathCells, waterCells, towerCells, gol
 	if (!isBoardPosition(position)) return { allowed: false, reason: 'outside' as const }
 	if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
 	if (waterCells.has(key)) return { allowed: false, reason: 'water' as const }
+	if (forestCells.has(key)) return { allowed: false, reason: 'forest' as const }
 	if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
 	if (gold < TOWER_TYPES[towerType].cost) return { allowed: false, reason: 'gold' as const }
 	return { allowed: true, reason: null }

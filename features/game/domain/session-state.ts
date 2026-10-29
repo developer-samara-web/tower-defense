@@ -40,6 +40,7 @@ export type SessionGameState = {
 	wave: number
 	gold: number
 	lives: number
+	maxLives: number
 	waveActive: boolean
 	waveBreakRemaining: number
 	spawnRemaining: number
@@ -76,6 +77,7 @@ export function toSessionGameState(snapshot: GameSnapshot): SessionGameState {
 		wave: snapshot.wave,
 		gold: snapshot.gold,
 		lives: snapshot.lives,
+		maxLives: snapshot.maxLives,
 		waveActive: snapshot.waveActive,
 		waveBreakRemaining: snapshot.waveBreakRemaining,
 		spawnRemaining: snapshot.spawnRemaining,

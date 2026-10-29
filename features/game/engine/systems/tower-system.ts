@@ -50,6 +50,9 @@ export function createTowerSystem(
 	ctx: GameContext,
 	enemies: EnemySystem,
 ): TowerSystem {
+	// Лес лежит в карте, а не в снимке состояния: тысячи клеток не нужно
+	// гонять через HUD и автосохранение.
+	const forestCells = new Set(ctx.map.forestCells)
 	// Рамка, подсвечивающая выбранную башню.
 	let highlight: Phaser.GameObjects.Graphics | null = null
 
@@ -93,6 +96,7 @@ export function createTowerSystem(
 			position: { x, y },
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
+			forestCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -222,6 +226,7 @@ export function createTowerSystem(
 			position: { x, y },
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
+			forestCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -243,6 +248,12 @@ export function createTowerSystem(
 
 		if (buildCheck.reason === 'water') {
 			setStatus('На воде строить нельзя.')
+			publish()
+			return
+		}
+
+		if (buildCheck.reason === 'forest') {
+			setStatus('В лесу строить нельзя — расчистите место у дороги.')
 			publish()
 			return
 		}
