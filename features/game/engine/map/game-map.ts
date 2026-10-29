@@ -70,10 +70,10 @@ export type GameMap = {
 }
 
 // Центр карты — здесь стоит замок, который защищает игрок.
-export const CENTER_CELL: [number, number] = [
-	Math.floor(COLS / 2),
-	Math.floor(ROWS / 2),
-]
+// Поле бывает разного размера, поэтому центр считаем на месте.
+export function centerCell(): [number, number] {
+	return [Math.floor(COLS / 2), Math.floor(ROWS / 2)]
+}
 
 // Замок занимает квадрат 3×3 клетки вокруг центра.
 export const CASTLE_SIZE = 3
@@ -107,8 +107,8 @@ const CELL_NEIGHBORS: Array<[number, number]> = [
 	[0, -1],
 ]
 
-export const CASTLE_CELLS: string[] = (() => {
-	const [cx, cy] = CENTER_CELL
+export function castleCells(): string[] {
+	const [cx, cy] = centerCell()
 	const cells: string[] = []
 	const half = Math.floor(CASTLE_SIZE / 2)
 
@@ -119,7 +119,7 @@ export const CASTLE_CELLS: string[] = (() => {
 	}
 
 	return cells
-})()
+}
 
 // Один и тот же seed всегда даёт одну и ту же карту,
 // поэтому сохранённую игру можно восстановить на прежних дорогах.
@@ -192,7 +192,7 @@ function normalize(road: Road): Road {
 // с четырёх сторон. Каждая дорога живёт в своей четверти карты,
 // поэтому дороги гарантированно не пересекаются и не слипаются.
 function buildRoads(random: () => number): Road[] {
-	const [cx, cy] = CENTER_CELL
+	const [cx, cy] = centerCell()
 
 	// Дорога выходит за пределы поля на одну клетку.
 	const edge = 1
@@ -403,7 +403,7 @@ function fillWaterHoles(cells: Set<string>, width: number, height: number) {
 // пропускаем: карта должна остаться просторной, а не забитой водой.
 function buildWaterCells(random: () => number, roads: Road[]): string[] {
 	const reserved = new Set<string>()
-	const [cx, cy] = CENTER_CELL
+	const [cx, cy] = centerCell()
 	const castleHalf = Math.floor(CASTLE_SIZE / 2)
 
 	reserveArea(reserved, cx - castleHalf, cy - castleHalf, CASTLE_SIZE, CASTLE_SIZE, ROAD_CLEARANCE)
@@ -457,7 +457,7 @@ function buildRoadDistances(roads: Road[]): Int16Array {
 		start(x, y)
 	}
 
-	for (const key of CASTLE_CELLS) {
+	for (const key of castleCells()) {
 		const [x, y] = parseCell(key)
 		start(x, y)
 	}
@@ -581,21 +581,26 @@ export function createGameMap(seed: string | number): GameMap {
 		waterCells,
 	)
 
+	const [castleX, castleY] = centerCell()
+
 	return {
 		roads,
 		roadPoints: roads.map((road) => road.map(toPoint)),
 		waterCells,
 		forestCells,
 		castle: {
-			x: CENTER_CELL[0],
-			y: CENTER_CELL[1],
+			x: castleX,
+			y: castleY,
 			hp: INITIAL_LIVES,
 		},
 		spawners: [],
 	}
 }
 
-export const CENTER_POINT = toPoint(CENTER_CELL)
+export function boardPixelWidth() {
+	return COLS * CELL_SIZE
+}
 
-export const BOARD_PIXEL_WIDTH = COLS * CELL_SIZE
-export const BOARD_PIXEL_HEIGHT = ROWS * CELL_SIZE
+export function boardPixelHeight() {
+	return ROWS * CELL_SIZE
+}

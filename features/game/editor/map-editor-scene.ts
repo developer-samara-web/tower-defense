@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 
-import { CELL_SIZE, COLS, ROWS } from '../config/game.config'
+import { CELL_SIZE, setBoardSize } from '../config/game.config'
 import {
 	drawCastleAt,
 	drawForestLayer,
@@ -14,8 +14,11 @@ import {
 	cellKey,
 	clampCastleCell,
 	draftRoadSegments,
+	draftSize,
+	parseCellKey,
+	type BoardSize,
 } from '../engine/map/custom-map'
-import { BOARD_PIXEL_HEIGHT, BOARD_PIXEL_WIDTH } from '../engine/map/game-map'
+import { boardPixelHeight, boardPixelWidth } from '../engine/map/game-map'
 import {
 	bindCameraControls,
 	minCameraZoom,
@@ -52,6 +55,14 @@ export class MapEditorScene extends Phaser.Scene {
 	private pressX = 0
 	private pressY = 0
 	private hoverCell: EditorCell | null = null
+	// Курсор над полем: край экрана двигает камеру только в этом случае,
+	// иначе прокрутка начинается, когда мышь ушла на панель инструментов.
+	private pointerOverBoard = false
+	private canvasHover: {
+		canvas: HTMLCanvasElement
+		enter: () => void
+		leave: () => void
+	} | null = null
 
 	constructor(bridge: EditorBridge) {
 		super('MapEditorScene')
@@ -86,6 +97,8 @@ export class MapEditorScene extends Phaser.Scene {
 	}
 
 	create() {
+		// Движок рисует поле по глобальному размеру карты.
+		this.applyBoardSize()
 		drawStaticBoard(this)
 		this.setupCamera()
 
@@ -95,9 +108,11 @@ export class MapEditorScene extends Phaser.Scene {
 		this.cameraControls = bindCameraControls(this, this.cameraTarget(), {
 			shouldDrag: (pointer) =>
 				pointer.rightButtonDown() || pointer.middleButtonDown(),
+			edgePan: () => this.pointerOverBoard,
 		})
 
 		this.bindEditorInput()
+		this.bindBoardHover()
 
 		this.bridge.sync = () => this.sync()
 		this.sync()
@@ -105,6 +120,7 @@ export class MapEditorScene extends Phaser.Scene {
 		this.events.once('shutdown', () => {
 			this.cameraControls?.destroy()
 			this.cameraControls = null
+			this.unbindBoardHover()
 			this.input.removeAllListeners()
 			this.input.keyboard?.removeAllListeners()
 			this.bridge.sync = () => {}
@@ -115,26 +131,37 @@ export class MapEditorScene extends Phaser.Scene {
 		this.cameraControls?.update(delta)
 	}
 
+	private boardSize(): BoardSize {
+		return draftSize(this.bridge.state.draft)
+	}
+
+	private applyBoardSize() {
+		const size = this.boardSize()
+		setBoardSize(size.cols, size.rows)
+	}
+
 	private cameraTarget() {
 		const castle = this.bridge.state.draft.castle
 		if (castle) return castleCenterPoint(castle)
-		return { x: BOARD_PIXEL_WIDTH / 2, y: BOARD_PIXEL_HEIGHT / 2 }
+		return { x: boardPixelWidth() / 2, y: boardPixelHeight() / 2 }
 	}
 
 	private setupCamera() {
 		const camera = this.cameras.main
 		camera.setBackgroundColor('rgba(74,127,42,1)')
-		camera.setBounds(0, 0, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT)
+		camera.setBounds(0, 0, boardPixelWidth(), boardPixelHeight())
 		camera.setZoom(minCameraZoom(camera))
 
 		const target = this.cameraTarget()
 		camera.centerOn(target.x, target.y)
 	}
 
-	// Перерисовывает всё, что зависит от черновика: воду, лес,
-	// маршруты, замок и казармы. Трава и сетка остаются на месте.
+	// Полотном управляет React: при смене размера он пересоздаёт сцену,
+	// поэтому здесь поле всегда рисуется один раз актуальным размером.
 	private sync() {
 		const { draft, roads, seed } = this.bridge.state
+
+		this.applyBoardSize()
 
 		for (const object of this.dynamicObjects) object.destroy()
 		this.dynamicObjects = []
@@ -143,7 +170,7 @@ export class MapEditorScene extends Phaser.Scene {
 
 		drawRiverLayer(this, draft.waterCells, seed)
 		drawForestLayer(this, draft.forestCells, seed)
-		this.drawRoads(draft, roads)
+		this.drawRoads(draft.roadCells, roads)
 		this.drawInvalidSpawners(draft.spawners, roads)
 		if (draft.castle) drawCastleAt(this, draft.castle.x, draft.castle.y)
 		for (const spawner of draft.spawners) {
@@ -155,7 +182,7 @@ export class MapEditorScene extends Phaser.Scene {
 	}
 
 	private drawRoads(
-		draft: EditorBridge['state']['draft'],
+		roadCells: string[],
 		roads: EditorBridge['state']['roads'],
 	) {
 		const graphics = this.add.graphics().setDepth(0.97)
@@ -163,8 +190,8 @@ export class MapEditorScene extends Phaser.Scene {
 		// Нарисованную сеть показываем как есть, иначе — превью реальных
 		// маршрутов от казарм, чтобы игрок видел, куда пойдут монстры.
 		const lines =
-			draft.roadCells.length > 0
-				? draftRoadSegments(draft)
+			roadCells.length > 0
+				? draftRoadSegments(this.bridge.state.draft)
 				: roads.map((entry) => entry.road)
 
 		for (const line of lines) {
@@ -225,6 +252,30 @@ export class MapEditorScene extends Phaser.Scene {
 				CELL_SIZE * 0.9,
 			)
 		}
+	}
+
+	private bindBoardHover() {
+		const canvas = this.sys.game?.canvas
+		if (!canvas) return
+
+		const enter = () => {
+			this.pointerOverBoard = true
+		}
+		const leave = () => {
+			this.pointerOverBoard = false
+		}
+
+		canvas.addEventListener('mouseenter', enter)
+		canvas.addEventListener('mouseleave', leave)
+		this.canvasHover = { canvas, enter, leave }
+	}
+
+	private unbindBoardHover() {
+		if (!this.canvasHover) return
+		const { canvas, enter, leave } = this.canvasHover
+		canvas.removeEventListener('mouseenter', enter)
+		canvas.removeEventListener('mouseleave', leave)
+		this.canvasHover = null
 	}
 
 	private bindEditorInput() {
@@ -307,10 +358,11 @@ export class MapEditorScene extends Phaser.Scene {
 	}
 
 	private toCell(worldX: number, worldY: number): EditorCell | null {
+		const size = this.boardSize()
 		const x = Math.floor(worldX / CELL_SIZE)
 		const y = Math.floor(worldY / CELL_SIZE)
 		if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-		if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return null
+		if (x < 0 || y < 0 || x >= size.cols || y >= size.rows) return null
 		return { x, y }
 	}
 
@@ -326,12 +378,13 @@ export class MapEditorScene extends Phaser.Scene {
 			return
 		}
 
+		const size = this.boardSize()
 		const steps = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y))
 		for (let step = 0; step <= steps; step++) {
 			const t = steps === 0 ? 1 : step / steps
 			const x = Math.round(from.x + (to.x - from.x) * t)
 			const y = Math.round(from.y + (to.y - from.y) * t)
-			if (x < 0 || y < 0 || x >= COLS || y >= ROWS) continue
+			if (x < 0 || y < 0 || x >= size.cols || y >= size.rows) continue
 			this.strokeCells.add(cellKey(x, y))
 		}
 	}
@@ -343,7 +396,7 @@ export class MapEditorScene extends Phaser.Scene {
 		this.overlay.fillStyle(color, 0.4)
 
 		for (const key of this.strokeCells) {
-			const [x = 0, y = 0] = key.split(',').map(Number)
+			const [x = 0, y = 0] = parseCellKey(key)
 			this.overlay.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
 		}
 
@@ -363,9 +416,10 @@ export class MapEditorScene extends Phaser.Scene {
 		if (!cell || this.painting) return
 
 		const { draft, tool } = this.bridge.state
+		const size = this.boardSize()
 
 		if (tool === 'castle') {
-			const [x, y] = clampCastleCell(cell.x, cell.y)
+			const [x, y] = clampCastleCell(cell.x, cell.y, size)
 			this.ghost.lineStyle(2, 0xf0d38a, 0.9)
 			this.ghost.strokeRect(
 				(x - 1) * CELL_SIZE,
@@ -377,7 +431,7 @@ export class MapEditorScene extends Phaser.Scene {
 		}
 
 		if (tool === 'spawner') {
-			const allowed = canPlaceSpawner(draft.castle, cell.x, cell.y)
+			const allowed = canPlaceSpawner(draft.castle, cell.x, cell.y, size)
 			this.ghost.lineStyle(2, allowed ? 0x9be36d : 0xff5b4d, 0.95)
 			this.ghost.strokeRect(
 				cell.x * CELL_SIZE,

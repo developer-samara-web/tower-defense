@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import { COLS, ROWS } from '@/features/game/config/game.config'
-import { CENTER_CELL, createGameMap } from '@/features/game/engine/map/game-map'
+import { DEFAULT_COLS, DEFAULT_ROWS, resetBoardSize } from '@/features/game/config/game.config'
+import { createGameMap } from '@/features/game/engine/map/game-map'
 import type { PlayerProfile } from '@/features/account/types'
 import {
 	createMap,
@@ -100,17 +100,20 @@ function forestRuns(cells: string[]) {
 
 // Схема настоящей карты по её сиду: трава, лес, водоёмы, дороги и замок.
 function SeedThumbnail({ seed }: { seed: string }) {
+	// Карта по сиду всегда занимает поле по умолчанию.
+	resetBoardSize()
 	const map = createGameMap(seed)
+	const [castleX, castleY] = [Math.floor(DEFAULT_COLS / 2), Math.floor(DEFAULT_ROWS / 2)]
 
 	return (
 		<span className="relative block h-20 w-20 shrink-0 overflow-hidden border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000]">
 			<svg
-				viewBox={`0 0 ${COLS} ${ROWS}`}
+				viewBox={`0 0 ${DEFAULT_COLS} ${DEFAULT_ROWS}`}
 				preserveAspectRatio="xMidYMid slice"
 				className="h-full w-full"
 				aria-hidden="true"
 			>
-				<rect width={COLS} height={ROWS} fill="#4c6d26" />
+				<rect width={DEFAULT_COLS} height={DEFAULT_ROWS} fill="#4c6d26" />
 				<g fill="#33501c">
 					{forestRuns(map.forestCells).map((run) => (
 						<rect key={`${run.x},${run.y}`} x={run.x} y={run.y} width={run.width} height={1} />
@@ -132,8 +135,8 @@ function SeedThumbnail({ seed }: { seed: string }) {
 					/>
 				))}
 				<rect
-					x={CENTER_CELL[0] - 2.5}
-					y={CENTER_CELL[1] - 2.5}
+					x={castleX - 2.5}
+					y={castleY - 2.5}
 					width={5}
 					height={5}
 					fill="#2b1a0b"
@@ -151,12 +154,12 @@ function CustomThumbnail({ map }: { map: MapSummary }) {
 	return (
 		<span className="relative block h-20 w-20 shrink-0 overflow-hidden border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000]">
 			<svg
-				viewBox={`0 0 ${COLS} ${ROWS}`}
+				viewBox={`0 0 ${map.cols} ${map.rows}`}
 				preserveAspectRatio="xMidYMid slice"
 				className="h-full w-full"
 				aria-hidden="true"
 			>
-				<rect width={COLS} height={ROWS} fill="#4c6d26" />
+				<rect width={map.cols} height={map.rows} fill="#4c6d26" />
 				{map.spawners.map((spawner, index) => (
 					<rect
 						key={`${spawner.x},${spawner.y},${index}`}

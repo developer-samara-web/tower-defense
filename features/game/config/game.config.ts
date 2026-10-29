@@ -3,8 +3,34 @@
 // Камера показывает только часть карты, поэтому игроку есть куда
 // исследовать и где строить оборону вдоль длинных дорог.
 export const CELL_SIZE = 32
-export const COLS = 100
-export const ROWS = 100
+
+// Пользовательские карты бывают меньше или крупнее, поэтому COLS/ROWS —
+// живой размер текущего поля, а не константа.
+export const DEFAULT_COLS = 100
+export const DEFAULT_ROWS = 100
+export const BOARD_SIZE_MIN = 40
+export const BOARD_SIZE_MAX = 150
+export const BOARD_SIZE_STEP = 5
+
+export let COLS = DEFAULT_COLS
+export let ROWS = DEFAULT_ROWS
+
+// Движок читает COLS/ROWS напрямую, поэтому сцену нужно перевести на
+// размер карты до первого рисования. Вне сцены (сервер, превью) размер
+// берут из самих данных карты.
+export function setBoardSize(cols: number, rows: number) {
+	COLS = clampBoardSize(cols, DEFAULT_COLS)
+	ROWS = clampBoardSize(rows, DEFAULT_ROWS)
+}
+
+export function resetBoardSize() {
+	setBoardSize(DEFAULT_COLS, DEFAULT_ROWS)
+}
+
+export function clampBoardSize(value: number, fallback: number) {
+	if (!Number.isFinite(value)) return fallback
+	return Math.min(BOARD_SIZE_MAX, Math.max(BOARD_SIZE_MIN, Math.round(value)))
+}
 
 export const INITIAL_GOLD = 200
 export const INITIAL_LIVES = 20

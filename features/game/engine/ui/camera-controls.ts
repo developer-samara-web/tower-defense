@@ -7,6 +7,9 @@ import {
 	CAMERA_START_ZOOM,
 } from '../../config/game.config'
 
+// Как близко к краю поля нужно подвести мышь, чтобы поехала камера.
+const EDGE_PAN_MARGIN = 40
+
 export type CameraController = {
 	// Вызывается каждый кадр, чтобы двигать камеру с клавиатуры.
 	update: (delta: number) => void
@@ -22,6 +25,9 @@ type CameraOptions = {
 	// В редакторе левая кнопка рисует, поэтому камера едет только
 	// при перетаскивании правой или средней кнопкой.
 	shouldDrag?: (pointer: Phaser.Input.Pointer) => boolean
+	// Движение от края экрана: включаем только когда курсор над полем,
+	// иначе прокрутка стартует от мыши, ушедшей на панель инструментов.
+	edgePan?: () => boolean
 }
 
 // Минимальный зум, при котором камера ещё не показывает пустоту
@@ -72,6 +78,17 @@ export function bindCameraControls(
 	const clampZoom = (zoom: number) =>
 		Phaser.Math.Clamp(zoom, minZoom(), CAMERA_MAX_ZOOM)
 
+	// Phaser ограничивает камеру только в centerOn и при follow.
+	// Прямые присваивания scrollX/scrollY границу не видят, поэтому
+	// после каждого ручного движения возвращаем камеру в границы поля:
+	// иначе у края экрана видно пустоту за картой.
+	const clampToBounds = () => {
+		if (!camera.useBounds) return
+
+		camera.scrollX = camera.clampX(camera.scrollX)
+		camera.scrollY = camera.clampY(camera.scrollY)
+	}
+
 	// Начинаем перетаскивание при любом касании, но только если
 	// произошло заметное перемещение (чтобы не блокировать постройку башен на мобильном).
 	const DRAG_THRESHOLD = 6
@@ -109,6 +126,7 @@ export function bindCameraControls(
 				camera.setZoom(newZoom)
 				camera.scrollX = worldX - originX - (cx - originX) / newZoom
 				camera.scrollY = worldY - originY - (cy - originY) / newZoom
+				clampToBounds()
 			}
 
 			lastPinchDist = dist
@@ -142,6 +160,7 @@ export function bindCameraControls(
 
 		camera.scrollX -= deltaX
 		camera.scrollY -= deltaY
+		clampToBounds()
 	}
 
 	const stopDragging = () => {
@@ -171,6 +190,15 @@ export function bindCameraControls(
 		camera.setZoom(zoom)
 		camera.scrollX = worldX - originX - (pointer.x - originX) / zoom
 		camera.scrollY = worldY - originY - (pointer.y - originY) / zoom
+		clampToBounds()
+	}
+
+	// После изменения окна карта занимает другие места: нижний предел
+	// зума растёт, поэтому возвращаем камеру обратно в границы поля.
+	const onResize = () => {
+		const limit = minZoom()
+		if (camera.zoom < limit) camera.setZoom(limit)
+		clampToBounds()
 	}
 
 	const onPointerUp = () => {
@@ -197,6 +225,7 @@ export function bindCameraControls(
 	scene.input.on('pointerup', onPointerUp)
 	scene.input.on('pointerupoutside', onPointerUp)
 	scene.input.on('wheel', onWheel)
+	scene.scale.on('resize', onResize)
 	window.addEventListener('td:camera-focus', onFocusPoint)
 
 	// Плавно двигает камеру, пока зажаты клавиши движения или мышь у края экрана.
@@ -209,16 +238,30 @@ export function bindCameraControls(
 		if (cursors?.up.isDown || wasd?.W?.isDown) directionY -= 1
 		if (cursors?.down.isDown || wasd?.S?.isDown) directionY += 1
 
-		// Управление камерой у краёв экрана как в Dota — мышь у границы прокручивает.
-		// Отключено на мобильных (touch), где это конфликтует с перетаскиванием.
+		// Управление камерой у краёв поля: мышь у границы прокручивает карту.
+		// На мобильных отключено (конфликтует с жестами), а в редакторе —
+		// ещё и когда курсор ушёл за поле: там лежит панель инструментов.
 		const isTouchDevice = scene.sys?.game?.device?.input?.touch === true
 		const pointer = scene.input.activePointer
-		if (!isTouchDevice && pointer && pointer.x > 0 && pointer.y > 0 && pointer.x < scene.scale.width && pointer.y < scene.scale.height) {
-			const edgeMargin = 40
-			if (pointer.x < edgeMargin) directionX -= 1
-			if (pointer.x > scene.scale.width - edgeMargin) directionX += 1
-			if (pointer.y < edgeMargin) directionY -= 1
-			if (pointer.y > scene.scale.height - edgeMargin) directionY += 1
+		const edgePanAllowed =
+			!isTouchDevice && (!options.edgePan || options.edgePan()) && Boolean(pointer)
+
+		if (edgePanAllowed && pointer) {
+			const overBoard =
+				pointer.x >= 0 &&
+				pointer.y >= 0 &&
+				pointer.x <= scene.scale.width &&
+				pointer.y <= scene.scale.height
+
+			if (overBoard) {
+				const x = Phaser.Math.Clamp(pointer.x, 0, scene.scale.width)
+				const y = Phaser.Math.Clamp(pointer.y, 0, scene.scale.height)
+
+				if (x <= EDGE_PAN_MARGIN) directionX -= 1
+				if (x >= scene.scale.width - EDGE_PAN_MARGIN) directionX += 1
+				if (y <= EDGE_PAN_MARGIN) directionY -= 1
+				if (y >= scene.scale.height - EDGE_PAN_MARGIN) directionY += 1
+			}
 		}
 
 		if (directionX === 0 && directionY === 0) return
@@ -230,6 +273,7 @@ export function bindCameraControls(
 
 		camera.scrollX += directionX * step
 		camera.scrollY += directionY * step
+		clampToBounds()
 	}
 
 	function reset() {
@@ -243,6 +287,7 @@ export function bindCameraControls(
 		scene.input.off('pointerup', onPointerUp)
 		scene.input.off('pointerupoutside', onPointerUp)
 		scene.input.off('wheel', onWheel)
+		scene.scale.off('resize', onResize)
 		window.removeEventListener('td:camera-focus', onFocusPoint)
 		keyboard?.removeCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
 	}

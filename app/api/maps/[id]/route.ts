@@ -85,6 +85,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
 				return Response.json({ error: 'Некорректные данные карты' }, { status: 400 })
 			}
 			map.data = data
+			// Размер поля хранится и в черновике, и в записи: списки карт
+			// строят превью только по полю записи.
+			map.cols = data.cols
+			map.rows = data.rows
 			// Правка после публикации снимает карту с витрины: старая
 			// версия больше не соответствует сохранённому черновику.
 			if (map.moderation !== 'draft') {

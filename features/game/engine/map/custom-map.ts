@@ -1,13 +1,15 @@
 import {
 	CELL_SIZE,
 	COLS,
+	clampBoardSize,
+	DEFAULT_COLS,
+	DEFAULT_ROWS,
 	INITIAL_LIVES,
 	ROWS,
 	type EnemyType,
 } from '../../config/game.config.ts'
 import {
 	CASTLE_SIZE,
-	CENTER_CELL,
 	type GameMap,
 	type MapCastle,
 	type MapSpawner,
@@ -25,6 +27,9 @@ export type { MapCastle, MapSpawner, MapWave, MapWaves, SpawnerTroop } from './g
 // что и в редакторе, поэтому карта в игре совпадает с превью.
 export type MapDraft = {
 	version: 1
+	// Размер поля в клетках: движок рисует и проверяет карту по нему.
+	cols: number
+	rows: number
 	castle: MapCastle | null
 	spawners: MapSpawner[]
 	waterCells: string[]
@@ -34,6 +39,11 @@ export type MapDraft = {
 	roadCells: string[]
 	// Настройки сложности волн: общая прогрессия или список волн.
 	waves: MapWaves
+}
+
+export type BoardSize = {
+	cols: number
+	rows: number
 }
 
 export type SpawnerRoad = {
@@ -97,6 +107,8 @@ const TURN_COST = 2.5
 export function createEmptyMapDraft(): MapDraft {
 	return {
 		version: 1,
+		cols: DEFAULT_COLS,
+		rows: DEFAULT_ROWS,
 		castle: null,
 		spawners: [],
 		waterCells: [],
@@ -115,15 +127,82 @@ export function parseCellKey(key: string): [number, number] {
 	return [x, y]
 }
 
-export function isBoardCell(x: number, y: number) {
-	return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < COLS && y < ROWS
+// Размер по умолчанию — текущее поле сцены: редактор и игра выставляют
+// его перед отрисовкой. Данные карты всегда носят размер сами, поэтому
+// сервер и превью считают по ним, а не по глобальному полю.
+export function draftSize(draft: Pick<MapDraft, 'cols' | 'rows'>): BoardSize {
+	return { cols: draft.cols, rows: draft.rows }
 }
 
-export function clampCastleCell(x: number, y: number): [number, number] {
+// Середина поля карты: замок по умолчанию стоит именно там.
+export function draftCenter(draft: Pick<MapDraft, 'cols' | 'rows'>): [number, number] {
+	return [Math.floor(draft.cols / 2), Math.floor(draft.rows / 2)]
+}
+
+// Меняет размер поля. Всё, что вышло за новую границу, уходит с карты:
+// иначе сохранённые клетки оказались бы за пределами мира.
+export function resizeMapDraft(draft: MapDraft, cols: number, rows: number) {
+	const size: BoardSize = {
+		cols: clampBoardSize(cols, DEFAULT_COLS),
+		rows: clampBoardSize(rows, DEFAULT_ROWS),
+	}
+	const inside = (key: string) => {
+		const [x = 0, y = 0] = parseCellKey(key)
+		return isBoardCell(x, y, size)
+	}
+	const keep = (keys: string[]) => keys.filter(inside)
+
+	const spawners = draft.spawners.filter((spawner) =>
+		isBoardCell(spawner.x, spawner.y, size),
+	)
+	let castle = draft.castle
+	if (castle) {
+		const [x, y] = clampCastleCell(castle.x, castle.y, size)
+		castle = { ...castle, x, y }
+	}
+	const castleKeys = new Set(castle ? castleCellKeys(castle) : [])
+
+	const waterCells = keep(draft.waterCells).filter((key) => !castleKeys.has(key))
+	const forestCells = keep(draft.forestCells).filter((key) => !castleKeys.has(key))
+	const occupied = new Set([...castleKeys, ...waterCells, ...forestCells])
+	const roadCells = keep(draft.roadCells).filter((key) => !occupied.has(key))
+
+	const removed =
+		draft.spawners.length - spawners.length +
+		draft.waterCells.length - waterCells.length +
+		draft.forestCells.length - forestCells.length +
+		draft.roadCells.length - roadCells.length
+
+	return {
+		draft: { ...draft, ...size, castle, spawners, waterCells, forestCells, roadCells },
+		removed,
+	}
+}
+
+export function isBoardCell(
+	x: number,
+	y: number,
+	size: BoardSize = { cols: COLS, rows: ROWS },
+) {
+	return (
+		Number.isInteger(x) &&
+		Number.isInteger(y) &&
+		x >= 0 &&
+		y >= 0 &&
+		x < size.cols &&
+		y < size.rows
+	)
+}
+
+export function clampCastleCell(
+	x: number,
+	y: number,
+	size: BoardSize = { cols: COLS, rows: ROWS },
+): [number, number] {
 	const half = Math.floor(CASTLE_SIZE / 2)
 	return [
-		Math.min(COLS - 1 - half, Math.max(half, Math.trunc(x))),
-		Math.min(ROWS - 1 - half, Math.max(half, Math.trunc(y))),
+		Math.min(size.cols - 1 - half, Math.max(half, Math.trunc(x))),
+		Math.min(size.rows - 1 - half, Math.max(half, Math.trunc(y))),
 	]
 }
 
@@ -179,7 +258,10 @@ export function createMapWave(): MapWave {
 
 // Клетки, куда может прийти дорога: всё, что примыкает к замку снаружи.
 // Воды и леса тут быть не должно — иначе казарма останется без пути.
-export function castleApproachCells(castle: Pick<MapCastle, 'x' | 'y'>): Set<string> {
+export function castleApproachCells(
+	castle: Pick<MapCastle, 'x' | 'y'>,
+	size: BoardSize = { cols: COLS, rows: ROWS },
+): Set<string> {
 	const half = Math.floor(CASTLE_SIZE / 2)
 	const cells = new Set<string>()
 
@@ -188,7 +270,7 @@ export function castleApproachCells(castle: Pick<MapCastle, 'x' | 'y'>): Set<str
 		for (const [dx, dy] of DIRECTION_STEPS) {
 			const nx = x + dx
 			const ny = y + dy
-			if (!isBoardCell(nx, ny)) continue
+			if (!isBoardCell(nx, ny, size)) continue
 			if (Math.abs(nx - castle.x) <= half && Math.abs(ny - castle.y) <= half) continue
 			cells.add(cellKey(nx, ny))
 		}
@@ -213,8 +295,13 @@ export function spawnerCenterPoint(spawner: Pick<MapSpawner, 'x' | 'y'>): RoadPo
 
 // Казарма не должна стоять вплотную к замку: иначе враг рождается
 // на клетке входа и мгновенно прорывается. Оставляем одну клетку зазора.
-export function canPlaceSpawner(castle: Pick<MapCastle, 'x' | 'y'> | null, x: number, y: number) {
-	if (!isBoardCell(x, y)) return false
+export function canPlaceSpawner(
+	castle: Pick<MapCastle, 'x' | 'y'> | null,
+	x: number,
+	y: number,
+	size: BoardSize = { cols: COLS, rows: ROWS },
+) {
+	if (!isBoardCell(x, y, size)) return false
 	if (!castle) return true
 	const half = Math.floor(CASTLE_SIZE / 2) + 1
 	return Math.abs(x - castle.x) > half || Math.abs(y - castle.y) > half
@@ -229,6 +316,7 @@ function cellCenterPoint([x, y]: [number, number]): RoadPoint {
 // земле в обход воды, леса и других казарм.
 // Результат null — казарму отрезали.
 export function spawnerRoads(draft: MapDraft): SpawnerRoad[] {
+	const size = draftSize(draft)
 	const result = draft.spawners.map((spawner) => ({
 		spawnerId: spawner.id,
 		road: null as Road | null,
@@ -237,7 +325,7 @@ export function spawnerRoads(draft: MapDraft): SpawnerRoad[] {
 	if (!draft.castle) return result
 
 	const castle = draft.castle
-	const approach = castleApproachCells(castle)
+	const approach = castleApproachCells(castle, size)
 	const painted = new Set(draft.roadCells)
 	const manual = painted.size > 0
 
@@ -279,6 +367,7 @@ export function spawnerRoads(draft: MapDraft): SpawnerRoad[] {
 			targets,
 			localBlocked,
 			walkable,
+			size,
 		)
 	}
 
@@ -347,9 +436,10 @@ export function validateDraft(draft: MapDraft): string | null {
 // Превращает черновик в карту для игрового движка. Несвязанные
 // казармы отбрасываются, чтобы враги не рождались в тупике.
 export function createCustomGameMap(draft: MapDraft): GameMap {
+	const [centerX, centerY] = draftCenter(draft)
 	const castle: MapCastle = draft.castle ?? {
-		x: CENTER_CELL[0],
-		y: CENTER_CELL[1],
+		x: centerX,
+		y: centerY,
 		hp: INITIAL_LIVES,
 	}
 
@@ -392,19 +482,25 @@ export function normalizeMapDraft(value: unknown): MapDraft | null {
 	if (!value || typeof value !== 'object') return null
 
 	const raw = value as Record<string, unknown>
-	const castle = readCastle(raw.castle)
-	const spawners = readSpawners(raw.spawners, castle)
+	const size: BoardSize = {
+		cols: clampBoardSize(readNumber(raw.cols), DEFAULT_COLS),
+		rows: clampBoardSize(readNumber(raw.rows), DEFAULT_ROWS),
+	}
+	const castle = readCastle(raw.castle, size)
+	const spawners = readSpawners(raw.spawners, castle, size)
 	const occupied = new Set<string>(spawners.map((spawner) => cellKey(spawner.x, spawner.y)))
 	if (castle) {
 		for (const key of castleCellKeys(castle)) occupied.add(key)
 	}
 
-	const waterCells = readTerrainCells(raw.waterCells, occupied)
-	const forestCells = readTerrainCells(raw.forestCells, occupied)
+	const waterCells = readTerrainCells(raw.waterCells, occupied, size)
+	const forestCells = readTerrainCells(raw.forestCells, occupied, size)
 	const terrain = new Set([...occupied, ...waterCells, ...forestCells])
 
 	return {
 		version: 1,
+		cols: size.cols,
+		rows: size.rows,
 		castle,
 		spawners,
 		waterCells,
@@ -412,6 +508,7 @@ export function normalizeMapDraft(value: unknown): MapDraft | null {
 		roadCells: readTerrainCells(
 			raw.roadCells,
 			terrain,
+			size,
 			MAP_LIMITS.maxRoadCells,
 		),
 		waves: readWaves(raw.waves),
@@ -484,13 +581,13 @@ function clampWavePercent(value: unknown) {
 	return clampNumber(value, MAP_LIMITS.wavePercentMin, MAP_LIMITS.wavePercentMax, 100)
 }
 
-function readCastle(value: unknown): MapCastle | null {
+function readCastle(value: unknown, size: BoardSize): MapCastle | null {
 	if (!value || typeof value !== 'object') return null
 
 	const raw = value as Record<string, unknown>
 	if (typeof raw.x !== 'number' || typeof raw.y !== 'number') return null
 
-	const [x, y] = clampCastleCell(raw.x, raw.y)
+	const [x, y] = clampCastleCell(raw.x, raw.y, size)
 	return {
 		x,
 		y,
@@ -498,7 +595,11 @@ function readCastle(value: unknown): MapCastle | null {
 	}
 }
 
-function readSpawners(value: unknown, castle: MapCastle | null): MapSpawner[] {
+function readSpawners(
+	value: unknown,
+	castle: MapCastle | null,
+	size: BoardSize,
+): MapSpawner[] {
 	if (!Array.isArray(value)) return []
 
 	const spawners: MapSpawner[] = []
@@ -514,8 +615,8 @@ function readSpawners(value: unknown, castle: MapCastle | null): MapSpawner[] {
 
 		const x = Math.trunc(raw.x)
 		const y = Math.trunc(raw.y)
-		if (!isBoardCell(x, y)) continue
-		if (!canPlaceSpawner(castle, x, y)) continue
+		if (!isBoardCell(x, y, size)) continue
+		if (!canPlaceSpawner(castle, x, y, size)) continue
 
 		const key = cellKey(x, y)
 		if (usedCells.has(key)) continue
@@ -539,6 +640,7 @@ function readSpawners(value: unknown, castle: MapCastle | null): MapSpawner[] {
 function readTerrainCells(
 	value: unknown,
 	occupied: ReadonlySet<string>,
+	size: BoardSize,
 	limit = MAP_LIMITS.maxTerrainCells,
 ): string[] {
 	if (!Array.isArray(value)) return []
@@ -551,7 +653,7 @@ function readTerrainCells(
 		if (!/^-?\d+,-?\d+$/.test(entry)) continue
 
 		const [x, y] = parseCellKey(entry)
-		if (!isBoardCell(x, y)) continue
+		if (!isBoardCell(x, y, size)) continue
 
 		const key = cellKey(x, y)
 		if (seen.has(key) || occupied.has(key)) continue
@@ -570,6 +672,12 @@ function isEnemyType(value: unknown): value is EnemyType {
 function clampNumber(value: unknown, min: number, max: number, fallback: number) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
 	return Math.min(max, Math.max(min, Math.round(value)))
+}
+
+// Размер поля читаем как число: у старых карт его нет, и тогда
+// работает поле по умолчанию.
+function readNumber(value: unknown) {
+	return typeof value === 'number' && Number.isFinite(value) ? value : Number.NaN
 }
 
 type HeapNode = {
@@ -630,11 +738,13 @@ function findRoad(
 	start: [number, number],
 	targets: ReadonlySet<string>,
 	blocked: ReadonlySet<string>,
-	walkable?: ReadonlySet<string>,
+	walkable: ReadonlySet<string> | undefined,
+	size: BoardSize,
 ): Road | null {
+	const cols = size.cols
 	const [startX, startY] = start
-	const startState = (startY * COLS + startX) * DIRECTION_COUNT + NO_DIRECTION
-	const total = COLS * ROWS * DIRECTION_COUNT
+	const startState = (startY * cols + startX) * DIRECTION_COUNT + NO_DIRECTION
+	const total = cols * size.rows * DIRECTION_COUNT
 
 	const cost = new Float64Array(total).fill(Infinity)
 	const previous = new Int32Array(total).fill(-1)
@@ -651,8 +761,8 @@ function findRoad(
 		if (node.score > (cost[node.state] ?? Infinity)) continue
 
 		const cellIndex = Math.floor(node.state / DIRECTION_COUNT)
-		const x = cellIndex % COLS
-		const y = Math.floor(cellIndex / COLS)
+		const x = cellIndex % cols
+		const y = Math.floor(cellIndex / cols)
 		const direction = node.state % DIRECTION_COUNT
 
 		if (targets.has(cellKey(x, y))) {
@@ -664,11 +774,11 @@ function findRoad(
 			const [dx, dy] = DIRECTION_STEPS[step]!
 			const nx = x + dx
 			const ny = y + dy
-			if (!isBoardCell(nx, ny)) continue
+			if (!isBoardCell(nx, ny, size)) continue
 			if (blocked.has(cellKey(nx, ny))) continue
 			if (walkable && !walkable.has(cellKey(nx, ny))) continue
 
-			const nextState = (ny * COLS + nx) * DIRECTION_COUNT + step
+			const nextState = (ny * cols + nx) * DIRECTION_COUNT + step
 			const stepCost = 1 + (direction !== NO_DIRECTION && direction !== step ? TURN_COST : 0)
 			const nextCost = (cost[node.state] ?? 0) + stepCost
 			if (nextCost >= (cost[nextState] ?? Infinity)) continue
@@ -686,7 +796,7 @@ function findRoad(
 
 	while (state !== -1) {
 		const cellIndex = Math.floor(state / DIRECTION_COUNT)
-		cells.push([cellIndex % COLS, Math.floor(cellIndex / COLS)])
+		cells.push([cellIndex % cols, Math.floor(cellIndex / cols)])
 		state = previous[state] ?? -1
 	}
 

@@ -1,4 +1,8 @@
-import { COLS, ROWS } from '@/features/game/config/game.config'
+import {
+	clampBoardSize,
+	DEFAULT_COLS,
+	DEFAULT_ROWS,
+} from '@/features/game/config/game.config'
 import type { MapDraft } from '@/features/game/engine/map/custom-map'
 import type { MapStatus, MapSummary } from '@/types'
 
@@ -44,8 +48,8 @@ export function toMapSummary(
 		id: map._id.toString(),
 		name: map.name,
 		seed: map.seed,
-		cols: map.cols ?? COLS,
-		rows: map.rows ?? ROWS,
+		cols: map.cols ?? draft?.cols ?? DEFAULT_COLS,
+		rows: map.rows ?? draft?.rows ?? DEFAULT_ROWS,
 		difficulty: map.difficulty ?? 'Средняя',
 		previewColor: map.previewColor ?? '#6b8e32',
 		createdAt: map.createdAt.toISOString(),
@@ -70,6 +74,8 @@ export function readDraft(value: unknown): MapDraft | null {
 
 	return {
 		version: 1,
+		cols: clampBoardSize(Number(draft.cols), DEFAULT_COLS),
+		rows: clampBoardSize(Number(draft.rows), DEFAULT_ROWS),
 		castle: draft.castle ?? null,
 		spawners: draft.spawners,
 		waterCells: draft.waterCells,

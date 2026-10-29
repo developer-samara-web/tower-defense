@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { COLS, ROWS } from '@/features/game/config/game.config'
+import { DEFAULT_COLS, DEFAULT_ROWS } from '@/features/game/config/game.config'
 import { createEmptyMapDraft } from '@/features/game/engine/map/custom-map'
 import { verifyToken } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
@@ -81,8 +81,8 @@ export async function POST(req: Request) {
 			userId: payload.userId,
 			name: `Карта ${count + 1}`.slice(0, MAX_NAME_LENGTH),
 			seed,
-			cols: COLS,
-			rows: ROWS,
+			cols: DEFAULT_COLS,
+			rows: DEFAULT_ROWS,
 			difficulty: 'Средняя',
 			previewColor: seedColor(seed),
 			data: createEmptyMapDraft(),

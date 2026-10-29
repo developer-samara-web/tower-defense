@@ -23,9 +23,10 @@ import {
 import { drawBoard } from '../board/board-renderer'
 import { createTowerView } from '../rendering/tower-view'
 import type { GameContext } from '../game-context'
+import { resetBoardSize, setBoardSize } from '../../config/game.config'
 import {
-	BOARD_PIXEL_HEIGHT,
-	BOARD_PIXEL_WIDTH,
+	boardPixelHeight,
+	boardPixelWidth,
 	createGameMap,
 	mapSeedToNumber,
 	type GameMap,
@@ -34,6 +35,7 @@ import {
 import {
 	castleCenterPoint,
 	createCustomGameMap,
+	draftSize,
 	type MapDraft,
 } from '../map/custom-map'
 import { createEnemySystem, type EnemySystem } from '../systems/enemy-system'
@@ -130,6 +132,15 @@ export class MainScene extends Phaser.Scene {
 
 	// Вызывается Phaser при создании сцены.
 	create() {
+		// Движок рисует поле по глобальным COLS/ROWS, поэтому размер
+		// текущей карты выставляем до первого обращения к карте.
+		if (this.customDraft) {
+			const size = draftSize(this.customDraft)
+			setBoardSize(size.cols, size.rows)
+		} else {
+			resetBoardSize()
+		}
+
 		// Готовим карту и состояние. Прочность замка в пользовательской
 		// карте задаётся игроком, поэтому жизни берём из неё.
 		const map = this.customDraft
@@ -142,7 +153,6 @@ export class MainScene extends Phaser.Scene {
 		// поэтому камера остаётся прозрачной.
 		this.setupCamera(map.castle)
 		this.cameraControls = bindCameraControls(this, castleCenterPoint(map.castle))
-		this.scale.on('resize', this.handleResize)
 
 		this.state.pathCells = drawBoard(
 			this,
@@ -187,7 +197,6 @@ export class MainScene extends Phaser.Scene {
 
 		// Убираем обработчики при завершении сцены.
 		this.events.once('shutdown', () => {
-			this.scale.off('resize', this.handleResize)
 			this.cameraControls.destroy()
 		})
 	}
@@ -276,8 +285,8 @@ export class MainScene extends Phaser.Scene {
 		camera.setBounds(
 			0,
 			0,
-			BOARD_PIXEL_WIDTH,
-			BOARD_PIXEL_HEIGHT,
+			boardPixelWidth(),
+			boardPixelHeight(),
 		)
 
 		// Стартуем с зума, при котором поле заполняет окно целиком:
@@ -285,17 +294,6 @@ export class MainScene extends Phaser.Scene {
 		camera.setZoom(minCameraZoom(camera))
 		const center = castleCenterPoint(castle)
 		camera.centerOn(center.x, center.y)
-	}
-
-	// При изменении размера окна не сбрасываем позицию игрока,
-	// а только не даём отдалить камеру сильнее границ мира.
-	private handleResize = () => {
-		const camera = this.cameras.main
-		const minZoom = minCameraZoom(camera)
-
-		if (camera.zoom < minZoom) {
-			camera.setZoom(minZoom)
-		}
 	}
 
 	// Основной игровой цикл Phaser. Вызывается каждый кадр.

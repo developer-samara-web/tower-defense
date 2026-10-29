@@ -2,10 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { COLS, ROWS } from '../../config/game.config.ts'
 import {
-	BOARD_PIXEL_HEIGHT,
-	BOARD_PIXEL_WIDTH,
-	CASTLE_CELLS,
-	CENTER_CELL,
+	boardPixelHeight,
+	boardPixelWidth,
+	castleCells,
+	centerCell,
 	createGameMap,
 	FOREST_ROAD_CLEARANCE,
 	mapSeedToNumber,
@@ -27,7 +27,7 @@ test('builds the same map for the same seed', () => {
 
 test('makes four roads from the edges to the castle gates', () => {
 	const map = createGameMap(42)
-	const [cx, cy] = CENTER_CELL
+	const [cx, cy] = centerCell()
 
 	assert.equal(map.roads.length, 4)
 
@@ -55,8 +55,8 @@ test('converts every road cell to a board point', () => {
 		assert.equal(map.roadPoints[i]?.length, map.roads[i]?.length)
 	}
 
-	assert.equal(BOARD_PIXEL_WIDTH, COLS * 32)
-	assert.equal(BOARD_PIXEL_HEIGHT, ROWS * 32)
+	assert.equal(boardPixelWidth(), COLS * 32)
+	assert.equal(boardPixelHeight(), ROWS * 32)
 })
 
 test('scatters rivers inside the board', () => {
@@ -130,7 +130,7 @@ test('leaves no dry holes inside rivers', () => {
 test('keeps a five-cell clearing around roads for towers', () => {
 	const map = createGameMap('forest')
 	const nearRoads = expandCells(
-		[...roadLineCells(map.roads), ...CASTLE_CELLS],
+		[...roadLineCells(map.roads), ...castleCells()],
 		FOREST_ROAD_CLEARANCE,
 	)
 
@@ -192,7 +192,7 @@ test('fills the free ground with forest but leaves clearings', () => {
 
 test('keeps rivers off roads, the castle and each other', () => {
 	const map = createGameMap('rivers')
-	const dryCells = expandCells([...roadLineCells(map.roads), ...CASTLE_CELLS], 1)
+	const dryCells = expandCells([...roadLineCells(map.roads), ...castleCells()], 1)
 
 	for (const key of map.waterCells) {
 		assert.equal(dryCells.has(key), false, `river cell ${key} touches a road`)

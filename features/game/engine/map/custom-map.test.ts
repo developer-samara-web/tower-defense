@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { CELL_SIZE, COLS, ROWS } from '../../config/game.config.ts'
+import {
+	BOARD_SIZE_MAX,
+	BOARD_SIZE_MIN,
+	CELL_SIZE,
+	COLS,
+	DEFAULT_COLS,
+	DEFAULT_ROWS,
+	ROWS,
+} from '../../config/game.config.ts'
 import { MAP_LIMITS } from './custom-map.ts'
 import {
 	castleApproachCells,
@@ -11,12 +19,16 @@ import {
 	canPlaceSpawner,
 	draftRoadSegments,
 	normalizeMapDraft,
+	resizeMapDraft,
 	spawnerRoads,
 	validateDraft,
 	type MapDraft,
+	type SpawnerTroop,
 } from './custom-map.ts'
 
 const CASTLE = { x: 50, y: 50, hp: 100 }
+
+const SCOUT: SpawnerTroop = { type: 'scout', count: 5, speed: 70, strength: 1, health: 100 }
 
 function draft(overrides: Partial<MapDraft> = {}): MapDraft {
 	return {
@@ -356,4 +368,87 @@ test('keeps painted roads in the game map and routes separately', () => {
 
 	// Автоматические маршруты маркер ручных дорог не получают.
 	assert.equal(createCustomGameMap(draft()).routes, undefined)
+})
+
+test('resizes the board and drops what falls outside', () => {
+	const wide = draft({
+		castle: { x: 20, y: 20, hp: 100 },
+		spawners: [
+			{ id: 'a', x: 10, y: 10, troops: [SCOUT] },
+			{ id: 'b', x: 90, y: 90, troops: [SCOUT] },
+		],
+		waterCells: ['5,5', '95,95'],
+		forestCells: ['6,6', '120,3'],
+		roadCells: ['7,7', '88,12'],
+	})
+
+	const { draft: small, removed } = resizeMapDraft(wide, 40, 40)
+
+	assert.equal(small.cols, 40)
+	assert.equal(small.rows, 40)
+	assert.equal(small.spawners.length, 1)
+	assert.equal(small.spawners[0]?.id, 'a')
+	assert.deepEqual(small.waterCells, ['5,5'])
+	assert.deepEqual(small.forestCells, ['6,6'])
+	assert.deepEqual(small.roadCells, ['7,7'])
+	assert.equal(removed, 4)
+})
+
+test('pulls the castle back inside the resized board', () => {
+	const { draft: small } = resizeMapDraft(
+		draft({ castle: { x: 70, y: 80, hp: 100 } }),
+		40,
+		40,
+	)
+
+	assert.ok(small.castle)
+	assert.equal(small.castle.x >= 1 && small.castle.x <= 38, true)
+	assert.equal(small.castle.y >= 1 && small.castle.y <= 38, true)
+})
+
+test('clamps a requested size to the board limits', () => {
+	const { draft: clamped } = resizeMapDraft(draft(), 9999, 1)
+
+	assert.equal(clamped.cols, BOARD_SIZE_MAX)
+	assert.equal(clamped.rows, BOARD_SIZE_MIN)
+})
+
+test('reads the board size from saved data', () => {
+	const normalized = normalizeMapDraft({
+		cols: 60,
+		rows: 45,
+		castle: { x: 500, y: 500, hp: 100 },
+		spawners: [{ id: 'a', x: 90, y: 44, troops: [SCOUT] }],
+		waterCells: ['10,10', '80,80'],
+	})
+
+	assert.ok(normalized)
+	assert.equal(normalized.cols, 60)
+	assert.equal(normalized.rows, 45)
+	assert.equal(normalized.spawners.length, 0)
+	assert.deepEqual(normalized.waterCells, ['10,10'])
+	assert.ok(normalized.castle)
+	assert.equal(normalized.castle.x < 60 && normalized.castle.y < 45, true)
+})
+
+test('defaults a draft without a size to the standard board', () => {
+	const legacy = normalizeMapDraft({ castle: { x: 10, y: 10, hp: 100 }, spawners: [] })
+
+	assert.equal(legacy?.cols, DEFAULT_COLS)
+	assert.equal(legacy?.rows, DEFAULT_ROWS)
+})
+
+test('routes barracks over the map size stored in the draft', () => {
+	const small = draft({
+		cols: 40,
+		rows: 40,
+		castle: { x: 20, y: 20, hp: 100 },
+		spawners: [{ id: 'a', x: 5, y: 5, troops: [SCOUT] }],
+	})
+
+	const road = spawnerRoads(small)[0]?.road
+	assert.ok(road)
+	for (const [x, y] of road) {
+		assert.equal(x >= 0 && x < 40 && y >= 0 && y < 40, true)
+	}
 })
