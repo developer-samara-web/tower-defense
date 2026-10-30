@@ -71,6 +71,10 @@ const FIELD_BUTTON =
 const PLAY_BUTTON =
 	'group relative flex h-10 w-10 items-center justify-center border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_3px_0_#100904] transition-colors hover:from-[#628e33] hover:to-[#3d6022] disabled:cursor-not-allowed disabled:opacity-40 active:translate-y-[2px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400'
 
+// Кнопка выхода та же, что в библиотеке карт и профиле: стрелка со словами.
+const BACK_BUTTON =
+	'inline-flex shrink-0 items-center gap-2 rounded-none border-2 border-[#79502b] bg-[#21150c] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] transition-colors hover:border-amber-400 hover:text-amber-50 active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
+
 const TOOL_ICONS: Record<EditorTool, string> = {
 	castle: 'M6 19V8l6-4 6 4v11h-4v-5h-4v5H6z',
 	spawner: 'M5 19V9l7-4 7 4v10h-5v-4h-4v4H5z M12 2v3',
@@ -664,18 +668,17 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 			</div>
 
 			{/* Карта занимает весь экран, интерфейс только висит поверх неё. */}
-			<div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-2 p-2 sm:p-3">
-				<div className={`pointer-events-auto flex items-center gap-1.5 p-1.5 ${PANEL}`}>
+			<div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-3">
+				<div className={`pointer-events-auto flex items-center gap-2.5 p-2.5 ${PANEL}`}>
 					<button
 						type="button"
 						onClick={goBack}
 						aria-label="К списку карт"
 						title="К списку карт"
-						className={SQUARE_BUTTON}
+						className={BACK_BUTTON}
 					>
-						<svg viewBox="0 0 24 24" className="relative h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" aria-hidden="true">
-							<path d="M16 6l-7 6 7 6M9 12h9" />
-						</svg>
+						<span className="text-[14px] leading-none">←</span>
+						Назад
 					</button>
 
 					<input
@@ -688,7 +691,7 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 						}}
 						placeholder="Название карты"
 						aria-label="Название карты"
-						className="w-[110px] border-2 border-[#5c3a1a] bg-[#0f0a05] px-2 py-1.5 text-[11px] font-black text-amber-200 outline-none focus:border-amber-500 sm:w-[180px]"
+						className="w-[120px] border-2 border-[#5c3a1a] bg-[#0f0a05] px-2.5 py-2 text-[11px] font-black text-amber-200 outline-none focus:border-amber-500 sm:w-[190px]"
 					/>
 
 					<select
@@ -698,7 +701,7 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 							setDirty(true)
 						}}
 						aria-label="Сложность"
-						className="border-2 border-[#5c3a1a] bg-[#0f0a05] px-1.5 py-1.5 text-[10px] font-black text-amber-200 outline-none focus:border-amber-500"
+						className="border-2 border-[#5c3a1a] bg-[#0f0a05] px-2 py-2 text-[10px] font-black text-amber-200 outline-none focus:border-amber-500"
 					>
 						{DIFFICULTIES.map((value) => (
 							<option key={value} value={value}>
@@ -708,7 +711,7 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 					</select>
 				</div>
 
-				<div className="pointer-events-auto flex items-center gap-1.5">
+				<div className="pointer-events-auto flex items-center gap-2 p-2.5">
 					<button
 						type="button"
 						onClick={() => setWavesOpen(true)}

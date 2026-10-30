@@ -127,7 +127,9 @@ export class MapEditorScene extends Phaser.Scene {
 		})
 	}
 
-	update(delta: number) {
+	// Phaser передаёт в update сначала время таймера, затем delta:
+	// если принять первый аргумент за delta, прокрутка у края прыгает.
+	update(_time: number, delta: number) {
 		this.cameraControls?.update(delta)
 	}
 
