@@ -8,10 +8,10 @@ export type HudBridge = {
 	reset: () => void
 }
 
-// Размеры панели башни в React-интерфейсе (px).
-const PANEL_WIDTH = 232
-const PANEL_HEIGHT = 260
-const PANEL_MARGIN = 8
+// Высота панели башни в React-интерфейсе (px) и зазор от неё до башни.
+// Строки характеристик зависят от карточек улучшения, поэтому высота
+// усреднённая — она только центрирует панель относительно башни.
+const PANEL_HEIGHT = 172
 const PANEL_GAP = 10
 
 // Сцена зовёт publish каждый кадр, а React не нужен такой поток:
@@ -27,8 +27,9 @@ export function createHudBridge(
 	let lastSnapshot = ''
 	let lastPublishedAt = 0
 
-	// Переводит позицию выбранной башни в координаты полотна и
-	// подбирает место для панели рядом с ней.
+	// Ставит панель напротив башни в координатах полотна. Границы камеры не
+	// трогаем: панель привязана к башне, поэтому при прокрутке уходит следом
+	// и может оказаться за краем экрана.
 	function getPanelPosition() {
 		const tower = state.selectedBuiltTower
 		if (!tower || !scene) return null
@@ -39,24 +40,9 @@ export function createHudBridge(
 		const screenY = (tower.y - camera.worldView.y) * zoom
 		const halfCell = (CELL_SIZE / 2) * zoom
 
-		// Обычно панель справа от башни, но у правого края — слева.
-		let x = screenX + halfCell + PANEL_GAP
-		if (x + PANEL_WIDTH > camera.width - PANEL_MARGIN) {
-			x = screenX - halfCell - PANEL_GAP - PANEL_WIDTH
-		}
-
-		const maxX = Math.max(
-			PANEL_MARGIN,
-			camera.width - PANEL_WIDTH - PANEL_MARGIN,
-		)
-		const maxY = Math.max(
-			PANEL_MARGIN,
-			camera.height - PANEL_HEIGHT - PANEL_MARGIN,
-		)
-
 		return {
-			x: Math.min(Math.max(PANEL_MARGIN, x), maxX),
-			y: Math.min(Math.max(PANEL_MARGIN, screenY - PANEL_HEIGHT / 2), maxY),
+			x: screenX + halfCell + PANEL_GAP,
+			y: screenY - PANEL_HEIGHT / 2,
 		}
 	}
 
