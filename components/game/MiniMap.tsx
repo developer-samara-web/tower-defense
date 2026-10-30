@@ -33,7 +33,13 @@ export default function MiniMap({
 		const size = SIZE
 		const cols = COLS
 		const rows = ROWS
-		const scale = size / Math.max(cols, rows)
+		// Канва квадратная, а поле — нет. Тянем каждую ось своим
+		// масштабом, тогда и клик по миникарте, и рамка обзора попадают
+		// в ту же клетку, что и нарисованная дорога.
+		const scaleX = size / cols
+		const scaleY = size / rows
+		const cellW = Math.max(1, Math.ceil(scaleX))
+		const cellH = Math.max(1, Math.ceil(scaleY))
 
 		canvas.width = size
 		canvas.height = size
@@ -46,14 +52,14 @@ export default function MiniMap({
 		ctx.strokeStyle = '#2a1d0a'
 		ctx.lineWidth = 0.5
 		for (let i = 0; i <= cols; i += GRID_STEP) {
-			const px = i * scale
+			const px = i * scaleX
 			ctx.beginPath()
 			ctx.moveTo(px, 0)
 			ctx.lineTo(px, size)
 			ctx.stroke()
 		}
 		for (let i = 0; i <= rows; i += GRID_STEP) {
-			const py = i * scale
+			const py = i * scaleY
 			ctx.beginPath()
 			ctx.moveTo(0, py)
 			ctx.lineTo(size, py)
@@ -65,23 +71,38 @@ export default function MiniMap({
 		const cyCenter = Math.round(rows / 2)
 		ctx.fillStyle = '#68451f'
 		ctx.fillRect(
-			(cxCenter - 1) * scale,
-			(cyCenter - 1) * scale,
-			3 * scale,
-			3 * scale,
+			(cxCenter - 1) * scaleX,
+			(cyCenter - 1) * scaleY,
+			3 * scaleX,
+			3 * scaleY,
 		)
 
-		// Область просмотра (камера) — показываем только при приближении
-		if (viewport && viewport.zoom > 0.55) {
-			ctx.strokeStyle = '#eab308'
-			ctx.lineWidth = 1.5
-			ctx.setLineDash([3, 2])
-			const vx = viewport.worldX / CELL_SIZE * scale
-			const vy = viewport.worldY / CELL_SIZE * scale
-			const vw = (viewport.width / viewport.zoom) / CELL_SIZE * scale
-			const vh = (viewport.height / viewport.zoom) / CELL_SIZE * scale
-			ctx.strokeRect(Math.round(vx), Math.round(vy), Math.round(vw), Math.round(vh))
-			ctx.setLineDash([])
+		// Область просмотра (камера). worldView уже лежит в мировых
+		// пикселях, поэтому на zoom больше не делим.
+		if (viewport) {
+			const vx = (viewport.worldX / CELL_SIZE) * scaleX
+			const vy = (viewport.worldY / CELL_SIZE) * scaleY
+			const vw = (viewport.width / CELL_SIZE) * scaleX
+			const vh = (viewport.height / CELL_SIZE) * scaleY
+			// На минимальном зуме обзор шире поля — рамку режем по канве.
+			let left = Math.max(0, Math.round(vx))
+			let top = Math.max(0, Math.round(vy))
+			let right = Math.min(size, Math.round(vx + vw))
+			let bottom = Math.min(size, Math.round(vy + vh))
+			// Обводка идёт по центру контура, поэтому у самого края канвы
+			// её отрезает: отступаем на пиксель, чтобы рамку было видно.
+			if (left === 0) left = 1
+			if (top === 0) top = 1
+			if (right >= size) right = size - 1
+			if (bottom >= size) bottom = size - 1
+
+			if (right > left && bottom > top) {
+				ctx.strokeStyle = '#eab308'
+				ctx.lineWidth = 1.5
+				ctx.setLineDash([3, 2])
+				ctx.strokeRect(left, top, right - left, bottom - top)
+				ctx.setLineDash([])
+			}
 		}
 
 		// Дорога
@@ -95,10 +116,10 @@ export default function MiniMap({
 				const [cx, cy] = key.split(',').map(Number)
 				if (cx !== undefined && cy !== undefined) {
 					ctx.fillRect(
-						Math.round(cx * scale),
-						Math.round(cy * scale),
-						Math.max(1, Math.ceil(scale)),
-						Math.max(1, Math.ceil(scale)),
+						Math.round(cx * scaleX),
+						Math.round(cy * scaleY),
+						cellW,
+						cellH,
 					)
 				}
 			}
@@ -116,10 +137,10 @@ export default function MiniMap({
 				const [cx, cy] = key.split(',').map(Number)
 				if (cx !== undefined && cy !== undefined) {
 					ctx.fillRect(
-						Math.round(cx * scale),
-						Math.round(cy * scale),
-						Math.max(1, Math.ceil(scale)),
-						Math.max(1, Math.ceil(scale)),
+						Math.round(cx * scaleX),
+						Math.round(cy * scaleY),
+						cellW,
+						cellH,
 					)
 				}
 			}
@@ -133,18 +154,18 @@ export default function MiniMap({
 				const cy = Math.round(t.y / CELL_SIZE)
 				ctx.fillStyle = '#facc15'
 				ctx.fillRect(
-					Math.round(cx * scale),
-					Math.round(cy * scale),
-					Math.max(2, Math.ceil(scale * 0.8)),
-					Math.max(2, Math.ceil(scale * 0.8)),
+					Math.round(cx * scaleX),
+					Math.round(cy * scaleY),
+					Math.max(2, Math.ceil(scaleX * 0.8)),
+					Math.max(2, Math.ceil(scaleY * 0.8)),
 				)
 				// Точка типа башни
 				ctx.fillStyle = '#2a1d0a'
 				ctx.fillRect(
-					Math.round(cx * scale + scale * 0.3),
-					Math.round(cy * scale + scale * 0.3),
-					Math.max(1, Math.ceil(scale * 0.3)),
-					Math.max(1, Math.ceil(scale * 0.3)),
+					Math.round(cx * scaleX + scaleX * 0.3),
+					Math.round(cy * scaleY + scaleY * 0.3),
+					Math.max(1, Math.ceil(scaleX * 0.3)),
+					Math.max(1, Math.ceil(scaleY * 0.3)),
 				)
 			}
 		} else if (towerCells) {
@@ -157,10 +178,10 @@ export default function MiniMap({
 				if (cx !== undefined && cy !== undefined) {
 					ctx.fillStyle = '#facc15'
 					ctx.fillRect(
-						Math.round(cx * scale),
-						Math.round(cy * scale),
-						Math.max(2, Math.ceil(scale * 0.8)),
-						Math.max(2, Math.ceil(scale * 0.8)),
+						Math.round(cx * scaleX),
+						Math.round(cy * scaleY),
+						Math.max(2, Math.ceil(scaleX * 0.8)),
+						Math.max(2, Math.ceil(scaleY * 0.8)),
 					)
 				}
 			}
@@ -169,8 +190,8 @@ export default function MiniMap({
 		// Враги поверх башен и дороги, чтобы их было видно в любой момент волны.
 		if (enemies) {
 			for (const enemy of enemies) {
-				const ex = Math.round((enemy.x / CELL_SIZE) * scale)
-				const ey = Math.round((enemy.y / CELL_SIZE) * scale)
+				const ex = Math.round((enemy.x / CELL_SIZE) * scaleX)
+				const ey = Math.round((enemy.y / CELL_SIZE) * scaleY)
 				ctx.fillStyle = '#1a0505'
 				ctx.fillRect(ex - 1, ey - 1, 5, 5)
 				ctx.fillStyle = '#ef4444'
