@@ -5,9 +5,13 @@ import {
 	CRIT_MULTIPLIER,
 	ENEMY_GROUP_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL_MIN,
+	ENEMY_TYPES,
 	INITIAL_GOLD,
 	MAX_TOWER_LEVEL,
 	TOWER_TYPES,
+	WAVE_COMPLETION_BASE_REWARD,
+	WAVE_REWARD_GROWTH,
+	XP_WAVE_GROWTH,
 } from '../config/game.config.ts'
 import {
 	addExperience,
@@ -48,12 +52,14 @@ test('scales wave composition predictably', () => {
 	assert.equal(enemyTypeForSpawn(2, 1), 'brute')
 	assert.equal(enemyTypeForSpawn(3, 2), 'sprinter')
 	assert.equal(enemyTypeForSpawn(5, waveEnemyCount(5) - 1), 'boss')
+	// Награды берутся из настраиваемого баланса, поэтому сверяем их
+	// с формулой, а не с буквальными числами.
 	assert.deepEqual(enemyStats(3, 2), {
 		type: 'sprinter',
 		hp: 52,
 		speed: 124,
-		reward: 17,
-		xp: 14,
+		reward: Math.round(ENEMY_TYPES.sprinter.reward * (1 + 2 * WAVE_REWARD_GROWTH)),
+		xp: Math.round(ENEMY_TYPES.sprinter.xp * (1 + 2 * XP_WAVE_GROWTH)),
 		radius: 8,
 		color: 0xf59e57,
 	})
@@ -77,7 +83,7 @@ test('spawns enemies faster each wave, but not faster than the limit', () => {
 })
 
 test('pays a bigger bonus for later waves', () => {
-	assert.equal(waveCompletionReward(1), 20)
+	assert.equal(waveCompletionReward(1), WAVE_COMPLETION_BASE_REWARD)
 	assert.ok(waveCompletionReward(10) > waveCompletionReward(1))
 	assert.equal(
 		waveCompletionReward(10) - waveCompletionReward(9),
@@ -86,7 +92,7 @@ test('pays a bigger bonus for later waves', () => {
 })
 
 test('increases experience from kills with every wave', () => {
-	assert.equal(xpForKill('scout', 1), 8)
+	assert.equal(xpForKill('scout', 1), ENEMY_TYPES.scout.xp)
 	assert.ok(xpForKill('scout', 5) > xpForKill('scout', 1))
 	assert.ok(xpForKill('boss', 10) > xpForKill('boss', 5))
 })

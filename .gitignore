@@ -33,6 +33,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# Игровой баланс: секретов тут нет, файл должен попадать в репозиторий.
+!.env.game
 
 # vercel
 .vercel
