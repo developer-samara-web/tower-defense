@@ -34,7 +34,7 @@ export default function PlayMenu({
 
 	if (mode === 'coop') {
 		return (
-			<MenuShell title="Кооперативная игра" user={user} wide>
+			<MenuShell user={user} wide>
 				<CoopPanel user={user} onBack={() => setMode('root')} />
 			</MenuShell>
 		)
@@ -42,7 +42,7 @@ export default function PlayMenu({
 
 	if (mode === 'solo') {
 		return (
-			<MenuShell title="Одиночная игра" user={user}>
+			<MenuShell user={user}>
 				<MenuButton variant="primary" onClick={onRandomMap}>
 					Обычная игра
 				</MenuButton>
@@ -59,7 +59,7 @@ export default function PlayMenu({
 	}
 
 	return (
-		<MenuShell title="Играть" user={user}>
+		<MenuShell user={user}>
 			<MenuButton variant="primary" onClick={() => setMode('solo')}>
 				Одиночная игра
 			</MenuButton>

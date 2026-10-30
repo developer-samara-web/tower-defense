@@ -19,7 +19,7 @@ export default function MainMenu({
 	onLogout,
 }: Props) {
 	return (
-		<MenuShell title="Главное меню" user={user}>
+		<MenuShell user={user}>
 			<MenuButton variant="primary" onClick={onPlay}>
 				Играть
 			</MenuButton>
