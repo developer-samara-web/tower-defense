@@ -37,7 +37,7 @@ export default function MenuButton({
 				type="button"
 				onClick={onClick}
 				disabled={disabled}
-				className={`${base} border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_4px_0_#1d2f0f] hover:from-[#628e33] hover:to-[#3d6022] active:translate-y-[2px] active:shadow-[0_2px_0_#1d2f0f] focus-visible:ring-lime-400`}
+				className={`${base} border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_4px_0_#1d2f0f] hover:from-[#628e33] hover:to-[#3d6022] active:translate-y-[2px] active:shadow-[0_2px_0_#1d2f0f] focus-visible:ring-lime-400 disabled:cursor-not-allowed disabled:from-[#2a3d18] disabled:to-[#18230c] disabled:text-lime-200/50 disabled:shadow-[0_3px_0_#1d2f0f]`}
 			>
 				{content}
 				<span className="text-[16px] leading-none text-lime-300">▶</span>
