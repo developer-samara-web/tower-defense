@@ -14,6 +14,18 @@ const GameResultSchema = new Schema({
 		type: Number,
 		required: true,
 	},
+	// Карта забега и её рейтинг на момент завершения игры. Рейтинговой
+	// считается только одобренная карта с флагом rated, поэтому флаг
+	// храним здесь — потом админ может снять его с карты.
+	mapId: {
+		type: Schema.Types.ObjectId,
+		ref: 'GameMap',
+		default: null,
+	},
+	rated: {
+		type: Boolean,
+		default: false,
+	},
 	level: {
 		type: Number,
 		default: 1,
@@ -42,5 +54,8 @@ const GameResultSchema = new Schema({
 
 // История читается только вниз по времени и всегда в рамках одного игрока.
 GameResultSchema.index({ userId: 1, _id: -1 })
+
+// См. models/User.ts: в dev модель нужно перерегистрировать после правки схемы.
+if (process.env.NODE_ENV !== 'production') delete models.GameResult
 
 export const GameResult = models.GameResult || model('GameResult', GameResultSchema)

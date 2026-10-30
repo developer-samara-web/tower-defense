@@ -69,4 +69,7 @@ GameMapSchema.index({ userId: 1, createdAt: -1 })
 // Публичные разделы библиотеки: опубликованные карты по рейтингу.
 GameMapSchema.index({ moderation: 1, rated: 1, createdAt: -1 })
 
+// См. models/User.ts: в dev модель нужно перерегистрировать после правки схемы.
+if (process.env.NODE_ENV !== 'production') delete models.GameMap
+
 export const GameMap = models.GameMap || model('GameMap', GameMapSchema)

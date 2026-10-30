@@ -26,4 +26,7 @@ const SessionSchema = new Schema({
 	timestamps: true,
 })
 
+// См. models/User.ts: в dev модель нужно перерегистрировать после правки схемы.
+if (process.env.NODE_ENV !== 'production') delete models.Session
+
 export const Session = models.Session || model('Session', SessionSchema)
