@@ -1,6 +1,6 @@
 import type Phaser from 'phaser'
 
-import type { TowerType } from '../../config/game.config'
+import { TOWER_ORDER, type TowerType } from '../../config/game.config'
 
 // Действия, которые сцена предоставляет управлению Phaser.
 export type SceneHandlers = {
@@ -68,11 +68,12 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	// Пробел запускает первую волну, дальше волны идут сами.
 	keyboard?.on('keydown-SPACE', handlers.onStartWave)
 
-	// Клавиши 1–3 выбирают тип башни, 4 снимает выбор.
-	keyboard?.on('keydown-ONE', () => handlers.onSelectType('ice'))
-	keyboard?.on('keydown-TWO', () => handlers.onSelectType('fire'))
-	keyboard?.on('keydown-THREE', () => handlers.onSelectType('earth'))
-	keyboard?.on('keydown-FOUR', () => handlers.onSelectType(null))
+	// Клавиши 1–3 выбирают башню в том же порядке, что и панель
+	// стройки (от дешёвой к дорогой), клавиша 4 снимает выбор.
+	const TYPE_KEYS = ['keydown-ONE', 'keydown-TWO', 'keydown-THREE', 'keydown-FOUR']
+	TYPE_KEYS.forEach((key, index) => {
+		keyboard?.on(key, () => handlers.onSelectType(TOWER_ORDER[index] ?? null))
+	})
 	keyboard?.on('keydown-ESC', () => handlers.onSelectType(null))
 
 	// R перезапускает игру после поражения, U улучшает выбранную башню.

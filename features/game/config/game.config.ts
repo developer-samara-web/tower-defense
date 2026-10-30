@@ -66,6 +66,10 @@ export const CAMERA_PAN_SPEED = 900
 // Сколько пикселей леса вокруг поля разрешено показать камере.
 export const CAMERA_BOUNDS_MARGIN = CELL_SIZE * 4
 
+// Ступени ускорения боя: кнопка в HUD проходит по ним по кругу.
+// Множитель применяется к игровому времени, камера остаётся в реальном.
+export const GAME_SPEED_STEPS = [1, 2, 3]
+
 export const FIRE_SPLASH_RADIUS = 55
 
 export const ICE_SLOW_DURATION = 1500
@@ -245,6 +249,12 @@ export const TOWER_TYPES: Record<TowerType, TowerStats> = {
 		image: '/game/towers/earth.png'
 	},
 }
+
+// Панель стройки и клавиши 1–3 идут от дешёвой башни к дорогой,
+// поэтому самый доступный «Земля» всегда первый.
+export const TOWER_ORDER: TowerType[] = (
+	Object.entries(TOWER_TYPES) as [TowerType, TowerStats][]
+).sort(([, a], [, b]) => a.cost - b.cost).map(([id]) => id)
 
 export type EnemyStats = {
 	name: string

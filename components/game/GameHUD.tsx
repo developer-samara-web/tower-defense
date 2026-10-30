@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import type { ReactNode } from 'react'
-import { TOWER_TYPES, type TowerType } from '@/features/game/config/game.config'
+import { TOWER_ORDER, TOWER_TYPES, type TowerType } from '@/features/game/config/game.config'
 import { towerStats, type TowerBuffs } from '@/features/game/domain/game-rules'
 
 type Props = {
@@ -24,15 +24,10 @@ type Props = {
   waveButtonDisabled: boolean
 }
 
-const towerDefs = (
-  Object.entries(TOWER_TYPES) as [TowerType, (typeof TOWER_TYPES)[TowerType]][]
-).map(([id, tower], index) => ({
-  id,
-  name: tower.name,
-  cost: tower.cost,
-  key: String(index + 1),
-  image: tower.image,
-}))
+const towerDefs = TOWER_ORDER.map((id) => {
+  const tower = TOWER_TYPES[id]
+  return { id, name: tower.name, cost: tower.cost, image: tower.image }
+})
 
 export default function GameHUD({
   gold, lives, maxLives, wave, waveActive, gameOver, selectedTower,
@@ -105,7 +100,7 @@ export default function GameHUD({
                     <button
                       key={tower.id}
                       type="button"
-                      onClick={() => onSelectTower(tower.id as TowerType)}
+                      onClick={() => onSelectTower(tower.id)}
                       aria-label={`${tower.name}, цена ${tower.cost} золота`}
                       aria-pressed={isSelected}
                       className={`group relative flex h-[38px] sm:h-[48px] w-full flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected ? 'border-yellow-400 bg-[#493713] shadow-[0_0_8px_#eab30866]' : 'border-[#5c3a1a] bg-[#21170d] hover:border-[#a67c36] hover:bg-[#352411]'}`}
