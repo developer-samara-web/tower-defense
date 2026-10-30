@@ -63,6 +63,22 @@ export async function saveMap(
 	return data.map
 }
 
+// Случайная одобренная рейтинговая карта для рейтингового захода.
+export async function fetchRatedMap(token: string): Promise<MapSummary> {
+	const res = await fetch('/api/maps/rated', {
+		headers: { Authorization: 'Bearer ' + token },
+	})
+
+	const data = await res.json().catch(() => null)
+	if (!res.ok) {
+		throw new Error(
+			typeof data?.error === 'string' ? data.error : 'Не удалось найти рейтинговую карту',
+		)
+	}
+	if (!data?.map) throw new Error('Не удалось найти рейтинговую карту')
+	return data.map as MapSummary
+}
+
 export async function createMap(token: string): Promise<MapSummary> {
 	const res = await fetch('/api/maps', {
 		method: 'POST',

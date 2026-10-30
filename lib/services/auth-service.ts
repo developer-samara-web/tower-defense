@@ -25,7 +25,7 @@ export async function me(token: string) {
 
 export async function updateProfile(
   token: string,
-  payload: { avatar?: string; avatarFrame?: string },
+  payload: { avatar?: string; avatarFrame?: string; title?: string },
 ) {
   const res = await fetch('/api/auth/me', {
     method: 'PATCH',
