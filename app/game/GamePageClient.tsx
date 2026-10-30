@@ -21,10 +21,11 @@ export default function GamePageClient() {
   const initialSeed = seedParam ? seedParam.slice(0, 128) : undefined
   const mapParam = searchParams.get('map')?.trim() ?? ''
   const {
-    game, user, checkingSession, resuming, upgradeCards, scores, mapSeed,
+    game, user, checkingSession, resuming, upgradeCards, scores, mapSeed, speed,
     mapDraft, mapLoading, mapError,
     restartGame, resumeGame, startNew, refreshScores,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
+    toggleAutoUpgrade, cycleSpeed,
     waveButtonDisabled,
   } = useGame(initialSeed, mapParam || undefined)
 
@@ -56,6 +57,8 @@ export default function GamePageClient() {
         onMenu={ui.openMenu}
         showLeaderboard={ui.showLeaderboard}
         showInfo={ui.showInfo}
+        speed={speed}
+        onCycleSpeed={cycleSpeed}
       />
       {ui.showGameMenu && (
         <GameMenu
@@ -125,6 +128,7 @@ export default function GamePageClient() {
         onBackToMenu={() => { restartGame(); router.push('/menu') }}
         onPickUpgrade={pickUpgrade}
         onUpgrade={upgradeTower}
+        onToggleAutoUpgrade={toggleAutoUpgrade}
         onSell={sellTower}
         onDeselect={deselectTower}
         showInfo={ui.showInfo}

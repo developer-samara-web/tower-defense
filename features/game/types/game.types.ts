@@ -8,6 +8,8 @@ export type Tower = {
   level: number
   // Сколько золота вложено в башню: постройка и все улучшения.
   invested: number
+  // Башня сама уходит на следующий уровень, как только хватит золота.
+  autoUpgrade: boolean
   x: number
   y: number
   cooldown: number

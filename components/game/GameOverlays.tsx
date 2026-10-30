@@ -65,6 +65,7 @@ type Props = {
   onBackToMenu: () => void
   onPickUpgrade: (card: UpgradeCard) => void
   onUpgrade: () => void
+  onToggleAutoUpgrade: () => void
   onSell: () => void
   onDeselect: () => void
   showInfo: boolean
@@ -75,7 +76,7 @@ export default function GameOverlays({
   gameOver, resuming, upgradeCards, game, scores,
   showLeaderboard, onCloseLeaderboard, onResume, onStartNew,
   onRestart, confirmRestart, onConfirmRestart, onCancelRestart,
-  onBackToMenu, onPickUpgrade, onUpgrade, onSell,
+  onBackToMenu, onPickUpgrade, onUpgrade, onToggleAutoUpgrade, onSell,
   onDeselect, showInfo, onCloseInfo,
 }: Props) {
   return (
@@ -133,7 +134,8 @@ export default function GameOverlays({
                 <li><span className="text-amber-400">ЛКМ</span> по клетке — построить / выбрать башню</li>
                 <li><span className="text-amber-400">Наведение</span> — предпросмотр выбранной башни</li>
                 <li><span className="text-amber-400">1–3</span> — тип башни, <span className="text-amber-400">4 / Esc</span> — снять выбор</li>
-                <li><span className="text-amber-400">U</span> — улучшить, продажа — кнопка в панели</li>
+                <li><span className="text-amber-400">U</span> — улучшить, <span className="text-amber-400">АВТО</span> в панели — рост башни без кликов</li>
+                <li><span className="text-amber-400">×2 / ×3</span> сверху — ускорить бой</li>
                 <li><span className="text-amber-400">Пробел</span> — запустить волну</li>
                 <li><span className="text-amber-400">R</span> — рестарт после поражения</li>
               </ul>
@@ -230,6 +232,7 @@ export default function GameOverlays({
       {game.selectedBuiltTower && (
         <div className={game.panelPosition ? 'absolute z-50 w-[232px]' : 'absolute top-14 right-3 z-50 w-[232px]'} style={game.panelPosition ? { left: game.panelPosition.x, top: game.panelPosition.y } : undefined}>
           <TowerDetails
+            name={game.selectedBuiltTower.name}
             level={game.selectedBuiltTower.level}
             maxLevel={game.selectedBuiltTower.maxLevel}
             damage={game.selectedBuiltTower.damage}
@@ -242,7 +245,9 @@ export default function GameOverlays({
             upgradeCost={game.selectedBuiltTower.upgradeCost}
             sellValue={game.selectedBuiltTower.sellValue}
             gold={game.gold}
+            autoUpgrade={game.selectedBuiltTower.autoUpgrade}
             onUpgrade={onUpgrade}
+            onToggleAutoUpgrade={onToggleAutoUpgrade}
             onSell={onSell}
             onClose={onDeselect}
           />

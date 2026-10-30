@@ -75,4 +75,5 @@ export type SelectedTowerInfo = {
   execute: number
   upgradeCost: number | null
   sellValue: number
+  autoUpgrade: boolean
 }

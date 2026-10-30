@@ -61,6 +61,7 @@ export type SelectedTowerInfo = {
 	execute: number
 	upgradeCost: number | null
 	sellValue: number
+	autoUpgrade: boolean
 }
 
 // Снимок состояния для React-панели.
@@ -241,5 +242,6 @@ function describeTower(tower: Tower, buffs: TowerBuffs): SelectedTowerInfo {
 		execute: stats.execute,
 		upgradeCost: towerUpgradeCost(tower.type, tower.level),
 		sellValue: towerSellValue(tower.invested),
+		autoUpgrade: tower.autoUpgrade,
 	}
 }

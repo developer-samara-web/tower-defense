@@ -1,6 +1,6 @@
 import { SelectedTowerInfo } from '@/types'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { TowerType } from '@/features/game/config/game.config'
+import { GAME_SPEED_STEPS, type TowerType } from '@/features/game/config/game.config'
 import { generateUpgradeCards, type UpgradeCard } from '@/features/game/domain/upgrade-cards'
 import {
   createEmptyBuffs,
@@ -74,6 +74,9 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
   // Токен читается из localStorage, которого нет на сервере: до монтирования
   // не показываем ветку «Загрузка…», иначе ломается гидратация.
   const [mounted, setMounted] = useState(false)
+  // Ускорение боя выбирает игрок: сцена применяет множитель и при своём
+  // создании, поэтому выбранная ступень лежит ещё и на window.
+  const [speed, setSpeed] = useState(1)
   // На сервере сид должен быть стабильным: randomUUID во время пререндера
   // считается нестабильным значением и ломает сборку /game.
   const [mapSeed, setMapSeed] = useState(() =>
@@ -360,6 +363,11 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
     restartGame()
   }, [token, restartGame, recordAbandonedGame])
 
+  useEffect(() => {
+    ;(window as unknown as { __tdGameSpeed?: number }).__tdGameSpeed = speed
+    window.dispatchEvent(new CustomEvent('td:game-speed', { detail: { scale: speed } }))
+  }, [speed])
+
   const waveButtonDisabled = !game.gameOver && (game.waveActive || game.wave > 0)
 
   const selectTower = useCallback((towerId: TowerType) => {
@@ -367,6 +375,15 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
   }, [])
   const startWave = useCallback(() => window.dispatchEvent(new CustomEvent('td:start-wave')), [])
   const upgradeTower = useCallback(() => window.dispatchEvent(new CustomEvent('td:upgrade-tower')), [])
+  const toggleAutoUpgrade = useCallback(() => window.dispatchEvent(new CustomEvent('td:auto-upgrade-tower')), [])
+  // Кнопка ускорения проходит по ступеням 1× → 2× → 3× по кругу.
+  const cycleSpeed = useCallback(
+    () =>
+      setSpeed((current) =>
+        GAME_SPEED_STEPS[(GAME_SPEED_STEPS.indexOf(current) + 1) % GAME_SPEED_STEPS.length] ?? 1,
+      ),
+    [],
+  )
   const sellTower = useCallback(() => window.dispatchEvent(new CustomEvent('td:sell-tower')), [])
   const deselectTower = useCallback(() => window.dispatchEvent(new CustomEvent('td:deselect-tower')), [])
   const pickUpgrade = useCallback((card: UpgradeCard) => {
@@ -390,10 +407,12 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
     game, setGame, user,
     scores,
     upgradeCards,
+    speed,
     checkingSession, resuming, sessionId, mapSeed,
     mapDraft, mapLoading, mapError,
     restartGame, resumeGame, startNew,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
+    toggleAutoUpgrade, cycleSpeed,
     waveButtonDisabled,
     refreshScores,
   }

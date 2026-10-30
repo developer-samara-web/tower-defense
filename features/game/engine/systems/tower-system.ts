@@ -38,6 +38,7 @@ export type TowerSystem = {
 	hover: (worldX: number, worldY: number) => void
 	clearHover: () => void
 	upgrade: () => void
+	toggleAutoUpgrade: () => void
 	sell: () => void
 	update: (delta: number) => void
 	clear: () => void
@@ -279,6 +280,7 @@ export function createTowerSystem(
 			level: 1,
 			// Запоминаем полную стоимость постройки для расчёта продажи.
 			invested: stats.cost,
+			autoUpgrade: false,
 			x: view.x,
 			y: view.y,
 			cooldown: 0,
@@ -301,6 +303,21 @@ export function createTowerSystem(
 
 		setStatus('Башня построена.')
 		publish()
+	}
+
+	// Списывает стоимость улучшения и поднимает уровень башни.
+	function applyUpgrade(tower: Tower, cost: number) {
+		const { state } = ctx
+
+		state.gold -= cost
+		state.stats.moneySpent += cost
+		tower.level += 1
+
+		// Учитываем улучшение в полной стоимости башни.
+		tower.invested += cost
+
+		// Показываем новый уровень на карте.
+		tower.levelText.setText(String(tower.level)).setVisible(true)
 	}
 
 	// Улучшает выбранную башню, если хватает золота.
@@ -327,18 +344,32 @@ export function createTowerSystem(
 			return
 		}
 
-		// Списываем стоимость и повышаем уровень.
-		state.gold -= cost
-		state.stats.moneySpent += cost
-		tower.level += 1
-
-		// Учитываем улучшение в полной стоимости башни.
-		tower.invested += cost
-
-		// Показываем новый уровень на карте.
-		tower.levelText.setText(String(tower.level)).setVisible(true)
+		applyUpgrade(tower, cost)
 
 		setStatus(`«${name}» улучшена до уровня ${tower.level}.`)
+		publish()
+	}
+
+	// Включает или выключает самостоятельное улучшение выбранной башни.
+	function toggleAutoUpgrade() {
+		const { state, setStatus, publish } = ctx
+
+		const tower = state.selectedBuiltTower
+		if (!tower) return
+
+		tower.autoUpgrade = !tower.autoUpgrade
+
+		const { name } = TOWER_TYPES[tower.type]
+		const cost = towerUpgradeCost(tower.type, tower.level)
+
+		if (!tower.autoUpgrade) {
+			setStatus(`Автоулучшение «${name}» выключено.`)
+		} else if (cost === null) {
+			setStatus(`«${name}» и так максимального уровня.`)
+		} else {
+			setStatus(`«${name}» улучшается сама, как только хватит золота (${cost}).`)
+		}
+
 		publish()
 	}
 
@@ -458,9 +489,27 @@ export function createTowerSystem(
 		}
 	}
 
+	// Башни с включённым автоулучшением растут сами, стоит золоту
+	// покрыть следующий уровень.
+	function tickAutoUpgrade() {
+		const { state } = ctx
+
+		for (const tower of state.towers) {
+			if (!tower.autoUpgrade) continue
+
+			const cost = towerUpgradeCost(tower.type, tower.level)
+			if (cost === null || state.gold < cost) continue
+
+			applyUpgrade(tower, cost)
+		}
+	}
+
 	// Обновляет башни: перезарядку, поиск целей и атаки.
 	function update(delta: number) {
 		const { scene, state } = ctx
+
+		// После поражения золото не тратим.
+		if (state.lives > 0) tickAutoUpgrade()
 
 		// После поражения проекцию башни больше не показываем.
 		if (state.lives <= 0) {
@@ -564,6 +613,7 @@ export function createTowerSystem(
 		hover,
 		clearHover,
 		upgrade,
+		toggleAutoUpgrade,
 		sell,
 		update,
 		clear,

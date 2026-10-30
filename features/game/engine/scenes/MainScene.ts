@@ -52,6 +52,10 @@ import { bindSceneControls } from '../ui/scene-controls'
 
 type SessionWindow = Window & { __sessionData?: SessionPayload }
 
+// React запоминает выбранное ускорение здесь, чтобы новая сцена стартовала
+// с той же скорости, а не с обычной.
+type SpeedWindow = Window & { __tdGameSpeed?: number }
+
 // Сцена только собирает системы вместе и связывает их с вводом игрока.
 export class MainScene extends Phaser.Scene {
 	// Единое изменяемое состояние игры.
@@ -79,6 +83,9 @@ export class MainScene extends Phaser.Scene {
 
 	// Пауза может прийти до первого кадра, когда сцена ещё не активна.
 	private pauseRequested = false
+
+	// Множитель игрового времени: 1 — обычная скорость, больше — ускорение.
+	private timeScale = 1
 
 	constructor(mapSeed = 'default', customDraft: MapDraft | null = null) {
 		super('MainScene')
@@ -192,6 +199,9 @@ export class MainScene extends Phaser.Scene {
 		this.connectPanel()
 		this.bindPauseControls()
 
+		// Игрок мог включить ускорение ещё до пересоздания сцены.
+		this.setSpeed((window as SpeedWindow).__tdGameSpeed ?? 1)
+
 		// Отправляем первоначальное состояние в интерфейс.
 		this.hud.publish()
 
@@ -255,6 +265,7 @@ export class MainScene extends Phaser.Scene {
 				type: tower.type,
 				level: tower.level,
 				invested: tower.invested,
+				autoUpgrade: false,
 				x: view.x,
 				y: view.y,
 				cooldown: 0,
@@ -304,11 +315,14 @@ export class MainScene extends Phaser.Scene {
 			return
 		}
 
+		// Камера живёт в реальном времени: ускорение касается только боя.
 		this.cameraControls.update(delta)
-		this.waves.update(delta)
-		this.enemies.updateSpawning(delta)
-		this.enemies.update(delta)
-		this.towers.update(delta)
+
+		const gameDelta = delta * this.timeScale
+		this.waves.update(gameDelta)
+		this.enemies.updateSpawning(gameDelta)
+		this.enemies.update(gameDelta)
+		this.towers.update(gameDelta)
 		this.waves.checkComplete()
 		this.hud.publish()
 	}
@@ -334,6 +348,8 @@ export class MainScene extends Phaser.Scene {
 			onSelectType: (type) => this.towers.selectType(type),
 			onStartWave: () => this.waves.requestStart(),
 			onUpgrade: () => this.towers.upgrade(),
+			onToggleAutoUpgrade: () => this.towers.toggleAutoUpgrade(),
+			onSetSpeed: (scale) => this.setSpeed(scale),
 			onSell: () => this.towers.sell(),
 			onDeselect: () => {
 				this.towers.deselect()
@@ -352,6 +368,13 @@ export class MainScene extends Phaser.Scene {
 				this.hud.publish(true)
 			},
 		})
+	}
+
+	// Множитель времени из React-панели. Ускоряем и снаряды со вспышками,
+	// иначе на ×3 враги бегут быстрее, чем летит в них пуля.
+	private setSpeed(scale: number) {
+		this.timeScale = scale
+		this.tweens.timeScale = scale
 	}
 
 	// React ставит игру на паузу, пока открыто меню, профиль или выбор улучшения.
