@@ -1422,6 +1422,10 @@ const GATE_VISUAL_OFFSET_Y: Record<string, number> = {
     'gate-top': 40,
 }
 
+// На сколько пикселей спрайт казармы поднят над центром своей клетки.
+// Точка выхода монстров привязана к тому же сдвигу.
+export const SPAWNER_VISUAL_OFFSET_Y = CELL_SIZE * 0.7
+
 // Пиксельные ворота у входа на каждую дорогу и крепость в центре.
 // У пользовательской карты вместо ворот стоят казармы, а замок —
 // там, куда его поставили в редакторе.
@@ -1480,8 +1484,8 @@ export function drawSpawnerAt(scene: Phaser.Scene, cellX: number, cellY: number)
 	const center = cellCenter(cellX, cellY)
 	const key = scene.textures.exists('barracks') ? 'barracks' : 'gate-bottom'
 
-	// Спрайт казармы вытянут по ширине, поэтому размер считаем
-	// по исходной текстуре, а не растягиваем в квадрат.
+	// Спрайт казармы крупнее клетки и приподнят над ней, поэтому враги
+	// рождаются в центре здания, а не в центре клетки.
 	const source = scene.textures.get(key).getSourceImage() as {
 		width: number
 		height: number
@@ -1490,7 +1494,7 @@ export function drawSpawnerAt(scene: Phaser.Scene, cellX: number, cellY: number)
 	const ratio = source.height / Math.max(1, source.width)
 
 	scene.add
-		.image(center.x, center.y - CELL_SIZE * 0.7, key)
+		.image(center.x, center.y - SPAWNER_VISUAL_OFFSET_Y, key)
 		.setDisplaySize(width, width * ratio)
 		.setDepth(2)
 }

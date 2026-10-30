@@ -14,6 +14,7 @@ import {
 } from '../../domain/game-rules'
 import type { SessionEnemy } from '../../domain/session-state'
 import type { Enemy } from '../../types/game.types'
+import { SPAWNER_VISUAL_OFFSET_Y } from '../board/board-renderer'
 import type { GameContext } from '../game-context'
 import { waveModifiers, waveSpawnUnits } from '../map/custom-waves'
 import { createEnemyView, drawHealthBar } from '../rendering/enemy-view'
@@ -142,11 +143,17 @@ export function createEnemySystem(
 		const start = route?.[0]
 		if (!route || !start) return
 
+		// Спрайт казармы приподнят над клеткой, поэтому враг выходит
+		// из центра здания, а не из центра клетки под ним.
+		const spawnPoint = spawners[routeIndex]
+			? { x: start.x, y: start.y - SPAWNER_VISUAL_OFFSET_Y }
+			: start
+
 		// Создаём тело врага и полоску здоровья.
 		const { body, healthBar } = createEnemyView(
 			scene,
-			start.x,
-			start.y,
+			spawnPoint.x,
+			spawnPoint.y,
 			stats.radius,
 			stats.color,
 			stats.type,
@@ -155,8 +162,8 @@ export function createEnemySystem(
 		// Добавляем врага в массив активных врагов.
 		const enemy: Enemy = {
 			type: stats.type,
-			x: start.x,
-			y: start.y,
+			x: spawnPoint.x,
+			y: spawnPoint.y,
 			slowTimer: 0,
 			hp: stats.hp,
 			maxHp: stats.hp,
