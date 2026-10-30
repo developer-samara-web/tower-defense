@@ -6,7 +6,15 @@ import { useProfile } from '@/hooks/useProfile'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, scores } = useProfile()
+  const { user, token, updateUser } = useProfile()
 
-  return <ProfileScreen user={user} scores={scores} onBack={() => router.push('/menu')} backLabel="Главное меню" />
+  return (
+    <ProfileScreen
+      user={user}
+      onBack={() => router.push('/menu')}
+      backLabel="Главное меню"
+      token={token}
+      onUserChange={updateUser}
+    />
+  )
 }

@@ -1,24 +1,46 @@
-import Image from 'next/image'
+'use client'
+
+import { useState } from 'react'
 
 import GameHistory from '@/components/game/GameHistory'
-import type { PlayerProfile, PlayerScore } from '@/features/account/types'
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import type { PlayerProfile } from '@/features/account/types'
 import { useGameHistory } from '@/hooks/useGameHistory'
-import { avatarSrc, frameSrc } from '@/lib/account/avatar-options'
+import { titleOption } from '@/lib/account/title-options'
+import AvatarDialog from './AvatarDialog'
 
 type ProfileScreenProps = {
 	user: PlayerProfile | null
-	scores: PlayerScore[]
 	onBack: () => void
 	backLabel: string
+	token?: string | null
+	onUserChange?: (user: PlayerProfile) => void
 }
 
-export default function ProfileScreen({ user, scores, onBack, backLabel }: ProfileScreenProps) {
+const SQUARE = 'border border-[#5c3a1a] bg-[#0f0a05]/70 px-1 py-1.5 text-center'
+const SQUARE_LABEL = 'text-[7px] font-black uppercase tracking-[0.14em] text-[#8a7340]'
+const SQUARE_VALUE = 'mt-0.5 text-[13px] font-black tabular-nums'
+// Квадратная кнопка-иконка в стиле игрового HUD: подпись здесь не нужна.
+const APPEARANCE_BUTTON =
+	'group relative flex h-10 w-10 shrink-0 self-start items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-amber-400 hover:bg-[#493713] hover:text-yellow-200 hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-40'
+
+export default function ProfileScreen({
+	user,
+	onBack,
+	backLabel,
+	token,
+	onUserChange,
+}: ProfileScreenProps) {
 	const history = useGameHistory()
-	const frame = frameSrc(user?.avatarFrame)
-	const record = user?.record ?? 0
-	const rankIndex = user ? scores.findIndex((score) => score.id === user.id) : -1
-	const rank = rankIndex >= 0 ? rankIndex + 1 : null
-	const wave = user?.bestWave || Math.floor(record / 25) || 1
+	const [editing, setEditing] = useState(false)
+	const title = titleOption(user?.title)
+
+	const metrics: Array<{ label: string; value: number; color: string }> = [
+		{ label: 'Рейтинг', value: user?.record ?? 0, color: 'text-yellow-300' },
+		{ label: 'Игр', value: user?.gamesPlayed ?? 0, color: 'text-amber-200' },
+		{ label: 'Убито', value: user?.monstersKilled ?? 0, color: 'text-orange-300' },
+		{ label: 'Волн', value: user?.bestWave ?? 0, color: 'text-lime-300' },
+	]
 
 	return (
 		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
@@ -35,54 +57,67 @@ export default function ProfileScreen({ user, scores, onBack, backLabel }: Profi
 				</button>
 
 				<div className="rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.9)] sm:p-5">
-					<div className="flex items-center gap-4">
-						<span className="relative block h-20 w-20 shrink-0 border-2 border-[#79502b] bg-[#0f0a05] shadow-[inset_0_0_0_2px_#21150c] sm:h-24 sm:w-24">
-							<Image
-								src={avatarSrc(user?.avatar)}
-								alt="Аватар игрока"
-								width={96}
-								height={96}
-								unoptimized
-								loading="eager"
-								className="h-full w-full [image-rendering:pixelated]"
-							/>
-							{frame ? (
-								<Image
-									src={frame}
-									alt=""
-									width={96}
-									height={96}
-									unoptimized
-									aria-hidden="true"
-									className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
-								/>
-							) : null}
-						</span>
+					<div className="flex items-start gap-4">
+						{/* 118px — высота блока с титулом, ником и метриками рядом с ним. */}
+						<PlayerAvatar
+							avatar={user?.avatar}
+							frame={user?.avatarFrame}
+							size={118}
+							priority
+						/>
 
-						<div className="min-w-0">
-							<p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#8a7340]">Профиль игрока</p>
-							<h1 className="mt-1 truncate text-2xl font-black uppercase tracking-[0.08em] text-amber-200 drop-shadow-[0_2px_0_#5c2d0e]">
+						<div className="min-w-0 flex-1">
+							{/* Титул вместо надписи «профиль игрока»: рамка и текст в цвет титула. */}
+							<span
+								className="inline-flex max-w-full items-center border-2 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em]"
+								style={
+									title
+										? { borderColor: title.color, color: title.color, textShadow: `0 0 6px ${title.color}55` }
+										: { borderColor: '#5c3a1a', color: '#8a7340' }
+								}
+							>
+								<span className="truncate">{title?.label || 'Без титула'}</span>
+							</span>
+							<h1 className="mt-1.5 truncate text-2xl font-black uppercase tracking-[0.08em] text-amber-200 drop-shadow-[0_2px_0_#5c2d0e]">
 								{user?.login || 'Герой'}
 							</h1>
-							<p className="mt-1 truncate text-[10px] font-bold text-[#8a7340]">{user?.email || '—'}</p>
-						</div>
-					</div>
 
-					<div className="mt-4 grid grid-cols-3 gap-2">
-						<div className="border border-[#5c3a1a] bg-[#0f0a05]/70 px-2 py-2 text-center">
-							<p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Рекорд</p>
-							<p className="mt-1 text-base font-black tabular-nums text-yellow-300">{record} 🪙</p>
-						</div>
-
-						<div className="border border-[#5c3a1a] bg-[#0f0a05]/70 px-2 py-2 text-center">
-							<p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Место в топе</p>
-							<p className="mt-1 text-base font-black tabular-nums text-amber-200">{rank ?? '—'}</p>
+							<div className="mt-2 grid grid-cols-4 gap-1.5">
+								{metrics.map((metric) => (
+									<div key={metric.label} className={SQUARE}>
+										<p className={SQUARE_LABEL}>{metric.label}</p>
+										<p className={`${SQUARE_VALUE} ${metric.color}`}>{metric.value}</p>
+									</div>
+								))}
+							</div>
 						</div>
 
-						<div className="border border-[#5c3a1a] bg-[#0f0a05]/70 px-2 py-2 text-center">
-							<p className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Волна</p>
-							<p className="mt-1 text-base font-black tabular-nums text-lime-300">{wave}</p>
-						</div>
+						<button
+							type="button"
+							onClick={() => setEditing(true)}
+							disabled={!user}
+							aria-label="Внешний вид"
+							title="Внешний вид"
+							className={APPEARANCE_BUTTON}
+						>
+							<span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
+							<svg
+								viewBox="0 0 24 24"
+								className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:scale-110"
+								fill="none"
+								aria-hidden="true"
+							>
+								<path
+									d="M12 3.4c-4.7 0-8.6 3.9-8.6 8.6s3.9 8.6 8.6 8.6c1.6 0 2.2-1.2 1.5-2.2-.7-1.1.1-2.5 1.4-2.5h2.3c2 0 3.5-1.7 3.4-3.7-.3-4.6-4.1-8.8-8.6-8.8Z"
+									stroke="currentColor"
+									strokeWidth="1.7"
+									strokeLinejoin="miter"
+								/>
+								<rect x="7.4" y="8.6" width="2.3" height="2.3" fill="currentColor" />
+								<rect x="11.6" y="6.2" width="2.3" height="2.3" fill="currentColor" />
+								<rect x="6.4" y="12.8" width="2.3" height="2.3" fill="currentColor" />
+							</svg>
+						</button>
 					</div>
 				</div>
 
@@ -106,6 +141,18 @@ export default function ProfileScreen({ user, scores, onBack, backLabel }: Profi
 					</div>
 				</div>
 			</div>
+
+			{editing && user ? (
+				<AvatarDialog
+					user={user}
+					token={token ?? null}
+					onClose={() => setEditing(false)}
+					onSaved={(updated) => {
+						onUserChange?.(updated)
+						setEditing(false)
+					}}
+				/>
+			) : null}
 		</main>
 	)
 }

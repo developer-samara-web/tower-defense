@@ -4,12 +4,17 @@ import { useAuth } from './useAuth'
 import type { PlayerProfile, PlayerScore } from '@/features/account/types'
 
 export function useProfile() {
-  const { user } = useAuth()
+  const { user, token, setUser } = useAuth()
   const [scores, setScores] = useState<PlayerScore[]>([])
 
   useEffect(() => {
     fetchTopScores().then((s: PlayerScore[]) => setScores(s || []))
   }, [])
 
-  return { user: user as PlayerProfile | null, scores }
+  return {
+    user: user as PlayerProfile | null,
+    scores,
+    token,
+    updateUser: (profile: PlayerProfile) => setUser(profile),
+  }
 }

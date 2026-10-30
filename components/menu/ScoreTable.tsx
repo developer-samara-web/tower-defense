@@ -1,3 +1,5 @@
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import PlayerTitle from '@/components/ui/PlayerTitle'
 import type { PlayerScore } from '@/features/account/types'
 
 type ScoreTableProps = {
@@ -37,13 +39,27 @@ export default function ScoreTable({ scores, currentUserId }: ScoreTableProps) {
 							{index + 1}
 						</span>
 
-						<span className="min-w-0 flex-1 truncate text-amber-100">
-							{score.login || 'Герой'}
-							{isMe ? (
-								<span className="ml-2 border border-amber-500/50 bg-amber-500/10 px-1 py-0.5 text-[7px] uppercase tracking-[0.12em] text-amber-300">
-									вы
+						<PlayerAvatar
+							avatar={score.avatar}
+							frame={score.avatarFrame}
+							size={28}
+							alt=""
+							bordered={false}
+							className="rounded-none border border-[#5c3a1a]"
+						/>
+
+						<span className="flex min-w-0 flex-1 flex-col leading-tight">
+							<span className="flex min-w-0 items-center gap-2">
+								<span className="truncate text-amber-100">
+									{score.login || 'Герой'}
 								</span>
-							) : null}
+								{isMe ? (
+									<span className="shrink-0 border border-amber-500/50 bg-amber-500/10 px-1 py-0.5 text-[7px] uppercase tracking-[0.12em] text-amber-300">
+										вы
+									</span>
+								) : null}
+							</span>
+							<PlayerTitle title={score.title} />
 						</span>
 
 						<span className="shrink-0 text-[10px] text-[#b5a17b]">{score.wave} волна</span>

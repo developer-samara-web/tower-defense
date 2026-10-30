@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import GameCanvas from '@/components/game/GameCanvas'
@@ -34,9 +34,14 @@ export default function GamePageClient() {
     !resuming &&
     (!mapParam || (!mapLoading && !mapError && mapDraft !== null))
 
+  // Кнопка рестарта сверху спрашивает подтверждение: партия сбрасывается
+  // без возможности вернуться к прежнему состоянию.
+  const [confirmRestart, setConfirmRestart] = useState(false)
+
   // Меню, профиль и выбор улучшения не должны останавливать игру и уводить
   // со страницы, но бой за модальным окном лучше поставить на паузу.
-  const overlayOpen = ui.showGameMenu || ui.showProfile || upgradeCards.length > 0
+  const overlayOpen =
+    ui.showGameMenu || ui.showProfile || upgradeCards.length > 0 || confirmRestart
 
   useEffect(() => {
     window.dispatchEvent(new Event(overlayOpen ? 'td:pause' : 'td:resume'))
@@ -45,6 +50,7 @@ export default function GamePageClient() {
   return (
     <main className="h-[100dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
       <GameHeader
+        onRestart={() => setConfirmRestart(true)}
         onLeaderboard={() => { ui.toggleLeaderboard(); void refreshScores() }}
         onInfo={ui.toggleInfo}
         onMenu={ui.openMenu}
@@ -113,6 +119,9 @@ export default function GamePageClient() {
         onResume={resumeGame}
         onStartNew={startNew}
         onRestart={restartGame}
+        confirmRestart={confirmRestart}
+        onConfirmRestart={() => { setConfirmRestart(false); restartGame() }}
+        onCancelRestart={() => setConfirmRestart(false)}
         onBackToMenu={() => { restartGame(); router.push('/menu') }}
         onPickUpgrade={pickUpgrade}
         onUpgrade={upgradeTower}

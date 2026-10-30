@@ -10,23 +10,52 @@ export type FrameOption = {
 	src: string | null
 }
 
-// Заглушки: настоящие портреты и рамки добавим позже. Пока все
-// варианты показывают один и тот же файл, но выбор сохраняется.
-export const AVATAR_OPTIONS: AvatarOption[] = [
-	{ id: 'default', label: 'Страж', src: '/game/avatar-default.svg' },
-	{ id: 'placeholder-1', label: 'Рыцарь', src: '/game/avatar-default.svg' },
-	{ id: 'placeholder-2', label: 'Маг', src: '/game/avatar-default.svg' },
-	{ id: 'placeholder-3', label: 'Стрелок', src: '/game/avatar-default.svg' },
+// Портреты лежат в public/users/avatars, рамки — в public/users/framings.
+// Порядок id совпадает с нумерацией файлов, поэтому новую картинку
+// достаточно положить в папку и дописать строкой ниже.
+const AVATAR_LABELS: Array<[string, string]> = [
+	['Страж', 'avatar-1'],
+	['Лучница', 'avatar-2'],
+	['Маг', 'avatar-3'],
+	['Дварф', 'avatar-4'],
+	['Тень', 'avatar-5'],
+	['Демонесса', 'avatar-6'],
+	['Лич', 'avatar-7'],
+	['Орк', 'avatar-8'],
+	['Жрица', 'avatar-9'],
+	['Драконид', 'avatar-10'],
 ]
 
+const FRAME_LABELS: Array<[string, string]> = [
+	['Орден', 'framing-1'],
+	['Лоза', 'framing-2'],
+	['Аметист', 'framing-3'],
+	['Мечи', 'framing-4'],
+	['Сталь', 'framing-5'],
+	['Инферно', 'framing-6'],
+	['Морг', 'framing-7'],
+	['Кровь', 'framing-8'],
+	['Солнце', 'framing-9'],
+	['Иней', 'framing-10'],
+]
+
+export const AVATAR_OPTIONS: AvatarOption[] = AVATAR_LABELS.map(([label, id]) => ({
+	id,
+	label,
+	src: `/users/avatars/${id}.png`,
+}))
+
+// Первая позиция — «без рамки»: id сохраняется, картинки нет.
 export const FRAME_OPTIONS: FrameOption[] = [
 	{ id: 'none', label: 'Без рамки', src: null },
-	{ id: 'placeholder-1', label: 'Бронза', src: '/game/avatar-frame.svg' },
-	{ id: 'placeholder-2', label: 'Сталь', src: '/game/avatar-frame.svg' },
-	{ id: 'placeholder-3', label: 'Золото', src: '/game/avatar-frame.svg' },
+	...FRAME_LABELS.map(([label, id]) => ({
+		id,
+		label,
+		src: `/users/framings/${id}.png`,
+	})),
 ]
 
-export const DEFAULT_AVATAR = 'default'
+export const DEFAULT_AVATAR = AVATAR_OPTIONS[0].id
 export const DEFAULT_FRAME = 'none'
 
 export function avatarSrc(id: string | null | undefined) {

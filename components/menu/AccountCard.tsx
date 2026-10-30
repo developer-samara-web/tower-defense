@@ -1,96 +1,64 @@
-'use client'
+import Link from 'next/link'
 
-import Image from 'next/image'
-import { useState } from 'react'
-
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import PlayerTitle from '@/components/ui/PlayerTitle'
 import type { PlayerProfile } from '@/features/account/types'
-import { avatarSrc, frameSrc } from '@/lib/account/avatar-options'
-import AvatarDialog from './AvatarDialog'
 
 type Props = {
 	user: PlayerProfile
-	token: string | null
-	onUpdated?: (user: PlayerProfile) => void
 }
 
-// Мини-профиль над меню: аватар с рамкой, логин, рейтинг и число игр.
-// Клик по аватару открывает выбор внешнего вида.
-export default function AccountCard({ user, token, onUpdated }: Props) {
-	const [editing, setEditing] = useState(false)
-	const frame = frameSrc(user.avatarFrame)
+// Мини-профиль над меню: весь блок ведёт на страницу профиля,
+// поэтому метрики стоят в одну строку и не растягивают карточку.
+export default function AccountCard({ user }: Props) {
 	const isAdmin = user.role === 'admin'
+	const wave = user.bestWave || Math.floor((user.record ?? 0) / 25) || 1
+
+	const metrics: Array<{ label: string; value: number | string; color: string }> = [
+		{ label: 'Рейтинг', value: user.record ?? 0, color: 'text-yellow-300' },
+		{ label: 'Игр', value: user.gamesPlayed ?? 0, color: 'text-amber-200' },
+		{ label: 'Волна', value: wave, color: 'text-lime-300' },
+	]
 
 	return (
-		<>
-			<div className="mb-3 flex items-center gap-3 border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 px-3 py-2.5 shadow-[0_0_20px_rgba(0,0,0,0.7)]">
-				<button
-					type="button"
-					onClick={() => setEditing(true)}
-					aria-label="Сменить аватар"
-					title="Сменить аватар"
-					className="relative block h-14 w-14 shrink-0 border-2 border-[#79502b] bg-[#0f0a05] shadow-[inset_0_0_0_2px_#21150c] transition-colors hover:border-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-				>
-					<Image
-						src={avatarSrc(user.avatar)}
-						alt="Аватар игрока"
-						width={56}
-						height={56}
-						unoptimized
-						className="h-full w-full [image-rendering:pixelated]"
-					/>
-					{frame ? (
-						<Image
-							src={frame}
-							alt=""
-							width={56}
-							height={56}
-							unoptimized
-							aria-hidden="true"
-							className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
-						/>
-					) : null}
-				</button>
+		<Link
+			href="/profile"
+			title="Открыть профиль"
+			className="mb-2 block border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 px-3 py-2 shadow-[0_0_20px_rgba(0,0,0,0.7)] transition-colors hover:border-[#79502b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+		>
+			<span className="flex items-center gap-3">
+				<PlayerAvatar avatar={user.avatar} frame={user.avatarFrame} size={56} />
 
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-2">
+				<span className="flex min-w-0 flex-1 flex-col">
+					<span className="flex min-w-0 items-center gap-2">
 						<span className="truncate text-[11px] font-black uppercase tracking-[0.12em] text-amber-200">
 							{user.login}
 						</span>
+						<PlayerTitle title={user.title} className="truncate" />
 						{isAdmin ? (
 							<span className="shrink-0 border border-amber-500/70 bg-amber-900/40 px-1 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-amber-200">
 								Админ
 							</span>
 						) : null}
-					</div>
+					</span>
 
-					<div className="mt-1 flex gap-3 text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
-						<span>
-							Рейтинг <span className="tabular-nums text-yellow-300">{user.record ?? 0}</span>
-						</span>
-						<span>
-							Игр <span className="tabular-nums text-amber-200">{user.gamesPlayed ?? 0}</span>
-						</span>
-					</div>
-				</div>
-
-				<button
-					type="button"
-					onClick={() => setEditing(true)}
-					disabled={!token}
-					className="shrink-0 border-2 border-[#79502b] bg-[#21150c] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-amber-200 shadow-[0_2px_0_#100904] transition-colors hover:border-amber-400 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-40 active:translate-y-[1px] active:shadow-[0_1px_0_#100904]"
-				>
-					Аватар
-				</button>
-			</div>
-
-			{editing ? (
-				<AvatarDialog
-					user={user}
-					token={token}
-					onClose={() => setEditing(false)}
-					onSaved={(updated) => onUpdated?.(updated)}
-				/>
-			) : null}
-		</>
+					<span className="mt-1.5 grid grid-cols-3 gap-1.5">
+						{metrics.map((metric) => (
+							<span
+								key={metric.label}
+								className="border border-[#5c3a1a] bg-[#0f0a05]/70 px-1 py-1 text-center"
+							>
+								<span className="block text-[7px] font-black uppercase tracking-[0.1em] text-[#8a7340]">
+									{metric.label}
+								</span>
+								<span className={`mt-0.5 block text-[11px] font-black tabular-nums ${metric.color}`}>
+									{metric.value}
+								</span>
+							</span>
+						))}
+					</span>
+				</span>
+			</span>
+		</Link>
 	)
 }

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 export default function MenuPage() {
   const router = useRouter()
-  const { user, token, logout, setUser } = useAuth()
+  const { user, logout } = useAuth()
 
   const goProfile = () => router.push('/profile')
   const goLeaderboard = () => router.push('/leaderboard')
@@ -18,8 +18,6 @@ export default function MenuPage() {
   return (
     <MainMenu
       user={user}
-      token={token}
-      onUserChange={setUser}
       onPlay={() => router.push('/play')}
       onProfile={goProfile}
       onLeaderboard={goLeaderboard}

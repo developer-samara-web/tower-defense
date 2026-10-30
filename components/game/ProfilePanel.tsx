@@ -1,13 +1,14 @@
 'use client'
 
-import Image from 'next/image'
 import { useEffect } from 'react'
 
 import type { PlayerProfile, PlayerScore } from '@/features/account/types'
 import CloseButton from '@/components/ui/CloseButton'
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import PlayerTitle from '@/components/ui/PlayerTitle'
 import GameHistory from './GameHistory'
 import { useGameHistory } from '@/hooks/useGameHistory'
-import { avatarSrc, frameSrc } from '@/lib/account/avatar-options'
+import { NO_TITLE } from '@/lib/account/title-options'
 
 type Props = {
   user: PlayerProfile | null
@@ -23,7 +24,6 @@ export default function ProfilePanel({ user, scores, onRefresh, onClose }: Props
     void onRefresh()
   }, [onRefresh])
 
-  const frame = frameSrc(user?.avatarFrame)
   const record = user?.record ?? 0
   const rankIndex = user ? scores.findIndex((score) => score.id === user.id) : -1
   const rank = rankIndex >= 0 ? rankIndex + 1 : null
@@ -43,32 +43,20 @@ export default function ProfilePanel({ user, scores, onRefresh, onClose }: Props
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="relative block h-16 w-16 shrink-0 border-2 border-[#79502b] bg-[#0f0a05] shadow-[inset_0_0_0_2px_#21150c] sm:h-20 sm:w-20">
-            <Image
-              src={avatarSrc(user?.avatar)}
-              alt="Аватар игрока"
-              width={96}
-              height={96}
-              unoptimized
-              className="h-full w-full [image-rendering:pixelated]"
-            />
-            {frame ? (
-              <Image
-                src={frame}
-                alt=""
-                width={96}
-                height={96}
-                unoptimized
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
-              />
-            ) : null}
-          </span>
+          <PlayerAvatar
+            avatar={user?.avatar}
+            frame={user?.avatarFrame}
+            size={96}
+            sizeClass="h-16 w-16 sm:h-20 sm:w-20"
+          />
           <div className="min-w-0">
             <p className="text-[8px] font-black uppercase tracking-[0.24em] text-[#8a7340]">Игрок</p>
             <p className="truncate text-lg font-black uppercase tracking-[0.08em] text-amber-200 drop-shadow-[0_2px_0_#5c2d0e]">
               {user?.login || 'Герой'}
             </p>
+            {user?.title && user.title !== NO_TITLE ? (
+              <p className="mt-0.5"><PlayerTitle title={user.title} className="text-[9px]" /></p>
+            ) : null}
             <p className="truncate text-[10px] font-bold text-[#8a7340]">{user?.email || '—'}</p>
           </div>
         </div>

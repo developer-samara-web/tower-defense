@@ -1,16 +1,17 @@
 'use client'
 
-import Image from 'next/image'
 import { useState } from 'react'
 
 import CloseButton from '@/components/ui/CloseButton'
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import type { PlayerProfile } from '@/features/account/types'
 import {
 	AVATAR_OPTIONS,
+	DEFAULT_AVATAR,
+	DEFAULT_FRAME,
 	FRAME_OPTIONS,
-	avatarSrc,
-	frameSrc,
 } from '@/lib/account/avatar-options'
+import { NO_TITLE, TITLE_OPTIONS } from '@/lib/account/title-options'
 import { updateProfile } from '@/lib/services/auth-service'
 
 type Props = {
@@ -20,15 +21,27 @@ type Props = {
 	onSaved: (user: PlayerProfile) => void
 }
 
-// Пока это заглушки: все варианты показывают одинаковую картинку,
-// но выбранные id уже сохраняются в профиле.
+const SECTION = 'mt-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#8a7340]'
+
+const TILE =
+	'flex flex-col items-center gap-1 border-2 p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
+
+const TILE_ROW =
+	'flex items-center border-2 px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
+
+const TILE_ON = 'border-amber-400 bg-[#3a2a12]'
+const TILE_OFF = 'border-[#5c3a1a] bg-[#21150c] hover:border-[#a67c36]'
+
+const TILE_LABEL = 'text-[7px] font-black uppercase tracking-[0.1em] text-[#c9ad74]'
+
+// Выбор портрета, рамки и титула. Всё это сохраняется в профиле
+// и сразу видно в меню, статистике игры и топе.
 export default function AvatarDialog({ user, token, onClose, onSaved }: Props) {
-	const [avatar, setAvatar] = useState(user.avatar ?? 'default')
-	const [frame, setFrame] = useState(user.avatarFrame ?? 'none')
+	const [avatar, setAvatar] = useState(user.avatar ?? DEFAULT_AVATAR)
+	const [frame, setFrame] = useState(user.avatarFrame ?? DEFAULT_FRAME)
+	const [title, setTitle] = useState(user.title ?? NO_TITLE)
 	const [saving, setSaving] = useState(false)
 	const [error, setError] = useState<string | null>(null)
-
-	const previewFrame = frameSrc(frame)
 
 	const save = async () => {
 		if (!token || saving) return
@@ -38,6 +51,7 @@ export default function AvatarDialog({ user, token, onClose, onSaved }: Props) {
 			const updated = (await updateProfile(token, {
 				avatar,
 				avatarFrame: frame,
+				title,
 			})) as PlayerProfile
 			onSaved(updated)
 			onClose()
@@ -52,51 +66,40 @@ export default function AvatarDialog({ user, token, onClose, onSaved }: Props) {
 			className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm"
 			role="dialog"
 			aria-modal="true"
-			aria-label="Настройка аватара"
+			aria-label="Настройка профиля"
 		>
 			<div className="max-h-[92vh] w-full max-w-md overflow-y-auto border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
 				<div className="mb-3 flex items-center justify-between border-b border-[#3a2a1a] pb-2">
 					<h2 className="text-sm font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">
 						Профиль
 					</h2>
-					<CloseButton onClick={onClose} label="Закрыть настройку аватара" size="md" />
+					<CloseButton onClick={onClose} label="Закрыть настройку профиля" size="md" />
 				</div>
 
 				<div className="flex items-center gap-3">
-					<span className="relative block h-20 w-20 shrink-0 border-2 border-[#79502b] bg-[#0f0a05]">
-						<Image
-							src={avatarSrc(avatar)}
-							alt="Предпросмотр аватара"
-							width={80}
-							height={80}
-							unoptimized
-							className="h-full w-full [image-rendering:pixelated]"
-						/>
-						{previewFrame ? (
-							<Image
-								src={previewFrame}
-								alt=""
-								width={80}
-								height={80}
-								unoptimized
-								aria-hidden="true"
-								className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
-							/>
-						) : null}
-					</span>
+					<PlayerAvatar avatar={avatar} frame={frame} size={80} alt="Предпросмотр аватара" />
 					<div className="min-w-0">
 						<p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#8a7340]">Внешний вид</p>
 						<p className="mt-1 truncate text-base font-black uppercase tracking-[0.08em] text-amber-200">
 							{user.login}
 						</p>
-						<p className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[#5c3a1a]">
-							Аватар и рамка: заглушки
-						</p>
+						{title === NO_TITLE ? (
+							<p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-[#5c3a1a]">
+								Без титула
+							</p>
+						) : (
+							<p
+								className="mt-1 truncate text-[8px] font-black uppercase tracking-[0.14em]"
+								style={{ color: TITLE_OPTIONS.find((item) => item.id === title)?.color }}
+							>
+								{TITLE_OPTIONS.find((item) => item.id === title)?.label}
+							</p>
+						)}
 					</div>
 				</div>
 
-				<p className="mt-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#8a7340]">Аватар</p>
-				<div className="mt-1.5 grid grid-cols-4 gap-2">
+				<p className={SECTION}>Аватар</p>
+				<div className="mt-1.5 grid grid-cols-5 gap-1.5">
 					{AVATAR_OPTIONS.map((option) => (
 						<button
 							key={option.id}
@@ -104,29 +107,16 @@ export default function AvatarDialog({ user, token, onClose, onSaved }: Props) {
 							onClick={() => setAvatar(option.id)}
 							aria-pressed={avatar === option.id}
 							aria-label={`Аватар: ${option.label}`}
-							className={`flex flex-col items-center gap-1 border-2 p-1 transition-colors ${
-								avatar === option.id
-									? 'border-amber-400 bg-[#3a2a12]'
-									: 'border-[#5c3a1a] bg-[#21150c] hover:border-[#a67c36]'
-							}`}
+							className={`${TILE} ${avatar === option.id ? TILE_ON : TILE_OFF}`}
 						>
-							<Image
-								src={option.src}
-								alt=""
-								width={48}
-								height={48}
-								unoptimized
-								className="h-12 w-12 [image-rendering:pixelated]"
-							/>
-							<span className="text-[7px] font-black uppercase tracking-[0.1em] text-[#c9ad74]">
-								{option.label}
-							</span>
+							<PlayerAvatar avatar={option.id} frame={null} size={48} alt="" bordered={false} />
+							<span className={TILE_LABEL}>{option.label}</span>
 						</button>
 					))}
 				</div>
 
-				<p className="mt-4 text-[9px] font-black uppercase tracking-[0.16em] text-[#8a7340]">Рамка</p>
-				<div className="mt-1.5 grid grid-cols-4 gap-2">
+				<p className={SECTION}>Рамка</p>
+				<div className="mt-1.5 grid grid-cols-5 gap-1.5">
 					{FRAME_OPTIONS.map((option) => (
 						<button
 							key={option.id}
@@ -134,34 +124,44 @@ export default function AvatarDialog({ user, token, onClose, onSaved }: Props) {
 							onClick={() => setFrame(option.id)}
 							aria-pressed={frame === option.id}
 							aria-label={`Рамка: ${option.label}`}
-							className={`flex flex-col items-center gap-1 border-2 p-1 transition-colors ${
-								frame === option.id
-									? 'border-amber-400 bg-[#3a2a12]'
-									: 'border-[#5c3a1a] bg-[#21150c] hover:border-[#a67c36]'
-							}`}
+							className={`${TILE} ${frame === option.id ? TILE_ON : TILE_OFF}`}
 						>
-							<span className="relative block h-12 w-12">
-								<Image
-									src={avatarSrc(avatar)}
-									alt=""
-									width={48}
-									height={48}
-									unoptimized
-									className="h-full w-full [image-rendering:pixelated]"
-								/>
-								{option.src ? (
-									<Image
-										src={option.src}
-										alt=""
-										width={48}
-										height={48}
-										unoptimized
-										aria-hidden="true"
-										className="absolute inset-0 h-full w-full [image-rendering:pixelated]"
-									/>
-								) : null}
-							</span>
-							<span className="text-[7px] font-black uppercase tracking-[0.1em] text-[#c9ad74]">
+							<PlayerAvatar
+								avatar={avatar}
+								frame={option.id === 'none' ? null : option.id}
+								size={48}
+								alt=""
+								bordered={false}
+							/>
+							<span className={TILE_LABEL}>{option.label}</span>
+						</button>
+					))}
+				</div>
+
+				<p className={SECTION}>Титул</p>
+				<div className="mt-1.5 grid grid-cols-2 gap-1.5">
+					<button
+						type="button"
+						onClick={() => setTitle(NO_TITLE)}
+						aria-pressed={title === NO_TITLE}
+						className={`${TILE_ROW} ${title === NO_TITLE ? TILE_ON : TILE_OFF}`}
+					>
+						<span className="text-[9px] font-black uppercase tracking-[0.1em] text-[#8a7340]">
+							Без титула
+						</span>
+					</button>
+					{TITLE_OPTIONS.map((option) => (
+						<button
+							key={option.id}
+							type="button"
+							onClick={() => setTitle(option.id)}
+							aria-pressed={title === option.id}
+							className={`${TILE_ROW} ${title === option.id ? TILE_ON : TILE_OFF}`}
+						>
+							<span
+								className="truncate text-[9px] font-black uppercase tracking-[0.1em]"
+								style={{ color: option.color }}
+							>
 								{option.label}
 							</span>
 						</button>

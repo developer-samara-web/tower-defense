@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
-import { isAvatarId, isFrameId } from '@/lib/account/avatar-options'
+import { DEFAULT_AVATAR, DEFAULT_FRAME, isAvatarId, isFrameId } from '@/lib/account/avatar-options'
+import { NO_TITLE, isTitleId } from '@/lib/account/title-options'
 import User from '@/models/User'
 import { GameResult } from '@/models/GameResult'
 
@@ -13,6 +14,7 @@ type StoredUser = {
 	role?: string
 	avatar?: string
 	avatarFrame?: string
+	title?: string
 }
 
 export async function GET(req: Request) {
@@ -71,6 +73,13 @@ export async function PATCH(req: Request) {
 			update.avatarFrame = body.avatarFrame
 		}
 
+		if (body?.title !== undefined) {
+			if (!isTitleId(body.title)) {
+				return Response.json({ error: 'Неизвестный титул' }, { status: 400 })
+			}
+			update.title = body.title
+		}
+
 		if (Object.keys(update).length === 0) {
 			return Response.json({ error: 'Нет изменений' }, { status: 400 })
 		}
@@ -89,9 +98,23 @@ export async function PATCH(req: Request) {
 }
 
 async function serializeUser(user: StoredUser) {
-	const gamesPlayed = await GameResult.countDocuments({
-		userId: user._id.toString(),
-	})
+	// Один запрос даёт и число игр, и суммарную статистику для мини-профиля.
+	const [totals] = await GameResult.aggregate<{
+		_id: null
+		gamesPlayed: number
+		monstersKilled: number
+		buildingsBuilt: number
+	}>([
+		{ $match: { userId: user._id.toString() } },
+		{
+			$group: {
+				_id: null,
+				gamesPlayed: { $sum: 1 },
+				monstersKilled: { $sum: '$monstersKilled' },
+				buildingsBuilt: { $sum: '$buildingsBuilt' },
+			},
+		},
+	])
 
 	return {
 		id: user._id.toString(),
@@ -100,8 +123,11 @@ async function serializeUser(user: StoredUser) {
 		record: user.record ?? 0,
 		bestWave: user.bestWave ?? 0,
 		role: user.role === 'admin' ? 'admin' : 'user',
-		avatar: user.avatar ?? 'default',
-		avatarFrame: user.avatarFrame ?? 'none',
-		gamesPlayed,
+		avatar: user.avatar ?? DEFAULT_AVATAR,
+		avatarFrame: user.avatarFrame ?? DEFAULT_FRAME,
+		title: user.title || NO_TITLE,
+		gamesPlayed: totals?.gamesPlayed ?? 0,
+		monstersKilled: totals?.monstersKilled ?? 0,
+		buildingsBuilt: totals?.buildingsBuilt ?? 0,
 	}
 }

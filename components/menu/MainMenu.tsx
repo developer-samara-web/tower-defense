@@ -8,8 +8,6 @@ type Props = {
 	onProfile: () => void
 	onLeaderboard: () => void
 	onLogout: () => void
-	token?: string | null
-	onUserChange?: (user: PlayerProfile) => void
 }
 
 // Главное меню: только вход в игру, таблица лидеров, статистика и выход.
@@ -19,11 +17,9 @@ export default function MainMenu({
 	onProfile,
 	onLeaderboard,
 	onLogout,
-	token,
-	onUserChange,
 }: Props) {
 	return (
-		<MenuShell title="Главное меню" user={user} token={token} onUserChange={onUserChange}>
+		<MenuShell title="Главное меню" user={user}>
 			<MenuButton variant="primary" onClick={onPlay}>
 				Играть
 			</MenuButton>

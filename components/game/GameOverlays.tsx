@@ -5,6 +5,10 @@ import {
   type UpgradeRarity,
 } from '@/features/game/domain/upgrade-cards'
 import CloseButton from '@/components/ui/CloseButton'
+import PlayerAvatar from '@/components/ui/PlayerAvatar'
+import PlayerTitle from '@/components/ui/PlayerTitle'
+import { NO_TITLE } from '@/lib/account/title-options'
+import type { PlayerScore } from '@/features/account/types'
 import { SelectedTowerInfo } from '@/types'
 import TowerDetails from './TowerDetails'
 
@@ -49,12 +53,15 @@ type Props = {
     selectedBuiltTower?: SelectedTowerInfo | null
     panelPosition?: { x: number; y: number } | null
   }
-  scores: Array<{ id: string; login?: string; wave: number; gold: number }>
+  scores: PlayerScore[]
   showLeaderboard: boolean
   onCloseLeaderboard: () => void
   onResume: () => void
   onStartNew: () => void
   onRestart: () => void
+  confirmRestart: boolean
+  onConfirmRestart: () => void
+  onCancelRestart: () => void
   onBackToMenu: () => void
   onPickUpgrade: (card: UpgradeCard) => void
   onUpgrade: () => void
@@ -67,7 +74,8 @@ type Props = {
 export default function GameOverlays({
   gameOver, resuming, upgradeCards, game, scores,
   showLeaderboard, onCloseLeaderboard, onResume, onStartNew,
-  onRestart, onBackToMenu, onPickUpgrade, onUpgrade, onSell,
+  onRestart, confirmRestart, onConfirmRestart, onCancelRestart,
+  onBackToMenu, onPickUpgrade, onUpgrade, onSell,
   onDeselect, showInfo, onCloseInfo,
 }: Props) {
   return (
@@ -86,8 +94,14 @@ export default function GameOverlays({
               scores.map((s, i) => (
                 <div key={s.id} className="flex items-center gap-2 text-[10px] font-bold">
                   <span className="w-4 text-center text-amber-400 font-black">{i + 1}</span>
-                  <span className="min-w-0 truncate text-amber-100">{s.login || 'Герой'}</span>
-                  <span className="ml-auto text-amber-300 tabular-nums">{s.wave}в · {s.gold}з</span>
+                  <PlayerAvatar avatar={s.avatar} frame={s.avatarFrame} size={20} alt="" bordered={false} />
+                  <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                    <span className="truncate text-amber-100">{s.login || 'Герой'}</span>
+                    {s.title && s.title !== NO_TITLE ? (
+                      <PlayerTitle title={s.title} className="truncate text-[7px] tracking-[0.1em]" />
+                    ) : null}
+                  </span>
+                  <span className="ml-auto shrink-0 text-amber-300 tabular-nums">{s.wave}в · {s.gold}з</span>
                 </div>
               ))
             )}
@@ -159,6 +173,22 @@ export default function GameOverlays({
             <div className="mt-5 flex gap-3">
               <button onClick={onResume} className="flex-1 rounded-none border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65]">Продолжить</button>
               <button onClick={onStartNew} className="flex-1 rounded-none border-2 border-[#5c2d0e] bg-[#2a120c]/70 px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#c98b7a] hover:border-red-500 hover:text-red-300">Начать новую</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restart confirmation */}
+      {confirmRestart && (
+        <div className="absolute inset-0 z-[93] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-5 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+            <h2 className="text-center text-lg font-black uppercase tracking-[0.2em] text-amber-300">Начать заново?</h2>
+            <p className="mt-3 text-center text-[10px] font-bold leading-snug text-[#b5a17b]">
+              Вы уверены? Текущая партия будет сброшена: волна, золото, постройки и опыт вернутся к началу.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={onConfirmRestart} className="flex-1 rounded-none border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_3px_0_#100904] hover:from-[#628e33] hover:to-[#3d6022]">Да, заново</button>
+              <button onClick={onCancelRestart} className="flex-1 rounded-none border-2 border-[#79502b] bg-[#21150c] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] hover:border-amber-400 hover:text-amber-50">Отмена</button>
             </div>
           </div>
         </div>

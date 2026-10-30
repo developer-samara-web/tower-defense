@@ -1,6 +1,7 @@
 import Image from 'next/image'
 
 type Props = {
+  onRestart: () => void
   onLeaderboard: () => void
   onInfo: () => void
   onMenu: () => void
@@ -11,7 +12,7 @@ type Props = {
 // Логотип на игровом поле перекрывает карту — по умолчанию скрыт, ассет остаётся.
 const SHOW_FIELD_LOGO = false
 
-export default function GameHeader({ onLeaderboard, onInfo, onMenu, showLeaderboard, showInfo }: Props) {
+export default function GameHeader({ onRestart, onLeaderboard, onInfo, onMenu, showLeaderboard, showInfo }: Props) {
   return (
     <>
       {SHOW_FIELD_LOGO && (
@@ -21,6 +22,18 @@ export default function GameHeader({ onLeaderboard, onInfo, onMenu, showLeaderbo
       )}
 
       <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
+        <button
+          onClick={onRestart}
+          className="group relative flex h-10 w-10 items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-red-400 hover:bg-[#3a1a12] hover:text-red-200 hover:shadow-[inset_0_1px_0_rgba(255,170,150,0.18),0_3px_0_#100904,0_0_12px_rgba(248,113,113,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+          aria-label="Начать заново" title="Начать заново"
+        >
+          <span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-red-400/40" />
+          <svg viewBox="0 0 24 24" className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:-rotate-45" fill="none" aria-hidden="true">
+            <path d="M19 12a7 7 0 1 1-2.2-5.1" stroke="currentColor" strokeWidth="2" strokeLinecap="square" />
+            <path d="M19 4v4h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" />
+          </svg>
+        </button>
+
         <button
           onClick={onLeaderboard}
           className="group relative flex h-10 w-10 items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-yellow-400 hover:bg-[#493713] hover:text-yellow-200 hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"

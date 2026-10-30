@@ -5,8 +5,9 @@ export async function GET(req: Request) {
 	await connectDB()
 
 	const { searchParams } = new URL(req.url)
+	// Числа в запросе нет — Number(null) даёт 0, поэтому проверяем отдельно.
 	const requested = Number(searchParams.get('limit'))
-	const limit = Number.isFinite(requested)
+	const limit = searchParams.get('limit') && Number.isFinite(requested)
 		? Math.min(Math.max(Math.trunc(requested), 1), 50)
 		: 8
 
@@ -21,6 +22,9 @@ export async function GET(req: Request) {
 		wave: u.bestWave || Math.floor(u.record / 25) || 1,
 		gold: u.record,
 		createdAt: u.createdAt.toISOString(),
+		avatar: u.avatar,
+		avatarFrame: u.avatarFrame,
+		title: u.title,
 	}))
 
 	return Response.json({ scores })
