@@ -244,16 +244,16 @@ test('turns the draft into a playable map and drops cut-off barracks', () => {
 				...draft().spawners,
 				{
 					id: 'barracks-2',
-					x: 70,
+					x: 55,
 					y: 30,
 					troops: [{ type: 'boss', count: 2, speed: 40, strength: 5, health: 900 }],
 				},
 			],
 			waterCells: [
-				cellKey(69, 30),
-				cellKey(71, 30),
-				cellKey(70, 29),
-				cellKey(70, 31),
+				cellKey(54, 30),
+				cellKey(56, 30),
+				cellKey(55, 29),
+				cellKey(55, 31),
 			],
 		}),
 	)

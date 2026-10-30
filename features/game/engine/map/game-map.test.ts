@@ -158,7 +158,12 @@ test('fills the free ground with forest but leaves clearings', () => {
 	const map = createGameMap('forest')
 	const forest = new Set(map.forestCells)
 
-	assert.ok(forest.size > 1500, `forest is too sparse: ${forest.size} cells`)
+	// Лес занимает заметную часть поля: порция считается от площади,
+	// чтобы тест не зависел от выбранного базового размера карты.
+	assert.ok(
+		forest.size > COLS * ROWS * 0.2,
+		`forest is too sparse: ${forest.size} cells`,
+	)
 
 	// Разнообразие по рядам: где-то лес разрывается поляной, а не лежит
 	// сплошным прямоугольником.

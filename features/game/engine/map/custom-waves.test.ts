@@ -54,6 +54,33 @@ test('custom plan uses wave percentages and repeats the last wave', () => {
 	)
 })
 
+test('barracks growth scales on top of the map plan', () => {
+	const growth = { health: 20, speed: 5, count: 50 }
+
+	// Первая волна — базовая: рост прибавляется начиная со второй.
+	assert.deepEqual(waveModifiers(undefined, 1, growth), {
+		health: 1,
+		speed: 1,
+		count: 1,
+	})
+
+	const third = waveModifiers(undefined, 3, growth)
+	assert.equal(third.health, (1 + 2 * WAVE_HP_GROWTH) * (1 + 0.2 * 2))
+	assert.equal(third.count, 1 + 0.5 * 2)
+
+	// Личный рост касается только своей казармы.
+	const map = makeMap()
+	const scaled: GameMap = {
+		...map,
+		spawners: [
+			{ ...map.spawners[0]!, growth: { health: 0, speed: 0, count: 100 } },
+			map.spawners[1]!,
+		],
+	}
+	assert.equal(waveSpawnTotal(scaled, 1), 9)
+	assert.equal(waveSpawnTotal(scaled, 2), 15)
+})
+
 test('spawn plan interleaves barracks and monster types', () => {
 	const map = makeMap()
 

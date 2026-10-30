@@ -96,7 +96,11 @@ export function createEnemySystem(
 			const troop = unit.troop
 			const base = ENEMY_TYPES[troop.type]
 			const level = Math.max(0, state.wave - 1)
-			const modifiers = waveModifiers(ctx.map.waves, state.wave)
+			const modifiers = waveModifiers(
+				ctx.map.waves,
+				state.wave,
+				ctx.map.spawners[unit.spawnerIndex]?.growth,
+			)
 
 			routeIndex = unit.spawnerIndex
 			stats = {

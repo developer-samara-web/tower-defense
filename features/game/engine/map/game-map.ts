@@ -34,6 +34,16 @@ export type MapSpawner = {
 	x: number
 	y: number
 	troops: SpawnerTroop[]
+	// Личный рост казармы поверх общих настроек волн.
+	growth?: SpawnerGrowth
+}
+
+// Прибавка к волновым множителям одной казармы, в процентах за каждую
+// следующую волну: 0 — казарма растёт вместе с остальными.
+export type SpawnerGrowth = {
+	health: number
+	speed: number
+	count: number
 }
 
 // Правки характеристик волны в процентах от базовых значений казарм.

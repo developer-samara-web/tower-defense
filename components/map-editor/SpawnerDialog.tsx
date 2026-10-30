@@ -7,10 +7,12 @@ import {
 	type EnemyType,
 } from '@/features/game/config/game.config'
 import {
+	DEFAULT_SPAWNER_GROWTH,
 	DEFAULT_TROOP,
 	MAP_LIMITS,
 	MAP_SPAWN_TYPES,
 	type MapSpawner,
+	type SpawnerGrowth,
 	type SpawnerTroop,
 } from '@/features/game/engine/map/custom-map'
 import DialogShell from './DialogShell'
@@ -30,11 +32,21 @@ type TroopDraft = {
 	health: string
 }
 
+// Проценты роста редактируем как текст, чтобы пустое поле не сбрасывало
+// значение прямо во время ввода.
+type GrowthDraft = Record<keyof SpawnerGrowth, string>
+
 const fieldClass =
 	'w-full border-2 border-[#5c3a1a] bg-[#0f0a05] px-1.5 py-1 text-[11px] font-black tabular-nums text-amber-200 outline-none focus:border-amber-500'
 
 const labelClass =
 	'text-[8px] font-black uppercase tracking-[0.12em] text-[#8a7340]'
+
+const GROWTH_FIELDS: Array<{ key: keyof SpawnerGrowth; label: string }> = [
+	{ key: 'health', label: 'HP' },
+	{ key: 'speed', label: 'Скорость' },
+	{ key: 'count', label: 'Кол-во' },
+]
 
 function clamp(value: string, min: number, max: number, fallback: number) {
 	const parsed = Number(value)
@@ -60,6 +72,14 @@ export default function SpawnerDialog({ spawner, onApply, onDelete, onClose }: P
 	const [troops, setTroops] = useState<TroopDraft[]>(() =>
 		spawner.troops.length > 0 ? spawner.troops.map(toDraft) : [emptyTroop(DEFAULT_TROOP.type)],
 	)
+	const [growth, setGrowth] = useState<GrowthDraft>(() => {
+		const current = spawner.growth ?? DEFAULT_SPAWNER_GROWTH
+		return {
+			health: String(current.health),
+			speed: String(current.speed),
+			count: String(current.count),
+		}
+	})
 
 	const updateTroop = (index: number, patch: Partial<TroopDraft>) => {
 		setTroops((current) =>
@@ -79,9 +99,17 @@ export default function SpawnerDialog({ spawner, onApply, onDelete, onClose }: P
 		(type) => !troops.some((troop) => troop.type === type),
 	)
 
+	const growthPercent = (key: keyof SpawnerGrowth) =>
+		clamp(growth[key], MAP_LIMITS.growthMin, MAP_LIMITS.growthMax, 0)
+
 	const submit = () => {
 		onApply({
 			...spawner,
+			growth: {
+				health: growthPercent('health'),
+				speed: growthPercent('speed'),
+				count: growthPercent('count'),
+			},
 			troops: troops.map((troop) => ({
 				type: troop.type,
 				count: clamp(troop.count, MAP_LIMITS.countMin, MAP_LIMITS.countMax, DEFAULT_TROOP.count),
@@ -211,8 +239,35 @@ export default function SpawnerDialog({ spawner, onApply, onDelete, onClose }: P
 					</button>
 				) : null}
 
+				{/* Личный рост казармы ложится поверх общих настроек волн. */}
+				<div className="border-2 border-[#3a2a1a] bg-[#140d07] p-1.5">
+					<span className={labelClass}>Рост за волну, %</span>
+					<div className="mt-1 grid grid-cols-3 gap-1.5">
+						{GROWTH_FIELDS.map((field) => (
+							<label key={field.key} className="block">
+								<span className={labelClass}>{field.label}</span>
+								<input
+									type="number"
+									inputMode="numeric"
+									min={MAP_LIMITS.growthMin}
+									max={MAP_LIMITS.growthMax}
+									value={growth[field.key]}
+									onChange={(event) =>
+										setGrowth((current) => ({
+											...current,
+											[field.key]: event.target.value,
+										}))
+									}
+									className={fieldClass}
+								/>
+							</label>
+						))}
+					</div>
+				</div>
+
 				<p className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#5c3a1a]">
-					Монстры выходят по очереди; кол-во — за волну.
+					Монстры выходят по очереди; кол-во — за волну. Рост прибавляется к
+					общим настройкам волн начиная со второй волны.
 				</p>
 
 				<div className="flex gap-1.5 pt-0.5">

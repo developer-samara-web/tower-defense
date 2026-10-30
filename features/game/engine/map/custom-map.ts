@@ -17,10 +17,18 @@ import {
 	type MapWaves,
 	type Road,
 	type RoadPoint,
+	type SpawnerGrowth,
 	type SpawnerTroop,
 } from './game-map.ts'
 
-export type { MapCastle, MapSpawner, MapWave, MapWaves, SpawnerTroop } from './game-map.ts'
+export type {
+	MapCastle,
+	MapSpawner,
+	MapWave,
+	MapWaves,
+	SpawnerGrowth,
+	SpawnerTroop,
+} from './game-map.ts'
 
 // Всё, что игрок создаёт в редакторе, кроме самой травы. Черновик
 // хранится в карте и превращается в игровое поле теми же функциями,
@@ -70,6 +78,9 @@ export const MAP_LIMITS = {
 	wavePercentMin: 10,
 	wavePercentMax: 1000,
 	maxWaves: 50,
+	// Личный прирост казармы за волну, в процентах к общему множителю.
+	growthMin: 0,
+	growthMax: 100,
 } as const
 
 export const DEFAULT_CASTLE_HP = 100
@@ -85,6 +96,13 @@ export const DEFAULT_TROOP = {
 export const DEFAULT_WAVES: MapWaves = {
 	useCommon: true,
 	waves: [],
+}
+
+// По умолчанию казарма не растёт быстрее общих настроек волн.
+export const DEFAULT_SPAWNER_GROWTH: SpawnerGrowth = {
+	health: 0,
+	speed: 0,
+	count: 0,
 }
 
 export const MAP_SPAWN_TYPES: EnemyType[] = ['scout', 'brute', 'sprinter', 'boss']
@@ -240,6 +258,7 @@ export function createMapSpawner(x: number, y: number, id?: string): MapSpawner 
 		x,
 		y,
 		troops: [{ ...DEFAULT_TROOP }],
+		growth: { ...DEFAULT_SPAWNER_GROWTH },
 	}
 }
 
@@ -631,10 +650,23 @@ function readSpawners(
 			x,
 			y,
 			troops: readTroops(raw),
+			growth: readGrowth(raw.growth),
 		})
 	}
 
 	return spawners
+}
+
+// Личный рост казармы: проценты к общим волновым множителям за каждую
+// следующую волну. У старых карт поля нет — тогда рост нулевой.
+function readGrowth(value: unknown): SpawnerGrowth {
+	const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
+
+	return {
+		health: clampNumber(raw.health, MAP_LIMITS.growthMin, MAP_LIMITS.growthMax, 0),
+		speed: clampNumber(raw.speed, MAP_LIMITS.growthMin, MAP_LIMITS.growthMax, 0),
+		count: clampNumber(raw.count, MAP_LIMITS.growthMin, MAP_LIMITS.growthMax, 0),
+	}
 }
 
 function readTerrainCells(
