@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { isRatedMap } from '@/lib/map-rating'
 import User from '@/models/User'
 
 export async function POST(req: Request) {
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
 
 	try {
 		const payload = verifyToken(token)
-		const { gold, wave } = await req.json()
+		const { gold, wave, mapId } = await req.json()
 
 		const nextGold = toCount(gold)
 		const nextWave = toCount(wave)
@@ -20,6 +21,11 @@ export async function POST(req: Request) {
 
 		const user = await User.findById(payload.userId)
 		if (!user) return Response.json({ error: 'Not found' }, { status: 404 })
+
+		// Обычные забеги и песочница редактора рейтинг не двигают.
+		if (!(await isRatedMap(mapId))) {
+			return Response.json({ record: user.record, bestWave: user.bestWave, rated: false })
+		}
 
 		let changed = false
 
@@ -35,7 +41,7 @@ export async function POST(req: Request) {
 
 		if (changed) await user.save()
 
-		return Response.json({ record: user.record, bestWave: user.bestWave })
+		return Response.json({ record: user.record, bestWave: user.bestWave, rated: true })
 	} catch {
 		return Response.json({ error: 'Invalid token' }, { status: 401 })
 	}

@@ -157,6 +157,7 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
       const stats = saved.stats ?? payload.stats
 
       void recordGame(token, {
+        mapId: explicitMap,
         wave: Math.max(0, Math.trunc(saved.wave ?? 0)),
         gold: Math.max(0, Math.trunc(saved.gold ?? 0)),
         level: saved.level ?? 1,
@@ -166,7 +167,7 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
         damageDealt: stats?.damageDealt ?? 0,
       }).catch(() => {})
     },
-    [token],
+    [explicitMap, token],
   )
 
   useEffect(() => {
@@ -202,6 +203,7 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
             gameRecordedRef.current = true
             const snapshot = latestSnapshotRef.current
             void recordGame(token, {
+              mapId: explicitMap,
               wave: Math.max(0, Math.trunc(detail.wave)),
               gold: Math.max(0, Math.trunc(detail.gold)),
               level: snapshot?.level ?? 1,
@@ -211,7 +213,7 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
               damageDealt: snapshot?.stats.damageDealt ?? 0,
             }).catch(() => {})
           }
-          updateUserScore(token, detail.gold, detail.wave)
+          updateUserScore(token, detail.gold, detail.wave, explicitMap)
             .then(() => refreshScores())
             .catch(() => {})
         }
@@ -223,7 +225,7 @@ export function useGame(initialSeed?: string, initialMapId?: string) {
       window.removeEventListener('td:state', handleState)
       window.removeEventListener('td:game-over', handleGameOver)
     }
-  }, [token, refreshScores])
+  }, [explicitMap, token, refreshScores])
 
   // Ищем сохранение до того, как автосейв получит право писать на сервер.
   // Для выбранной карты сохранение не подгружаем: игрок хочет начать её заново.

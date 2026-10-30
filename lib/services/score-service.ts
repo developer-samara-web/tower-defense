@@ -25,10 +25,11 @@ export async function fetchTopScores(limit = 8) {
   return data.scores || readLocalScores()
 }
 
-export async function updateUserScore(token: string, gold: number, wave: number) {
+// mapId — карта забега: рейтинг двигают только одобренные рейтинговые карты.
+export async function updateUserScore(token: string, gold: number, wave: number, mapId?: string | null) {
   await fetch('/api/scores/update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-    body: JSON.stringify({ gold, wave }),
+    body: JSON.stringify({ gold, wave, mapId: mapId ?? null }),
   }).catch(() => {})
 }

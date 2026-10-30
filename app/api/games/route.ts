@@ -2,6 +2,7 @@ import { Types } from 'mongoose'
 
 import { connectDB } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { isRatedMap } from '@/lib/map-rating'
 import { GameResult } from '@/models/GameResult'
 
 const DEFAULT_LIMIT = 10
@@ -17,8 +18,9 @@ export async function GET(req: Request) {
 
 	try {
 		const payload = verifyToken(token)
+		// Числа в запросе нет — Number(null) даёт 0, поэтому проверяем отдельно.
 		const requested = Number(searchParams.get('limit'))
-		const limit = Number.isFinite(requested)
+		const limit = searchParams.get('limit') && Number.isFinite(requested)
 			? Math.min(Math.max(Math.trunc(requested), 1), MAX_LIMIT)
 			: DEFAULT_LIMIT
 
@@ -68,6 +70,8 @@ export async function POST(req: Request) {
 			userId: payload.userId,
 			wave,
 			gold,
+			mapId: Types.ObjectId.isValid(body?.mapId) ? body.mapId : null,
+			rated: await isRatedMap(body?.mapId),
 			level: Math.max(1, toCount(body?.level) ?? 1),
 			monstersKilled: toCount(body?.monstersKilled) ?? 0,
 			buildingsBuilt: toCount(body?.buildingsBuilt) ?? 0,
@@ -85,6 +89,7 @@ function toGameRecord(game: {
 	_id: { toString(): string }
 	wave: number
 	gold: number
+	rated?: boolean
 	level?: number
 	monstersKilled?: number
 	buildingsBuilt?: number
@@ -96,6 +101,8 @@ function toGameRecord(game: {
 		id: game._id.toString(),
 		wave: game.wave,
 		gold: game.gold,
+		// Только рейтинговые забеги двигают рейтинг игрока.
+		rated: Boolean(game.rated),
 		level: game.level ?? 1,
 		monstersKilled: game.monstersKilled ?? 0,
 		buildingsBuilt: game.buildingsBuilt ?? 0,

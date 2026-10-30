@@ -12,6 +12,11 @@ const dateFormat = new Intl.DateTimeFormat('ru-RU', {
 	minute: '2-digit',
 })
 
+const RATED_BADGE =
+	'shrink-0 border border-yellow-500/60 bg-yellow-500/10 px-1 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-yellow-300'
+const PLAIN_BADGE =
+	'shrink-0 border border-[#5c3a1a] bg-[#0f0a05]/70 px-1 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-[#8a7340]'
+
 type Props = {
 	games: GameRecord[]
 	hasMore: boolean
@@ -77,7 +82,13 @@ export default function GameHistory({
 								className="flex w-full items-center gap-2 py-1.5 text-left transition-colors hover:bg-[#21150c]/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400"
 							>
 								<span className="flex min-w-0 flex-1 flex-col leading-tight">
-									<span className="truncate text-[10px] font-black uppercase tracking-wide text-amber-200">Волна {game.wave}</span>
+									<span className="flex min-w-0 items-center gap-1.5">
+										<span className="truncate text-[10px] font-black uppercase tracking-wide text-amber-200">Волна {game.wave}</span>
+										{/* Рейтинг двигают только забеги на одобренных рейтинговых картах. */}
+										<span className={game.rated ? RATED_BADGE : PLAIN_BADGE}>
+											{game.rated ? 'рейтинг' : 'обычная'}
+										</span>
+									</span>
 									<span className="mt-0.5 text-[8px] font-bold text-[#8a7340]">{dateFormat.format(new Date(game.createdAt))}</span>
 								</span>
 								<span className="shrink-0 text-[10px] font-black tabular-nums text-yellow-300">🪙 {numberFormat.format(game.gold)}</span>

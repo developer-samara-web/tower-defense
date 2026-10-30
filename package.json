@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "make-admin": "node --env-file=.env scripts/make-admin.mjs",
-    "test": "node --test features/game/domain/game-rules.test.ts features/game/domain/session-state.test.ts features/game/domain/upgrade-cards.test.ts features/game/engine/map/game-map.test.ts features/game/engine/map/custom-map.test.ts features/game/engine/map/custom-waves.test.ts lib/auth.test.ts"
+    "reset-ratings": "node --env-file=.env scripts/reset-ratings.mjs",
+    "test": "node --test features/game/domain/game-rules.test.ts features/game/domain/session-state.test.ts features/game/domain/upgrade-cards.test.ts features/game/engine/map/game-map.test.ts features/game/engine/map/custom-map.test.ts features/game/engine/map/custom-waves.test.ts features/game/engine/map/map-preview.test.ts lib/auth.test.ts"
   },
   "engines": {
     "node": ">=22.18.0"
