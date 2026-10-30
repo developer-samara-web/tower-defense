@@ -4,6 +4,14 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { DEFAULT_COLS, DEFAULT_ROWS, resetBoardSize } from '@/features/game/config/game.config'
 import { createGameMap } from '@/features/game/engine/map/game-map'
+import {
+	decodeMapPreview,
+	TERRAIN_FOREST,
+	TERRAIN_GRASS,
+	TERRAIN_ROAD,
+	TERRAIN_WATER,
+	type MapPreview,
+} from '@/features/game/engine/map/map-preview'
 import type { PlayerProfile } from '@/features/account/types'
 import {
 	createMap,
@@ -62,6 +70,40 @@ const DARK_BUTTON =
 
 const DANGER_BUTTON =
 	'border-2 border-[#7f2d24] bg-[#2a0f0a] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-red-200 shadow-[0_2px_0_#100904] transition-colors hover:border-red-500 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-40 active:translate-y-[1px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400'
+
+const TERRAIN_FILLS: Record<number, string> = {
+	[TERRAIN_FOREST]: '#33501c',
+	[TERRAIN_WATER]: '#3d7f9c',
+	[TERRAIN_ROAD]: '#cdb178',
+}
+
+type TerrainRun = { key: string; x: number; y: number; width: number; fill: string }
+
+// Превью приходит строкой уменьшенных клеток, поэтому ряды одинакового
+// типа сливаем в один прямоугольник: узлов получаются десятки, а тысячи.
+function previewRuns(preview: MapPreview): TerrainRun[] {
+	const cells = decodeMapPreview(preview)
+	const runs: TerrainRun[] = []
+
+	for (let y = 0; y < preview.rows; y++) {
+		let x = 0
+		while (x < preview.cols) {
+			const value = cells[y * preview.cols + x] ?? TERRAIN_GRASS
+			if (value === TERRAIN_GRASS) {
+				x++
+				continue
+			}
+
+			const fill = TERRAIN_FILLS[value] ?? ''
+			let end = x + 1
+			while (end < preview.cols && cells[y * preview.cols + end] === value) end++
+			runs.push({ key: `${x},${y},${value}`, x, y, width: end - x, fill })
+			x = end
+		}
+	}
+
+	return runs
+}
 
 // Лес плотный, поэтому рисуем его рядами: соседние клетки сливаются
 // в один прямоугольник, и миниатюра не распухает до тысяч узлов.
@@ -148,9 +190,14 @@ function SeedThumbnail({ seed }: { seed: string }) {
 	)
 }
 
-// Превью пользовательской карты: замок и точки казарм из сохранённого
-// черновика. Воду и лес не рисуем — в списке они не загружаются.
+// Превью пользовательской карты: местность из уменьшенной сетки сервера
+// плюс замок и точки казарм из сохранённого черновика.
 function CustomThumbnail({ map }: { map: MapSummary }) {
+	const preview = map.preview
+	const runs = preview ? previewRuns(preview) : []
+	const cellWidth = preview ? map.cols / preview.cols : 0
+	const cellHeight = preview ? map.rows / preview.rows : 0
+
 	return (
 		<span className="relative block h-20 w-20 shrink-0 overflow-hidden border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000]">
 			<svg
@@ -160,6 +207,18 @@ function CustomThumbnail({ map }: { map: MapSummary }) {
 				aria-hidden="true"
 			>
 				<rect width={map.cols} height={map.rows} fill="#4c6d26" />
+				<g shapeRendering="crispEdges">
+					{runs.map((run) => (
+						<rect
+							key={run.key}
+							x={run.x * cellWidth - cellWidth * 0.04}
+							y={run.y * cellHeight - cellHeight * 0.04}
+							width={run.width * cellWidth + cellWidth * 0.08}
+							height={cellHeight * 1.08}
+							fill={run.fill}
+						/>
+					))}
+				</g>
 				{map.spawners.map((spawner, index) => (
 					<rect
 						key={`${spawner.x},${spawner.y},${index}`}

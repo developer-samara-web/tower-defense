@@ -4,6 +4,7 @@ import {
 	DEFAULT_ROWS,
 } from '@/features/game/config/game.config'
 import type { MapDraft } from '@/features/game/engine/map/custom-map'
+import { buildMapPreview } from '@/features/game/engine/map/map-preview'
 import type { MapStatus, MapSummary } from '@/types'
 
 export type StoredMap = {
@@ -36,13 +37,16 @@ export type MapSummaryContext = {
 }
 
 // Список карт не должен тянуть в браузер тысячи клеток леса,
-// поэтому в превью попадают только замок и точки казарм.
+// поэтому местность уезжает в уменьшенном превью 48×48.
 export function toMapSummary(
 	map: StoredMap,
 	context: MapSummaryContext = {},
 ): MapSummary {
 	const draft = readDraft(map.data)
 	const castle = draft?.castle
+	// Полная сетка клеток в список не попадает — вместо неё едет
+	// уменьшенное превью, на котором видны лес, реки и дороги.
+	const preview = draft ? buildMapPreview(draft) : null
 
 	return {
 		id: map._id.toString(),
@@ -60,6 +64,7 @@ export function toMapSummary(
 		author: context.authorLogin ?? null,
 		status: readMapStatus(map.moderation),
 		rated: Boolean(map.rated),
+		preview,
 	}
 }
 

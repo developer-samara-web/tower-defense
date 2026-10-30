@@ -3,6 +3,7 @@ import type {
   MapDraft,
   MapSpawner,
 } from '@/features/game/engine/map/custom-map'
+import type { MapPreview } from '@/features/game/engine/map/map-preview'
 
 export type UserProfile = {
   id: string
@@ -14,6 +15,9 @@ export type UserProfile = {
   avatar?: string
   avatarFrame?: string
   gamesPlayed?: number
+  // Суммарная статистика по всем сыгранным партиям.
+  monstersKilled?: number
+  buildingsBuilt?: number
 }
 
 export type ScoreEntry = {
@@ -46,6 +50,8 @@ export type MapSummary = {
   author: string | null
   status: MapStatus
   rated: boolean
+  // Уменьшенная сетка местности для миниатюры: трава, лес, вода, дороги.
+  preview: MapPreview | null
 }
 
 export type MapDetail = MapSummary & {
