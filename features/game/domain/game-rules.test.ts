@@ -40,17 +40,17 @@ import {
 } from './game-rules.ts'
 
 test('allows building on an empty board cell when resources are sufficient', () => {
-	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
+	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
 })
 
 test('prevents invalid building placements', () => {
-	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(['2,2']), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'forest')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'spawner')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(['2,2']), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'forest')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(['2,2']), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'spawner')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
 })
 
 test('tower occupies a 2×2 platform', () => {
@@ -62,6 +62,7 @@ test('tower occupies a 2×2 platform', () => {
 		waterCells: new Set(),
 		forestCells: new Set(),
 		spawnerCells: new Set(),
+		castleCells: new Set(),
 		towerCells,
 		gold: 999,
 		towerType: 'ice',
@@ -108,6 +109,7 @@ test('blocks building in a four-cell square around every barracks', () => {
 		waterCells: new Set(),
 		forestCells: new Set(),
 		spawnerCells: blocked,
+		castleCells: new Set(),
 		towerCells: new Set(),
 		gold: 999,
 		towerType: 'ice',
@@ -115,6 +117,36 @@ test('blocks building in a four-cell square around every barracks', () => {
 
 	assert.equal(build(20 + SPAWNER_BUILD_CLEARANCE, 20), 'spawner')
 	assert.equal(build(20 + SPAWNER_BUILD_CLEARANCE + 1, 20), null)
+})
+
+test('keeps the castle zone clear and towers a cell apart', () => {
+	const castleCells = new Set(['30,30', '31,30', '30,31', '31,31'])
+	const towerCells = new Set(['10,10', '11,10', '10,11', '11,11'])
+
+	const build = (x: number, y: number) => canBuildTower({
+		position: { x, y },
+		pathCells: new Set(),
+		waterCells: new Set(),
+		forestCells: new Set(),
+		spawnerCells: new Set(),
+		castleCells,
+		towerCells,
+		gold: 999,
+		towerType: 'ice',
+	}).reason
+
+	// Клетка замка блокирует постройку раньше, чем соседняя клетка поля.
+	assert.equal(build(30, 30), 'castle')
+	assert.equal(build(29, 30), 'castle')
+
+	// Внахлёст и вплотную к соседней башне ставить нельзя.
+	assert.equal(build(11, 11), 'occupied')
+	assert.equal(build(12, 10), 'crowded')
+	assert.equal(build(8, 10), 'crowded')
+
+	// Одна свободная клетка между площадками — уже можно.
+	assert.equal(build(13, 10), null)
+	assert.equal(build(7, 7), null)
 })
 
 test('scales wave composition predictably', () => {

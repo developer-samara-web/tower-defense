@@ -8,6 +8,7 @@ import {
 	ROWS,
 	type EnemyType,
 } from '../../config/game.config.ts'
+import { CASTLE_BUILD_CLEARANCE } from '../../domain/game-rules.ts'
 import {
 	CASTLE_SIZE,
 	type GameMap,
@@ -244,6 +245,21 @@ export function isCastleCell(
 ) {
 	const half = Math.floor(CASTLE_SIZE / 2)
 	return Math.abs(x - castle.x) <= half && Math.abs(y - castle.y) <= half
+}
+
+// Клетки вокруг замка, где башни не ставят. Зона считается от площадки 3×3,
+// как запрет у казармы считается от её клетки.
+export function castleBuildCells(castle: Pick<MapCastle, 'x' | 'y'>) {
+	const reach = Math.floor(CASTLE_SIZE / 2) + CASTLE_BUILD_CLEARANCE
+	const blocked = new Set<string>()
+
+	for (let dy = -reach; dy <= reach; dy++) {
+		for (let dx = -reach; dx <= reach; dx++) {
+			blocked.add(cellKey(castle.x + dx, castle.y + dy))
+		}
+	}
+
+	return blocked
 }
 
 let spawnerCounter = 0

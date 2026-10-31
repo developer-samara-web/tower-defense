@@ -25,6 +25,7 @@ import {
 } from '../../domain/game-rules'
 import type { Enemy, SelectionBox, Tower } from '../../types/game.types'
 import type { GameContext } from '../game-context'
+import { castleBuildCells } from '../map/custom-map'
 import {
 	createTowerGhost,
 	createTowerView,
@@ -70,6 +71,8 @@ export function createTowerSystem(
 	// Застройка вокруг казарм запрещена, чтобы монстров не расстреливали
 	// у самого выхода. У сид-карт казарм нет, поэтому зона пустая.
 	const spawnerCells = spawnerBuildCells(ctx.map.spawners)
+	// Замок тоже зона запрета: три клетки вокруг площадки остаются свободными.
+	const castleCells = castleBuildCells(ctx.map.castle)
 	// Рамки, подсвечивающие выбранные башни, и прямоугольник протяжки.
 	let selectionFrame: Phaser.GameObjects.Graphics | null = null
 	let dragFrame: Phaser.GameObjects.Graphics | null = null
@@ -117,6 +120,7 @@ export function createTowerSystem(
 			waterCells: state.waterCells,
 			forestCells,
 			spawnerCells,
+			castleCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -356,6 +360,7 @@ export function createTowerSystem(
 			waterCells: state.waterCells,
 			forestCells,
 			spawnerCells,
+			castleCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -364,6 +369,13 @@ export function createTowerSystem(
 		// Клик за пределами поля просто снимает выбор с башни.
 		if (buildCheck.reason === 'outside') {
 			deselect()
+			publish()
+			return
+		}
+
+		// Площадку замка и три клетки вокруг неё держим свободными.
+		if (buildCheck.reason === 'castle') {
+			setStatus('Вокруг замка строить нельзя.')
 			publish()
 			return
 		}
@@ -390,6 +402,13 @@ export function createTowerSystem(
 		// Вокруг казармы башни не ставят: слишком близко к выходу монстров.
 		if (buildCheck.reason === 'spawner') {
 			setStatus('Вокруг казармы строить нельзя.')
+			publish()
+			return
+		}
+
+		// Башни не ставим вплотную: между площадками остаётся одна клетка.
+		if (buildCheck.reason === 'crowded') {
+			setStatus('Башни ставят с отступом в одну клетку.')
 			publish()
 			return
 		}

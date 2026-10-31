@@ -9,9 +9,12 @@ import {
 	DEFAULT_ROWS,
 	ROWS,
 } from '../../config/game.config.ts'
+import { CASTLE_BUILD_CLEARANCE } from '../../domain/game-rules.ts'
+import { CASTLE_SIZE } from './game-map.ts'
 import { MAP_LIMITS } from './custom-map.ts'
 import {
 	castleApproachCells,
+	castleBuildCells,
 	castleCellKeys,
 	cellKey,
 	createCustomGameMap,
@@ -119,6 +122,17 @@ test('never lets a barracks stand next to the castle', () => {
 	assert.equal(canPlaceSpawner(CASTLE, 51, 51), false)
 	assert.equal(canPlaceSpawner(CASTLE, 53, 50), true)
 	assert.equal(canPlaceSpawner(null, 10, 10), true)
+})
+
+test('castle keeps three free cells around its platform', () => {
+	const blocked = castleBuildCells({ x: 50, y: 50 })
+	// Площадка 3×3 плюс кольцо в три клетки: квадрат 9×9.
+	const side = CASTLE_SIZE + CASTLE_BUILD_CLEARANCE * 2
+
+	assert.equal(blocked.size, side * side)
+	assert.equal(blocked.has(cellKey(50, 50)), true)
+	assert.equal(blocked.has(cellKey(48, 52)), true)
+	assert.equal(blocked.has(cellKey(50 + side / 2, 50)), false)
 })
 
 test('normalizes numbers, duplicates and terrain under the castle', () => {
