@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import GameCanvas from '@/components/game/GameCanvas'
@@ -10,6 +10,8 @@ import GameHeader from '@/components/game/GameHeader'
 import GameHUD from '@/components/game/GameHUD'
 import GameOverlays from '@/components/game/GameOverlays'
 import ProfilePanel from '@/components/game/ProfilePanel'
+import WaveInfoPanel from '@/components/game/WaveInfoPanel'
+import { wavePreview } from '@/features/game/engine/wave-preview'
 import { useGameUI } from '@/hooks/useGameUI'
 import { useGame } from '@/hooks/useGame'
 
@@ -21,32 +23,56 @@ export default function GamePageClient() {
   const initialSeed = seedParam ? seedParam.slice(0, 128) : undefined
   const mapParam = searchParams.get('map')?.trim() ?? ''
   const {
-    game, user, checkingSession, resuming, upgradeCards, scores, mapSeed, speed,
+    game, user, checkingSession, resuming, upgradeCards, topScores, mapTopRows, mapBoard, hasMapBoard,
+    mapSeed, speed, paused,
     mapDraft, mapLoading, mapError,
-    restartGame, resumeGame, startNew, refreshScores,
+    restartGame, resumeGame, startNew, leaveGame, refreshScores,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
-    toggleAutoUpgrade, cycleSpeed,
+    rerollUpgrades,
+    toggleAutoUpgrade, cycleSpeed, togglePause,
     waveButtonDisabled,
   } = useGame(initialSeed, mapParam || undefined)
 
   // Сцену на пользовательской карте создаём только после загрузки черновика.
+  // Карта без черновика (старая библиотека по сиду) готова сразу: поле строит
+  // движок, но id карты всё равно привязывает забег к её топу.
   const sceneReady =
     !checkingSession &&
     !resuming &&
-    (!mapParam || (!mapLoading && !mapError && mapDraft !== null))
+    (!mapParam || (!mapLoading && !mapError))
 
   // Кнопка рестарта сверху спрашивает подтверждение: партия сбрасывается
   // без возможности вернуться к прежнему состоянию.
   const [confirmRestart, setConfirmRestart] = useState(false)
+
+  // Выход в главное меню закрывает забег: результат уходит в рекорды и топ,
+  // сохранение удаляется. «В меню» после поражения ничего не пишет — игра уже
+  // записана, а рестарт обнулил снимок.
+  const backToMenu = () => {
+    leaveGame()
+    router.push('/menu')
+  }
 
   // Меню, профиль и выбор улучшения не должны останавливать игру и уводить
   // со страницы, но бой за модальным окном лучше поставить на паузу.
   const overlayOpen =
     ui.showGameMenu || ui.showProfile || upgradeCards.length > 0 || confirmRestart
 
+  // Ручная пауза с кнопки складывается с паузой модальных окон: игра
+  // стоит, пока хоть что-то из этого открыто.
+  const frozen = overlayOpen || paused
+
   useEffect(() => {
-    window.dispatchEvent(new Event(overlayOpen ? 'td:pause' : 'td:resume'))
-  }, [overlayOpen])
+    window.dispatchEvent(new Event(frozen ? 'td:pause' : 'td:resume'))
+  }, [frozen])
+
+  // Панель информации показывает текущую волну в бою, а до её старта
+  // и в перерыве — следующую, чтобы игрок успел подготовиться.
+  const previewWave = game.waveActive ? game.wave : game.wave + 1
+  const waveSummary = useMemo(
+    () => wavePreview(mapDraft, previewWave),
+    [mapDraft, previewWave],
+  )
 
   return (
     <main className="h-[100dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
@@ -57,20 +83,19 @@ export default function GamePageClient() {
         onMenu={ui.openMenu}
         showLeaderboard={ui.showLeaderboard}
         showInfo={ui.showInfo}
-        speed={speed}
-        onCycleSpeed={cycleSpeed}
+        showLeaderboardButton={hasMapBoard}
       />
       {ui.showGameMenu && (
         <GameMenu
           onClose={ui.closeMenu}
           onStats={ui.openProfile}
-          onMainMenu={() => { ui.closeMenu(); router.push('/menu') }}
+          onMainMenu={() => { ui.closeMenu(); backToMenu() }}
         />
       )}
       {ui.showProfile && (
         <ProfilePanel
           user={user}
-          scores={scores}
+          scores={topScores}
           onRefresh={refreshScores}
           onClose={ui.closeProfile}
         />
@@ -113,10 +138,11 @@ export default function GamePageClient() {
           lives: game.lives,
           level: game.level,
           stats: game.stats,
-          selectedBuiltTower: game.selectedBuiltTower,
+          selection: game.selection,
           panelPosition: game.panelPosition,
         }}
-        scores={scores}
+        mapRows={mapTopRows}
+        mapBoard={mapBoard}
         showLeaderboard={ui.showLeaderboard}
         onCloseLeaderboard={ui.closeLeaderboard}
         onResume={resumeGame}
@@ -127,6 +153,7 @@ export default function GamePageClient() {
         onCancelRestart={() => setConfirmRestart(false)}
         onBackToMenu={() => { restartGame(); router.push('/menu') }}
         onPickUpgrade={pickUpgrade}
+        onRerollUpgrade={rerollUpgrades}
         onUpgrade={upgradeTower}
         onToggleAutoUpgrade={toggleAutoUpgrade}
         onSell={sellTower}
@@ -164,6 +191,24 @@ export default function GamePageClient() {
         onSelectTower={selectTower}
         onStartWave={startWave}
         onRestart={restartGame}
+        onCycleSpeed={cycleSpeed}
+        onTogglePause={togglePause}
+        onToggleWaveInfo={ui.toggleWaveInfo}
+        speed={speed}
+        paused={paused}
+        showWaveInfo={ui.showWaveInfo}
+        waveInfo={ui.showWaveInfo && (
+          <WaveInfoPanel
+            preview={waveSummary}
+            live={{
+              waveActive: game.waveActive,
+              nextWaveIn: game.nextWaveIn,
+              spawned: game.spawnedInWave,
+              alive: game.enemyStates.length,
+            }}
+            onClose={ui.closeWaveInfo}
+          />
+        )}
         waveButtonDisabled={waveButtonDisabled}
       />
     </main>

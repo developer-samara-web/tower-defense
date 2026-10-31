@@ -7,42 +7,25 @@ type Props = {
   onMenu: () => void
   showLeaderboard: boolean
   showInfo: boolean
-  speed: number
-  onCycleSpeed: () => void
+  // Топ есть только у конкретной карты: в автогенерируемой игре кнопки нет.
+  showLeaderboardButton: boolean
 }
 
 // Логотип на игровом поле перекрывает карту — по умолчанию скрыт, ассет остаётся.
 const SHOW_FIELD_LOGO = false
 
-export default function GameHeader({ onRestart, onLeaderboard, onInfo, onMenu, showLeaderboard, showInfo, speed, onCycleSpeed }: Props) {
+export default function GameHeader({
+  onRestart, onLeaderboard, onInfo, onMenu, showLeaderboard, showInfo, showLeaderboardButton,
+}: Props) {
   return (
     <>
       {SHOW_FIELD_LOGO && (
         <div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
-          <Image src="/game/logo.png" alt="Logo" width={120} height={60} className="opacity-90" />
+          <Image src="/game/logo.png" alt="Logo" width={330} height={180} className="opacity-90" />
         </div>
       )}
 
       <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
-        <button
-          onClick={onCycleSpeed}
-          className={`group relative flex h-10 w-10 flex-col items-center justify-center gap-px border-2 transition-all duration-150 active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
-            speed > 1
-              ? 'border-amber-400 bg-[#493713] text-yellow-200 shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.35)] hover:border-yellow-300'
-              : 'border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] hover:border-amber-400 hover:bg-[#493713] hover:text-yellow-200 hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)]'
-          }`}
-          aria-label={`Скорость игры: ×${speed}. Нажми, чтобы ускорить.`}
-          aria-pressed={speed > 1}
-          title={`Скорость игры ×${speed}`}
-        >
-          <span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
-          <svg viewBox="0 0 24 24" className="relative h-[15px] w-[15px]" fill="currentColor" aria-hidden="true">
-            <path d="M3 5.5 10 12 3 18.5Z" />
-            <path d="M12 5.5 19 12l-7 6.5Z" />
-          </svg>
-          <span className="relative text-[7px] font-black leading-none tabular-nums">×{speed}</span>
-        </button>
-
         <button
           onClick={onRestart}
           className="group relative flex h-10 w-10 items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-red-400 hover:bg-[#3a1a12] hover:text-red-200 hover:shadow-[inset_0_1px_0_rgba(255,170,150,0.18),0_3px_0_#100904,0_0_12px_rgba(248,113,113,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
@@ -55,19 +38,22 @@ export default function GameHeader({ onRestart, onLeaderboard, onInfo, onMenu, s
           </svg>
         </button>
 
-        <button
-          onClick={onLeaderboard}
-          className="group relative flex h-10 w-10 items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-yellow-400 hover:bg-[#493713] hover:text-yellow-200 hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-          aria-label="Топ игроков" title="Топ игроков" aria-expanded={showLeaderboard}
-        >
-          <span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
-          <svg viewBox="0 0 24 24" className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:scale-110" fill="none" aria-hidden="true">
-            <path d="M7 3H17L15 10H9L7 3Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
-            <path d="M8 10L6 20L12 16L18 20L16 10" fill="#9b6729" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="miter" />
-            <path d="M12 5L13.2 7.4L15.8 7.8L13.9 9.6L14.4 12.2L12 10.9L9.6 12.2L10.1 9.6L8.2 7.8L10.8 7.4L12 5Z" fill="currentColor" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="miter" />
-          </svg>
-          {showLeaderboard && <span className="absolute -right-[3px] -top-[3px] h-2 w-2 border border-[#21150c] bg-yellow-400 shadow-[0_0_5px_#facc15]" />}
-        </button>
+        {/* Топ конкретной карты: в обычной автогенерируемой игре сравнивать нечего. */}
+        {showLeaderboardButton && (
+          <button
+            onClick={onLeaderboard}
+            className="group relative flex h-10 w-10 items-center justify-center border-2 border-[#79502b] bg-[#21150c] text-amber-300 shadow-[inset_0_1px_0_rgba(255,220,150,0.15),0_3px_0_#100904,0_5px_10px_rgba(0,0,0,0.45)] transition-all duration-150 hover:border-yellow-400 hover:bg-[#493713] hover:text-yellow-200 hover:shadow-[inset_0_1px_0_rgba(255,220,150,0.2),0_3px_0_#100904,0_0_12px_rgba(250,204,21,0.25)] active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+            aria-label="Топ этой карты" title="Топ этой карты" aria-expanded={showLeaderboard}
+          >
+            <span className="pointer-events-none absolute inset-[3px] border border-[#79502b]/40 transition-colors group-hover:border-yellow-400/40" />
+            <svg viewBox="0 0 24 24" className="relative h-[21px] w-[21px] transition-transform duration-200 group-hover:scale-110" fill="none" aria-hidden="true">
+              <path d="M7 3H17L15 10H9L7 3Z" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
+              <path d="M8 10L6 20L12 16L18 20L16 10" fill="#9b6729" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="miter" />
+              <path d="M12 5L13.2 7.4L15.8 7.8L13.9 9.6L14.4 12.2L12 10.9L9.6 12.2L10.1 9.6L8.2 7.8L10.8 7.4L12 5Z" fill="currentColor" stroke="currentColor" strokeWidth="0.5" strokeLinejoin="miter" />
+            </svg>
+            {showLeaderboard && <span className="absolute -right-[3px] -top-[3px] h-2 w-2 border border-[#21150c] bg-yellow-400 shadow-[0_0_5px_#facc15]" />}
+          </button>
+        )}
 
         <button
           onClick={onInfo}

@@ -1,6 +1,8 @@
-import { TOWER_TYPES } from '@/features/game/config/game.config'
+import { MAX_TOWER_LEVEL, TOWER_TYPES } from '@/features/game/config/game.config'
+import type { TowerSelectionSummary } from '@/features/game/domain/game-rules'
 import {
   RARITY_NAME,
+  upgradeRerollCost,
   type UpgradeCard,
   type UpgradeRarity,
 } from '@/features/game/domain/upgrade-cards'
@@ -8,9 +10,9 @@ import CloseButton from '@/components/ui/CloseButton'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerTitle from '@/components/ui/PlayerTitle'
 import { NO_TITLE } from '@/lib/account/title-options'
-import type { PlayerScore } from '@/features/account/types'
-import { SelectedTowerInfo } from '@/types'
+import type { MapBoardRowView, MapLeaderboard } from '@/types'
 import TowerDetails from './TowerDetails'
+import TowerGroupPanel from './TowerGroupPanel'
 
 // Цветовые схемы карточек по редкости: S — золото, A — фиолет,
 // B — тёмно-синий, C — синий.
@@ -50,10 +52,11 @@ type Props = {
     lives: number
     level: number
     stats?: { monstersKilled: number; buildingsBuilt: number; moneySpent: number; damageDealt: number }
-    selectedBuiltTower?: SelectedTowerInfo | null
+    selection: TowerSelectionSummary | null
     panelPosition?: { x: number; y: number } | null
   }
-  scores: PlayerScore[]
+  mapRows: MapBoardRowView[]
+  mapBoard: MapLeaderboard | null
   showLeaderboard: boolean
   onCloseLeaderboard: () => void
   onResume: () => void
@@ -64,6 +67,7 @@ type Props = {
   onCancelRestart: () => void
   onBackToMenu: () => void
   onPickUpgrade: (card: UpgradeCard) => void
+  onRerollUpgrade: () => void
   onUpgrade: () => void
   onToggleAutoUpgrade: () => void
   onSell: () => void
@@ -73,40 +77,61 @@ type Props = {
 }
 
 export default function GameOverlays({
-  gameOver, resuming, upgradeCards, game, scores,
+  gameOver, resuming, upgradeCards, game, mapRows, mapBoard,
   showLeaderboard, onCloseLeaderboard, onResume, onStartNew,
   onRestart, confirmRestart, onConfirmRestart, onCancelRestart,
-  onBackToMenu, onPickUpgrade, onUpgrade, onToggleAutoUpgrade, onSell,
+  onBackToMenu, onPickUpgrade, onRerollUpgrade, onUpgrade, onToggleAutoUpgrade, onSell,
   onDeselect, showInfo, onCloseInfo,
 }: Props) {
+  const rerollCost = upgradeRerollCost(game.gold)
+
   return (
     <>
       {/* Leaderboard mini overlay */}
       {showLeaderboard && (
         <div className="absolute top-[60px] right-3 z-50 w-56 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] shadow-[0_8px_24px_rgba(0,0,0,0.9)] overflow-hidden">
           <div className="flex items-center justify-between border-b border-[#3a2a1a]/60 px-2 py-1.5">
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">Топ</span>
-            <CloseButton onClick={onCloseLeaderboard} label="Закрыть топ игроков" />
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.15em] text-amber-300">
+              Топ карты
+              {mapBoard ? <span className="ml-1 text-amber-400/80">{mapBoard.stars.toFixed(1)}★</span> : null}
+            </span>
+            <CloseButton onClick={onCloseLeaderboard} label="Закрыть топ карты" />
           </div>
           <div className="max-h-48 overflow-y-auto px-2 py-1 space-y-0.5">
-            {scores.length === 0 ? (
+            {mapRows.length === 0 ? (
               <p className="text-[9px] text-[#5c3a1a] font-bold px-1 py-3 text-center">Нет рекордов</p>
             ) : (
-              scores.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-2 text-[10px] font-bold">
-                  <span className="w-4 text-center text-amber-400 font-black">{i + 1}</span>
-                  <PlayerAvatar avatar={s.avatar} frame={s.avatarFrame} size={20} alt="" bordered={false} />
+              mapRows.map((row, i) => (
+                <div
+                  key={row.live ? 'live' : row.userId}
+                  className={`flex items-center gap-2 px-1 text-[10px] font-bold ${row.live ? 'bg-amber-400/10' : ''}`}
+                >
+                  <span className={`w-4 text-center font-black ${row.live ? 'text-lime-300' : 'text-amber-400'}`}>
+                    {row.rank && !row.live ? row.rank : i + 1}
+                  </span>
+                  <PlayerAvatar avatar={row.avatar} frame={row.avatarFrame} size={20} alt="" bordered={false} />
                   <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                    <span className="truncate text-amber-100">{s.login || 'Герой'}</span>
-                    {s.title && s.title !== NO_TITLE ? (
-                      <PlayerTitle title={s.title} className="truncate text-[7px] tracking-[0.1em]" />
+                    <span className="truncate text-amber-100">{row.login || 'Герой'}</span>
+                    {row.title && row.title !== NO_TITLE ? (
+                      <PlayerTitle title={row.title} className="truncate text-[7px] tracking-[0.1em]" />
                     ) : null}
                   </span>
-                  <span className="ml-auto shrink-0 text-amber-300 tabular-nums">{s.wave}в · {s.gold}з</span>
+                  {/* Живая строка — текущий забег: он ещё не отправлен на сервер. */}
+                  {row.live ? (
+                    <span className="shrink-0 text-[7px] font-black uppercase tracking-[0.12em] text-lime-400/80">в бою</span>
+                  ) : null}
+                  <span className={`ml-auto shrink-0 tabular-nums ${row.live ? 'text-lime-300' : 'text-amber-300'}`}>
+                    {row.points}о · {row.wave}в
+                  </span>
                 </div>
               ))
             )}
           </div>
+          {mapBoard && mapBoard.total > mapRows.length ? (
+            <p className="border-t border-[#3a2a1a]/60 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">
+              всего рекордов: {mapBoard.total}
+            </p>
+          ) : null}
         </div>
       )}
 
@@ -131,11 +156,14 @@ export default function GameOverlays({
             <div className="border-t border-[#3a2a1a]/50 pt-2">
               <p className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Игра</p>
               <ul className="space-y-1 text-[10px] font-bold leading-snug text-amber-100">
-                <li><span className="text-amber-400">ЛКМ</span> по клетке — построить / выбрать башню</li>
+                <li><span className="text-amber-400">ЛКМ</span> по клетке — построить / выделить башню</li>
+                <li><span className="text-amber-400">Тянуть ЛКМ</span> — рамка выделения нескольких башен</li>
+                <li><span className="text-amber-400">Ctrl + клик</span> — добавить башню в выделение или убрать</li>
                 <li><span className="text-amber-400">Наведение</span> — предпросмотр выбранной башни</li>
                 <li><span className="text-amber-400">1–3</span> — тип башни, <span className="text-amber-400">4 / Esc</span> — снять выбор</li>
-                <li><span className="text-amber-400">U</span> — улучшить, <span className="text-amber-400">АВТО</span> в панели — рост башни без кликов</li>
-                <li><span className="text-amber-400">×2 / ×3</span> сверху — ускорить бой</li>
+                <li><span className="text-amber-400">U</span> — улучшить выбранные, <span className="text-amber-400">АВТО</span> в панели — рост башен без кликов</li>
+                <li><span className="text-amber-400">×2 / ×3</span> — ускорить бой, кнопка справа от панели</li>
+                <li><span className="text-amber-400">‖</span> — пауза там же, <span className="text-amber-400">i</span> — состав и характеристики волны</li>
                 <li><span className="text-amber-400">Пробел</span> — запустить волну</li>
                 <li><span className="text-amber-400">R</span> — рестарт после поражения</li>
               </ul>
@@ -201,7 +229,7 @@ export default function GameOverlays({
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
           <div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
             <h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Уровень {game.level}: выбери улучшение</h3>
-            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — одна из трёх карточек усилит башни</p>
+            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — каждая из трёх карт усилит свою башню</p>
             <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
               {(['S', 'A', 'B', 'C'] as UpgradeRarity[]).map((rarity) => (
                 <span key={rarity} className={`text-[9px] font-black uppercase tracking-[0.12em] ${RARITY_STYLE[rarity].accent}`}>
@@ -224,33 +252,66 @@ export default function GameOverlays({
                 )
               })}
             </div>
+
+            {/* Обновление набора: те же три карты, но другие и по другой цене
+                за каждый клик — 15% запаса золота, но не меньше 1000. */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#3a2a1a] pt-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">
+                Запас золота: <span className="tabular-nums text-yellow-300">{game.gold} 🪙</span>
+              </span>
+              <button
+                type="button"
+                onClick={onRerollUpgrade}
+                disabled={game.gold < rerollCost}
+                aria-label={`Обновить карточки улучшений за ${rerollCost} золота`}
+                title={`Новые три карты за ${rerollCost} золота — 15% запаса, минимум 1000`}
+                className={`flex items-center gap-1.5 border-2 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] transition-colors ${
+                  game.gold < rerollCost
+                    ? 'cursor-not-allowed border-[#5c3a1a] bg-[#21170d] text-[#8c785a]'
+                    : 'border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] text-lime-100 shadow-[inset_0_1px_0_#a3cf65] hover:from-[#628e33] hover:to-[#3d6022]'
+                }`}
+              >
+                <span aria-hidden="true" className="text-[13px] leading-none">↻</span>
+                Обновить за {rerollCost} 🪙
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
 
-      {/* Tower details panel */}
-      {game.selectedBuiltTower && (
+      {/* Панель выделения: одна башня — её характеристики, группа — сводка */}
+      {game.selection && (
         <div className={game.panelPosition ? 'absolute z-50 w-[232px]' : 'absolute top-14 right-3 z-50 w-[232px]'} style={game.panelPosition ? { left: game.panelPosition.x, top: game.panelPosition.y } : undefined}>
-          <TowerDetails
-            name={game.selectedBuiltTower.name}
-            level={game.selectedBuiltTower.level}
-            maxLevel={game.selectedBuiltTower.maxLevel}
-            damage={game.selectedBuiltTower.damage}
-            range={game.selectedBuiltTower.range}
-            attackSpeed={game.selectedBuiltTower.attackSpeed}
-            crit={game.selectedBuiltTower.crit}
-            burn={game.selectedBuiltTower.burn}
-            chain={game.selectedBuiltTower.chain}
-            execute={game.selectedBuiltTower.execute}
-            upgradeCost={game.selectedBuiltTower.upgradeCost}
-            sellValue={game.selectedBuiltTower.sellValue}
-            gold={game.gold}
-            autoUpgrade={game.selectedBuiltTower.autoUpgrade}
-            onUpgrade={onUpgrade}
-            onToggleAutoUpgrade={onToggleAutoUpgrade}
-            onSell={onSell}
-            onClose={onDeselect}
-          />
+          {game.selection.count === 1 && game.selection.stats ? (
+            <TowerDetails
+              name={game.selection.groups[0]?.name ?? 'Башня'}
+              level={game.selection.levelMin}
+              maxLevel={MAX_TOWER_LEVEL}
+              damage={game.selection.stats.damage}
+              range={game.selection.stats.range}
+              attackSpeed={game.selection.stats.attackSpeed}
+              crit={game.selection.stats.crit}
+              burn={game.selection.stats.burn}
+              chain={game.selection.stats.chain}
+              execute={game.selection.stats.execute}
+              upgradeCost={game.selection.upgradeable > 0 ? game.selection.upgradeCost : null}
+              sellValue={game.selection.sellValue}
+              gold={game.gold}
+              autoUpgrade={game.selection.autoUpgrade}
+              onUpgrade={onUpgrade}
+              onToggleAutoUpgrade={onToggleAutoUpgrade}
+              onSell={onSell}
+              onClose={onDeselect}
+            />
+          ) : (
+            <TowerGroupPanel
+              selection={game.selection}
+              onUpgrade={onUpgrade}
+              onToggleAutoUpgrade={onToggleAutoUpgrade}
+              onSell={onSell}
+              onClose={onDeselect}
+            />
+          )}
         </div>
       )}
     </>

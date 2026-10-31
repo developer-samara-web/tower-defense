@@ -18,9 +18,16 @@ type Props = {
   xpToNextLevel: number
   buffs: TowerBuffs
   minimap?: ReactNode
+  waveInfo?: ReactNode
+  speed: number
+  paused: boolean
+  showWaveInfo: boolean
   onSelectTower: (id: TowerType) => void
   onStartWave: () => void
   onRestart: () => void
+  onCycleSpeed: () => void
+  onTogglePause: () => void
+  onToggleWaveInfo: () => void
   waveButtonDisabled: boolean
 }
 
@@ -29,10 +36,20 @@ const towerDefs = TOWER_ORDER.map((id) => {
   return { id, name: tower.name, cost: tower.cost, image: tower.image }
 })
 
+// Квадратные кнопки колонки: плоский стиль нижней панели, а не глянец
+// из шапки. Размер подобран так, чтобы колонка была ровно в высоту панели:
+// на широких экранах 32px × 3 + 8px × 2 = 112px (её задаёт миникарта 92px
+// плюс поля и рамки), на мобильных 27px × 3 + 6px × 2 = 93px.
+const SQUARE_BUTTON =
+  'group relative flex h-[27px] w-[27px] shrink-0 flex-col items-center justify-center border-2 border-[#5c3a1a] bg-[#21170d] text-amber-200 transition-colors hover:border-[#a67c36] hover:bg-[#352411] hover:text-yellow-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:h-8 sm:w-8'
+const SQUARE_BUTTON_ON = 'border-yellow-400 bg-[#493713] text-yellow-200 shadow-[0_0_8px_#eab30866]'
+
 export default function GameHUD({
   gold, lives, maxLives, wave, waveActive, gameOver, selectedTower,
-  status, level, xp, xpToNextLevel, buffs, minimap,
-  onSelectTower, onStartWave, onRestart, waveButtonDisabled,
+  status, level, xp, xpToNextLevel, buffs, minimap, waveInfo,
+  speed, paused, showWaveInfo,
+  onSelectTower, onStartWave, onRestart, onCycleSpeed, onTogglePause, onToggleWaveInfo,
+  waveButtonDisabled,
 }: Props) {
   const xpPercent = xpToNextLevel > 0 ? Math.max(0, Math.min(100, (xp / xpToNextLevel) * 100)) : 0
   const livesTotal = Math.max(1, maxLives)
@@ -49,9 +66,10 @@ export default function GameHUD({
         </div>
       </div>
 
-      {/* Bottom bar */}
-      <div className="absolute bottom-[16px] sm:bottom-[50px] left-1/2 z-40 w-[98vw] sm:w-max max-w-[calc(100vw-16px)] sm:max-w-[calc(100vw-24px)] -translate-x-1/2 px-1 sm:px-2">
-        <div className="relative rounded-b-sm border-2 border-[#79552c] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md">
+      {/* Нижняя панель и колонка кнопок справа: зазоры между кнопками
+          и от колонки до панели одинаковые. */}
+      <div className="absolute bottom-[16px] sm:bottom-[50px] left-1/2 z-40 flex w-[98vw] max-w-[calc(100vw-16px)] -translate-x-1/2 items-center gap-1.5 px-1 sm:w-max sm:max-w-[calc(100vw-24px)] sm:gap-2 sm:px-2">
+        <div className="relative min-w-0 flex-1 rounded-b-sm border-2 border-[#79552c] bg-[#0f0a05]/90 shadow-[0_8px_24px_rgba(0,0,0,0.65),0_3px_0_#2a1d0a,0_0_14px_rgba(0,0,0,0.25)] backdrop-blur-md sm:flex-none">
           <div className="flex min-w-0 items-stretch gap-1.5 p-1.5 sm:gap-2 sm:p-2">
             {/* Minimap */}
             {minimap}
@@ -150,6 +168,59 @@ export default function GameHUD({
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Колонка ускорения, паузы и информации о волне. */}
+        <div className="relative flex shrink-0 flex-col gap-1.5 sm:gap-2">
+          {waveInfo}
+
+          <button
+            type="button"
+            onClick={onCycleSpeed}
+            aria-label={`Скорость игры: ×${speed}. Нажми, чтобы ускорить.`}
+            aria-pressed={speed > 1}
+            title={`Скорость игры ×${speed}`}
+            className={`${SQUARE_BUTTON}${speed > 1 ? ` ${SQUARE_BUTTON_ON}` : ''}`}
+          >
+            <svg viewBox="0 0 24 24" className="relative h-[11px] w-[11px] sm:h-[13px] sm:w-[13px]" fill="currentColor" aria-hidden="true">
+              <path d="M2 5.5 9 12l-7 6.5Z" />
+              <path d="M11 5.5 18 12l-7 6.5Z" />
+            </svg>
+            <span className="relative mt-px text-[6px] font-black leading-none tabular-nums sm:text-[7px]">×{speed}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onTogglePause}
+            aria-label={paused ? 'Продолжить бой' : 'Пауза'}
+            aria-pressed={paused}
+            title={paused ? 'Продолжить' : 'Пауза'}
+            className={`${SQUARE_BUTTON}${paused ? ` ${SQUARE_BUTTON_ON}` : ''}`}
+          >
+            <svg viewBox="0 0 24 24" className="relative h-[11px] w-[11px] sm:h-[13px] sm:w-[13px]" fill="currentColor" aria-hidden="true">
+              {paused ? (
+                <path d="M6.5 4.5 19 12 6.5 19.5Z" />
+              ) : (
+                <path d="M6.5 4.5h4v15h-4Zm7 0h4v15h-4Z" />
+              )}
+            </svg>
+            <span className="relative mt-px hidden text-[6px] font-black leading-none sm:block">{paused ? 'ПУСК' : 'ПАУЗА'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleWaveInfo}
+            aria-label="Информация о волне"
+            aria-expanded={showWaveInfo}
+            title="Информация о волне"
+            className={`${SQUARE_BUTTON}${showWaveInfo ? ` ${SQUARE_BUTTON_ON}` : ''}`}
+          >
+            <svg viewBox="0 0 24 24" className="relative h-4 w-4" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+              <path d="M12 11v6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="square" />
+              <rect x="11" y="6.4" width="2" height="2.6" fill="currentColor" />
+            </svg>
+          </button>
         </div>
       </div>
     </>

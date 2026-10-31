@@ -150,22 +150,23 @@ export default function MiniMap({
 		const towerArr = towers ?? []
 		if (towerArr.length > 0) {
 			for (const t of towerArr) {
-				const cx = Math.round(t.x / CELL_SIZE)
-				const cy = Math.round(t.y / CELL_SIZE)
+				// Площадка башни — 2×2 клетки, якорь считаем от её центра.
+				const cx = Math.round(t.x / CELL_SIZE) - 1
+				const cy = Math.round(t.y / CELL_SIZE) - 1
 				ctx.fillStyle = '#facc15'
 				ctx.fillRect(
 					Math.round(cx * scaleX),
 					Math.round(cy * scaleY),
-					Math.max(2, Math.ceil(scaleX * 0.8)),
-					Math.max(2, Math.ceil(scaleY * 0.8)),
+					cellW * 2,
+					cellH * 2,
 				)
 				// Точка типа башни
 				ctx.fillStyle = '#2a1d0a'
 				ctx.fillRect(
-					Math.round(cx * scaleX + scaleX * 0.3),
-					Math.round(cy * scaleY + scaleY * 0.3),
-					Math.max(1, Math.ceil(scaleX * 0.3)),
-					Math.max(1, Math.ceil(scaleY * 0.3)),
+					Math.round(cx * scaleX + scaleX),
+					Math.round(cy * scaleY + scaleY),
+					Math.max(1, Math.ceil(scaleX * 0.6)),
+					Math.max(1, Math.ceil(scaleY * 0.6)),
 				)
 			}
 		} else if (towerCells) {
