@@ -3,8 +3,10 @@
 import { useState } from 'react'
 
 import GameHistory from '@/components/game/GameHistory'
+import BestMapsList from '@/components/menu/BestMapsList'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import type { PlayerProfile } from '@/features/account/types'
+import { useBestMaps } from '@/hooks/useBestMaps'
 import { useGameHistory } from '@/hooks/useGameHistory'
 import { titleOption } from '@/lib/account/title-options'
 import AvatarDialog from './AvatarDialog'
@@ -32,14 +34,19 @@ export default function ProfileScreen({
 	onUserChange,
 }: ProfileScreenProps) {
 	const history = useGameHistory()
+	const bestMaps = useBestMaps()
 	const [editing, setEditing] = useState(false)
 	const title = titleOption(user?.title)
 
-	const metrics: Array<{ label: string; value: number; color: string }> = [
-		{ label: 'Рейтинг', value: user?.record ?? 0, color: 'text-yellow-300' },
+	// «Рейтинг» — очки рейтинга с рейтинговых карт, «Рекорд» — лучшее золото за
+	// партию. Это разные числа, поэтому путать их в подписях нельзя.
+	const metrics: Array<{ label: string; value: number | string; color: string }> = [
+		{ label: 'Рейтинг', value: user?.ratingPoints ?? 0, color: 'text-yellow-300' },
+		{ label: 'Место', value: (user?.rank ?? 0) > 0 ? `#${user?.rank}` : '—', color: 'text-amber-100' },
 		{ label: 'Игр', value: user?.gamesPlayed ?? 0, color: 'text-amber-200' },
 		{ label: 'Убито', value: user?.monstersKilled ?? 0, color: 'text-orange-300' },
 		{ label: 'Волн', value: user?.bestWave ?? 0, color: 'text-lime-300' },
+		{ label: 'Рекорд', value: user?.record ?? 0, color: 'text-amber-300' },
 	]
 
 	return (
@@ -82,7 +89,7 @@ export default function ProfileScreen({
 								{user?.login || 'Герой'}
 							</h1>
 
-							<div className="mt-2 grid grid-cols-4 gap-1.5">
+							<div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
 								{metrics.map((metric) => (
 									<div key={metric.label} className={SQUARE}>
 										<p className={SQUARE_LABEL}>{metric.label}</p>
@@ -119,6 +126,17 @@ export default function ProfileScreen({
 							</svg>
 						</button>
 					</div>
+				</div>
+
+				<div className="mt-3 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+					<div className="flex items-center justify-between border-b border-[#3a2a1a] px-3 py-2">
+						<span className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Лучшие карты</span>
+						<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">
+							{bestMaps.ratedMaps > 0 ? `рейтинговых карт: ${bestMaps.ratedMaps}` : 'рейтинговых карт нет'}
+						</span>
+					</div>
+
+					<BestMapsList maps={bestMaps.maps} loading={bestMaps.loading} />
 				</div>
 
 				<div className="mt-3 rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 shadow-[0_0_30px_rgba(0,0,0,0.9)]">

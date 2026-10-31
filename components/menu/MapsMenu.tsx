@@ -29,6 +29,8 @@ type Props = {
 	onBack: () => void
 	onPlay: (map: MapSummary) => void
 	onEdit: (map: MapSummary) => void
+	// Открыть карту с её личным топом.
+	onOpenMap: (map: MapSummary) => void
 }
 
 const TABS: Array<{ id: MapTab; label: string }> = [
@@ -251,7 +253,7 @@ function MapThumbnail({ map }: { map: MapSummary }) {
 	return map.custom ? <CustomThumbnail map={map} /> : <SeedThumbnail seed={map.seed} />
 }
 
-export default function MapsMenu({ token, user, onBack, onPlay, onEdit }: Props) {
+export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMap }: Props) {
 	const [mounted, setMounted] = useState(false)
 	const [tab, setTab] = useState<MapTab>('mine')
 	const [maps, setMaps] = useState<MapSummary[]>([])
@@ -490,7 +492,12 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit }: Props)
 		>
 			<MapThumbnail map={map} />
 
-			<span className="flex min-w-0 flex-1 flex-col leading-tight">
+			<button
+				type="button"
+				onClick={() => onOpenMap(map)}
+				aria-label={`Топ карты ${map.name}`}
+				className="flex min-w-0 flex-1 flex-col items-start leading-tight text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+			>
 				<span className="flex flex-wrap items-center gap-1.5">
 					<span className="truncate text-[11px] font-black uppercase tracking-wide text-amber-200">{map.name}</span>
 					<span className={`border px-1 py-0.5 text-[7px] font-black uppercase tracking-[0.1em] ${STATUS_TONES[map.status]}`}>
@@ -503,13 +510,13 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit }: Props)
 					) : null}
 				</span>
 				<span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
-					{map.custom ? `Редактор · ${map.spawners.length} каз.` : `${map.cols}\u00d7${map.rows}`} &#183; Сложность: {map.difficulty}
+					{map.stars.toFixed(1)}★ &#183; {map.custom ? `Редактор · ${map.spawners.length} каз.` : `${map.cols}\u00d7${map.rows}`} &#183; Сложность: {map.difficulty}
 				</span>
 				<span className="mt-0.5 truncate text-[8px] font-bold tabular-nums text-[#5c3a1a]">
 					{map.custom ? `HP ${map.castle?.hp ?? '—'}` : `Сид ${map.seed.slice(0, 8)}`} &#183; {dateFormat.format(new Date(map.createdAt))}
 					{map.author ? ` · Автор: ${map.author}` : ''}
 				</span>
-			</span>
+			</button>
 
 			<span className="flex w-[104px] shrink-0 flex-col gap-1 sm:w-[124px]">{renderActions(map)}</span>
 		</div>

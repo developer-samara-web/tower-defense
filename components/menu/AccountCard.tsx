@@ -14,8 +14,10 @@ type Props = {
 export default function AccountCard({ user }: Props) {
 	const wave = user.bestWave || Math.floor((user.record ?? 0) / 25) || 1
 
+	// «Рейтинг» — очки с рейтинговых карт, место — позиция в общем топе по ним.
 	const metrics: Array<{ label: string; value: number | string; color: string }> = [
-		{ label: 'Рейтинг', value: user.record ?? 0, color: 'text-yellow-300' },
+		{ label: 'Рейтинг', value: user.ratingPoints ?? 0, color: 'text-yellow-300' },
+		{ label: 'Место', value: (user.rank ?? 0) > 0 ? `#${user.rank}` : '—', color: 'text-amber-100' },
 		{ label: 'Игр', value: user.gamesPlayed ?? 0, color: 'text-amber-200' },
 		{ label: 'Волна', value: wave, color: 'text-lime-300' },
 	]

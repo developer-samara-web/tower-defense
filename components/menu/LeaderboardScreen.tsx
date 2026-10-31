@@ -27,7 +27,7 @@ export default function LeaderboardScreen({ scores, currentUserId, onBack }: Lea
 						<h1 className="text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">
 							Топ игроков
 						</h1>
-						<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">По золоту</span>
+						<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">По очкам рейтинга</span>
 					</div>
 
 					<ScoreTable scores={scores} currentUserId={currentUserId} />

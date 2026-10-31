@@ -63,7 +63,10 @@ export default function ScoreTable({ scores, currentUserId }: ScoreTableProps) {
 						</span>
 
 						<span className="shrink-0 text-[10px] text-[#b5a17b]">{score.wave} волна</span>
-						<span className="w-24 shrink-0 text-right tabular-nums text-amber-300">{score.gold} 🪙</span>
+						{/* Общий топ сортируется по очкам рейтинга; золото остаётся только в локальном запасном варианте. */}
+						<span className="w-24 shrink-0 text-right tabular-nums text-yellow-300">
+							{score.points === undefined ? `${score.gold} 🪙` : `${score.points} очк.`}
+						</span>
 					</div>
 				)
 			})}
