@@ -7,7 +7,10 @@ import {
 	generateUpgradeCards,
 	guaranteedRarity,
 	RARITY_WEIGHTS,
+	UPGRADE_CHOICES,
 	UPGRADE_POOL,
+	UPGRADE_REROLL_MIN_COST,
+	upgradeRerollCost,
 	type UpgradeCard,
 } from './upgrade-cards.ts'
 
@@ -37,6 +40,26 @@ test('generates the requested number of unique cards', () => {
 	assert.equal(cards.length, 3)
 	assert.equal(new Set(cards.map((item) => item.id)).size, 3)
 	assert.ok(cards.every((item) => item.description.length > 0))
+})
+
+test('never offers two upgrades for the same tower', () => {
+	for (let attempt = 0; attempt < 200; attempt++) {
+		const cards = generateUpgradeCards(UPGRADE_CHOICES, { wave: attempt })
+		const types = cards.map((item) => item.type)
+
+		assert.equal(cards.length, UPGRADE_CHOICES)
+		assert.equal(new Set(types).size, UPGRADE_CHOICES)
+		assert.deepEqual([...types].sort(), ['earth', 'fire', 'ice'])
+	}
+})
+
+test('prices a reroll at 15% of gold but never below the floor', () => {
+	assert.equal(upgradeRerollCost(0), UPGRADE_REROLL_MIN_COST)
+	assert.equal(upgradeRerollCost(3000), UPGRADE_REROLL_MIN_COST)
+	assert.equal(upgradeRerollCost(6666), UPGRADE_REROLL_MIN_COST)
+	assert.equal(upgradeRerollCost(10_000), 1500)
+	assert.equal(upgradeRerollCost(9_999), 1500)
+	assert.equal(upgradeRerollCost(40_000), 6000)
 })
 
 test('includes a guaranteed high-tier card on milestone waves', () => {

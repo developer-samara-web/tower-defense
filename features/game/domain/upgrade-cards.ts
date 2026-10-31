@@ -1,6 +1,7 @@
 import {
 	BURN_DURATION,
 	CHAIN_DAMAGE_FACTOR,
+	TOWER_ORDER,
 	TOWER_TYPES,
 	type TowerType,
 } from '../config/game.config.ts'
@@ -149,16 +150,44 @@ function rollRarity(): UpgradeRarity {
 	return 'C'
 }
 
-// Перемешивает копию пула и берёт count уникальных карточек.
-// Гарантированная карта тира выпадает первой, остальные — по весам.
+function shuffle<T>(items: readonly T[]): T[] {
+	const rest = [...items]
+
+	for (let i = rest.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1))
+		const keep = rest[i]!
+		rest[i] = rest[j]!
+		rest[j] = keep
+	}
+
+	return rest
+}
+
+// Сколько карт показывают за уровень. Столько же, сколько типов башен:
+// в наборе не бывает двух усилений для одной башни.
+export const UPGRADE_CHOICES = TOWER_ORDER.length
+
+// Обновление набора стоит долю запаса золота, но не меньше минимума.
+export const UPGRADE_REROLL_RATE = 0.15
+export const UPGRADE_REROLL_MIN_COST = 1000
+
+export function upgradeRerollCost(gold: number) {
+	return Math.max(
+		UPGRADE_REROLL_MIN_COST,
+		Math.round(Math.max(0, gold) * UPGRADE_REROLL_RATE),
+	)
+}
+
+// Собирает набор: не больше одной карты на тип башни. Гарантированная
+// карта тира закрывает один из типов, остальные добираем по весам.
 export function generateUpgradeCards(
-	count = 3,
+	count = UPGRADE_CHOICES,
 	options: { wave?: number } = {},
 ): UpgradeCard[] {
 	const cards: UpgradeCard[] = []
 	const used = new Set<string>()
 
-	function takeRandom(predicate: (card: UpgradeCard) => boolean) {
+	function take(predicate: (card: UpgradeCard) => boolean) {
 		const candidates = UPGRADE_POOL.filter(
 			(card) => !used.has(card.id) && predicate(card),
 		)
@@ -171,14 +200,17 @@ export function generateUpgradeCards(
 	}
 
 	const guaranteed = guaranteedRarity(options.wave ?? 0)
-	if (guaranteed) takeRandom((card) => card.rarity === guaranteed)
+	if (guaranteed) take((card) => card.rarity === guaranteed)
 
-	while (cards.length < count) {
+	for (const type of shuffle(TOWER_ORDER)) {
+		if (cards.length >= count) break
+		if (cards.some((card) => card.type === type)) continue
+
 		const rarity = rollRarity()
-		if (takeRandom((card) => card.rarity === rarity)) continue
+		if (take((card) => card.type === type && card.rarity === rarity)) continue
 
-		// Пул выбранного тира опустел — берём любую оставшуюся карту.
-		if (!takeRandom(() => true)) break
+		// Пул этого тира для башни пуст — берём любую её карту.
+		take((card) => card.type === type)
 	}
 
 	return cards
