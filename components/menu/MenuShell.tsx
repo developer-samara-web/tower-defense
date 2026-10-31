@@ -26,10 +26,10 @@ export default function MenuShell({
 					<Image
 						src="/game/logo.png"
 						alt="Legends of Prigranica"
-						width={144}
-						height={72}
+						width={330}
+						height={180}
 						priority
-						className="mx-auto mb-4 h-[72px] w-[144px] drop-shadow-[0_3px_6px_rgba(0,0,0,0.6)]"
+						className="mx-auto mb-4 h-[180px] w-[330px] drop-shadow-[0_3px_6px_rgba(0,0,0,0.6)]"
 					/>
 
 					<div className="relative rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-5 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] sm:p-7">

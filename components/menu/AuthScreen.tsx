@@ -49,8 +49,8 @@ export default function AuthScreen({
 					<Image
 						src="/game/logo.png"
 						alt="Legends of Prigranica"
-						width={220}
-						height={110}
+						width={330}
+						height={180}
 						priority
 						className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]"
 					/>

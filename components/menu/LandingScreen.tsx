@@ -13,8 +13,8 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 				<Image
 					src="/game/logo.png"
 					alt="Legends of Prigranica"
-					width={260}
-					height={130}
+					width={330}
+					height={180}
 					priority
 					className="drop-shadow-[0_6px_12px_rgba(0,0,0,0.65)]"
 				/>
