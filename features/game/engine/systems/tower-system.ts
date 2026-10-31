@@ -11,20 +11,28 @@ import {
 } from '../../config/game.config'
 import {
 	canBuildTower,
+	cellKey,
 	isBoardPosition,
 	isInsideBoardPoint,
+	spawnerBuildCells,
+	summarizeTowerSelection,
+	towerFootprintCells,
+	towerFootprintKeys,
 	towerSellValue,
 	towerStats,
 	towerUpgradeCost,
+	TOWER_FOOTPRINT,
 } from '../../domain/game-rules'
-import type { Enemy, Tower } from '../../types/game.types'
+import type { Enemy, SelectionBox, Tower } from '../../types/game.types'
 import type { GameContext } from '../game-context'
 import {
-	createSelectionHighlight,
 	createTowerGhost,
 	createTowerView,
 	drawBuildPreview,
+	drawSelectionBox,
+	drawSelectionHighlight,
 	fireProjectile,
+	resizeTowerView,
 	showHitFlash,
 	towerTexture,
 } from '../rendering/tower-view'
@@ -32,9 +40,14 @@ import type { EnemySystem } from './enemy-system'
 
 export type TowerSystem = {
 	selectType: (type: TowerType | null) => void
-	place: (worldX: number, worldY: number) => void
+	place: (worldX: number, worldY: number, additive: boolean) => void
 	select: (tower: Tower) => void
 	deselect: () => void
+	// Рамка выделения: рисуем во время протяжки, применяем по её отпусканию.
+	showSelectionBox: (box: SelectionBox | null) => void
+	selectInBox: (box: SelectionBox, additive: boolean) => void
+	// true, пока игрок держит рамку: в этот момент камера не должна ехать.
+	isSelecting: () => boolean
 	hover: (worldX: number, worldY: number) => void
 	clearHover: () => void
 	upgrade: () => void
@@ -54,8 +67,13 @@ export function createTowerSystem(
 	// Лес лежит в карте, а не в снимке состояния: тысячи клеток не нужно
 	// гонять через HUD и автосохранение.
 	const forestCells = new Set(ctx.map.forestCells)
-	// Рамка, подсвечивающая выбранную башню.
-	let highlight: Phaser.GameObjects.Graphics | null = null
+	// Застройка вокруг казарм запрещена, чтобы монстров не расстреливали
+	// у самого выхода. У сид-карт казарм нет, поэтому зона пустая.
+	const spawnerCells = spawnerBuildCells(ctx.map.spawners)
+	// Рамки, подсвечивающие выбранные башни, и прямоугольник протяжки.
+	let selectionFrame: Phaser.GameObjects.Graphics | null = null
+	let dragFrame: Phaser.GameObjects.Graphics | null = null
+	let boxing = false
 
 	// Полупрозрачная проекция башни и подсветка клетки под курсором.
 	let ghost: Phaser.GameObjects.Image | null = null
@@ -98,6 +116,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
 			forestCells,
+			spawnerCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -110,11 +129,14 @@ export function createTowerSystem(
 			ghostCell = created.cell
 		}
 
-		ghost.setTexture(towerTexture(type))
-		ghost.setDisplaySize(CELL_SIZE, CELL_SIZE)
+		ghost.setTexture(towerTexture(type, 1))
 
+		// Проекция стоит по центру площадки 2×2, якорь — клетка под курсором.
 		ghost
-			.setPosition(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2)
+			.setPosition(
+				x * CELL_SIZE + (CELL_SIZE * TOWER_FOOTPRINT) / 2,
+				y * CELL_SIZE + (CELL_SIZE * TOWER_FOOTPRINT) / 2,
+			)
 			.setVisible(true)
 			.setAlpha(buildCheck.allowed ? 0.6 : 0.35)
 
@@ -135,37 +157,135 @@ export function createTowerSystem(
 		hideGhost()
 	}
 
-	// Снимает выбор с построенной башни.
-	function deselect() {
-		highlight?.destroy()
-		highlight = null
-		ctx.state.selectedBuiltTower = null
+	// Перерисовывает рамки выделения: слой создаём один и переиспользуем.
+	function redrawSelection() {
+		if (!selectionFrame) selectionFrame = ctx.scene.add.graphics().setDepth(8)
+		drawSelectionHighlight(selectionFrame, ctx.state.selectedTowers)
 	}
 
-	// Выбирает построенную башню для просмотра характеристик и улучшения.
+	// Подпись под выделением: одна башня — её уровень и цена улучшения,
+	// группа — сколько башен вырастет и за сколько золота.
+	function announceSelection() {
+		redrawSelection()
+
+		const { state, setStatus } = ctx
+		const summary = summarizeTowerSelection(
+			state.selectedTowers,
+			state.gold,
+			state.buffs,
+		)
+
+		if (!summary) {
+			setStatus('Выделение снято.')
+			return
+		}
+
+		if (summary.count === 1) {
+			const name = summary.type ? TOWER_TYPES[summary.type].name : 'Башня'
+			const cost = summary.upgradeable > 0 ? summary.upgradeCost : null
+
+			setStatus(
+				cost === null
+					? `«${name}», уровень ${summary.levelMin} — максимальный.`
+					: `«${name}», уровень ${summary.levelMin}. Улучшение: ${cost} золота.`,
+			)
+			return
+		}
+
+		if (summary.upgradeable === 0) {
+			setStatus(`Выбрано башен: ${summary.count} — все максимального уровня.`)
+			return
+		}
+
+		setStatus(
+			`Выбрано башен: ${summary.count}. Улучшение ${summary.upgradeable} из ${summary.count}: ${summary.upgradeCost} золота.`,
+		)
+	}
+
+	// Снимает выделение со всех башен.
+	function deselect() {
+		ctx.state.selectedTowers.length = 0
+		redrawSelection()
+	}
+
+	// Выделяет одну башню — как обычный клик в Warcraft 3.
 	function select(tower: Tower) {
-		const { scene, state, setStatus, publish } = ctx
+		const { state } = ctx
 
 		// Выбор башни отменяет режим строительства.
 		state.selectedTower = null
 		hideGhost()
-		state.selectedBuiltTower = tower
+		state.selectedTowers.length = 0
+		state.selectedTowers.push(tower)
 
-		// Перерисовываем подсветку вокруг выбранной клетки.
-		highlight?.destroy()
-		highlight = createSelectionHighlight(scene, tower)
+		announceSelection()
+		ctx.publish()
+	}
 
-		// Показываем название башни и стоимость следующего улучшения.
-		const { name } = TOWER_TYPES[tower.type]
-		const cost = towerUpgradeCost(tower.type, tower.level)
+	// Ctrl+клик: добавляет башню в выделение или убирает её из него.
+	function toggleSelected(tower: Tower) {
+		const { state } = ctx
 
-		setStatus(
-			cost === null
-				? `«${name}», уровень ${tower.level} — максимальный.`
-				: `«${name}», уровень ${tower.level}. Улучшение: ${cost} золота.`,
-		)
+		state.selectedTower = null
+		hideGhost()
 
-		publish()
+		const index = state.selectedTowers.indexOf(tower)
+		if (index >= 0) state.selectedTowers.splice(index, 1)
+		else state.selectedTowers.push(tower)
+
+		announceSelection()
+		ctx.publish()
+	}
+
+	// Показывает (или прячет при null) рамку, которую игрок тянет мышью.
+	function showSelectionBox(box: SelectionBox | null) {
+		if (!box) {
+			boxing = false
+			dragFrame?.clear()
+			return
+		}
+
+		if (!dragFrame) dragFrame = ctx.scene.add.graphics().setDepth(9)
+		boxing = true
+		drawSelectionBox(dragFrame, box.x1, box.y1, box.x2, box.y2)
+	}
+
+	// Выделяет всё, что попало в рамку. Порядок — сверху вниз и слева
+	// направо: так же группа читается на поле и улучшается по очереди.
+	function selectInBox(box: SelectionBox, additive: boolean) {
+		const { state } = ctx
+		const left = Math.min(box.x1, box.x2)
+		const right = Math.max(box.x1, box.x2)
+		const top = Math.min(box.y1, box.y2)
+		const bottom = Math.max(box.y1, box.y2)
+		// Под рамку попадает башня, чья площадка 2×2 с ней пересекается.
+		const half = (CELL_SIZE * TOWER_FOOTPRINT) / 2
+
+		const inside = state.towers
+			.filter(
+				(tower) =>
+					tower.x + half >= left &&
+					tower.x - half <= right &&
+					tower.y + half >= top &&
+					tower.y - half <= bottom,
+			)
+			.sort((a, b) => a.y - b.y || a.x - b.x)
+
+		state.selectedTower = null
+		hideGhost()
+
+		if (additive) {
+			for (const tower of inside) {
+				if (!state.selectedTowers.includes(tower)) state.selectedTowers.push(tower)
+			}
+		} else {
+			state.selectedTowers.length = 0
+			state.selectedTowers.push(...inside)
+		}
+
+		showSelectionBox(null)
+		announceSelection()
+		ctx.publish()
 	}
 
 	// Выбирает тип башни для строительства. Повторный клик снимает выбор.
@@ -189,8 +309,9 @@ export function createTowerSystem(
 		publish()
 	}
 
-	// Пытается построить выбранную башню в точке, куда нажал игрок.
-	function place(worldX: number, worldY: number) {
+	// Кликает по полю: выделяет башню, строит новую или снимает выделение.
+	// additive (Ctrl/Cmd/Shift) правит выделение, а не заменяет его.
+	function place(worldX: number, worldY: number, additive: boolean) {
 		const { scene, state, setStatus, publish } = ctx
 
 		// Запрещаем строительство после поражения.
@@ -200,16 +321,22 @@ export function createTowerSystem(
 		const x = Math.floor(worldX / CELL_SIZE)
 		const y = Math.floor(worldY / CELL_SIZE)
 
-		// Формируем уникальный ключ клетки, например "3,5".
-		const key = `${x},${y}`
+		// Ключ якорной клетки служит идентификатором башни.
+		const key = cellKey({ x, y })
 
-		// Клик по уже построенной башне выбирает её для улучшения.
-		const builtTower = state.towers.find((tower) => tower.id === key)
+		// Клик по любой клетке площадки построенной башни меняет выделение.
+		const builtTower = state.towers.find(
+			(tower) => towerFootprintKeys(tower.id).includes(key),
+		)
 
 		if (builtTower) {
-			select(builtTower)
+			if (additive) toggleSelected(builtTower)
+			else select(builtTower)
 			return
 		}
+
+		// Клик мимо башни с зажатой клавишей выделение не трогает.
+		if (additive) return
 
 		// Без выбранного типа строить нечего.
 		const type = state.selectedTower
@@ -228,6 +355,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
 			forestCells,
+			spawnerCells,
 			towerCells: state.towerCells,
 			gold: state.gold,
 			towerType: type,
@@ -259,6 +387,13 @@ export function createTowerSystem(
 			return
 		}
 
+		// Вокруг казармы башни не ставят: слишком близко к выходу монстров.
+		if (buildCheck.reason === 'spawner') {
+			setStatus('Вокруг казармы строить нельзя.')
+			publish()
+			return
+		}
+
 		// Получаем характеристики выбранной башни.
 		const stats = TOWER_TYPES[type]
 
@@ -274,7 +409,6 @@ export function createTowerSystem(
 
 		// Добавляем башню в массив объектов, которые будут атаковать врагов.
 		state.towers.push({
-			// Ключ клетки служит уникальным идентификатором башни.
 			id: key,
 			type,
 			level: 1,
@@ -292,8 +426,8 @@ export function createTowerSystem(
 		// Снимаем выбор с ранее улучшаемой башни.
 		deselect()
 
-		// Помечаем клетку занятой и списываем стоимость башни.
-		state.towerCells.add(key)
+		// Занимаем все четыре клетки площадки и списываем стоимость башни.
+		for (const cell of towerFootprintCells({ x, y })) state.towerCells.add(cell)
 		state.gold -= stats.cost
 		state.stats.buildingsBuilt++
 		state.stats.moneySpent += stats.cost
@@ -316,89 +450,138 @@ export function createTowerSystem(
 		// Учитываем улучшение в полной стоимости башни.
 		tower.invested += cost
 
-		// Показываем новый уровень на карте.
+		// Улучшение меняет облик башни: новый спрайт уровня и крупнее размер.
+		resizeTowerView(tower.body, tower.type, tower.level)
 		tower.levelText.setText(String(tower.level)).setVisible(true)
 	}
 
-	// Улучшает выбранную башню, если хватает золота.
+	// Самое дешёвое улучшение в выделении — для сообщения о нехватке золота.
+	function cheapestUpgradeCost(towers: readonly Tower[]) {
+		let cheapest: number | null = null
+
+		for (const tower of towers) {
+			const cost = towerUpgradeCost(tower.type, tower.level)
+			if (cost !== null && (cheapest === null || cost < cheapest)) cheapest = cost
+		}
+
+		return cheapest
+	}
+
+	// Улучшает все выбранные башни в порядке выделения: на ту, где не
+	// хватает золота, деньги может найти следующая — дешевле.
 	function upgrade() {
 		const { state, setStatus, publish } = ctx
 
-		// Без выбранной башни или после поражения улучшать нечего.
-		const tower = state.selectedBuiltTower
-		if (!tower || state.lives <= 0) return
+		// После поражения и без выделения улучшать нечего.
+		if (state.lives <= 0 || state.selectedTowers.length === 0) return
 
-		// Получаем название башни и стоимость улучшения.
-		const { name } = TOWER_TYPES[tower.type]
-		const cost = towerUpgradeCost(tower.type, tower.level)
+		let upgraded = 0
+		let spent = 0
+		let last: Tower | null = null
 
-		// На максимальном уровне улучшение недоступно.
-		if (cost === null) {
-			setStatus(`«${name}» уже максимального уровня.`)
+		for (const tower of state.selectedTowers) {
+			const cost = towerUpgradeCost(tower.type, tower.level)
+			if (cost === null || state.gold < cost) continue
+
+			applyUpgrade(tower, cost)
+			upgraded += 1
+			spent += cost
+			last = tower
+		}
+
+		if (upgraded === 0) {
+			const cheapest = cheapestUpgradeCost(state.selectedTowers)
+
+			setStatus(
+				cheapest === null
+					? 'Выбранные башни уже максимального уровня.'
+					: `Недостаточно золота. Улучшение стоит ${cheapest}.`,
+			)
+			publish()
 			return
 		}
 
-		// Проверяем баланс игрока.
-		if (state.gold < cost) {
-			setStatus(`Недостаточно золота. Улучшение стоит ${cost}.`)
-			return
-		}
+		redrawSelection()
 
-		applyUpgrade(tower, cost)
-
-		setStatus(`«${name}» улучшена до уровня ${tower.level}.`)
+		setStatus(
+			last && upgraded === 1
+				? `«${TOWER_TYPES[last.type].name}» улучшена до уровня ${last.level}.`
+				: `Улучшено башен: ${upgraded} за ${spent} золота.`,
+		)
 		publish()
 	}
 
-	// Включает или выключает самостоятельное улучшение выбранной башни.
+	// Включает автоулучшение всего выделения: если хоть одна башня его не
+	// имела — включаем всем, иначе всем выключаем.
 	function toggleAutoUpgrade() {
 		const { state, setStatus, publish } = ctx
 
-		const tower = state.selectedBuiltTower
-		if (!tower) return
+		const selected = state.selectedTowers
+		if (selected.length === 0) return
 
-		tower.autoUpgrade = !tower.autoUpgrade
+		const turnOn = selected.some((tower) => !tower.autoUpgrade)
+		for (const tower of selected) tower.autoUpgrade = turnOn
 
-		const { name } = TOWER_TYPES[tower.type]
-		const cost = towerUpgradeCost(tower.type, tower.level)
+		const single = selected.length === 1 ? selected[0] : null
 
-		if (!tower.autoUpgrade) {
-			setStatus(`Автоулучшение «${name}» выключено.`)
-		} else if (cost === null) {
-			setStatus(`«${name}» и так максимального уровня.`)
+		if (single) {
+			const { name } = TOWER_TYPES[single.type]
+			const cost = towerUpgradeCost(single.type, single.level)
+
+			if (!single.autoUpgrade) {
+				setStatus(`Автоулучшение «${name}» выключено.`)
+			} else if (cost === null) {
+				setStatus(`«${name}» и так максимального уровня.`)
+			} else {
+				setStatus(`«${name}» улучшается сама, как только хватит золота (${cost}).`)
+			}
 		} else {
-			setStatus(`«${name}» улучшается сама, как только хватит золота (${cost}).`)
+			setStatus(
+				turnOn
+					? `Автоулучшение включено для ${selected.length} башен.`
+					: `Автоулучшение выключено для ${selected.length} башен.`,
+			)
 		}
 
 		publish()
 	}
 
-	// Продаёт выбранную башню и возвращает часть вложенного золота.
+	// Продаёт всё выделение и возвращает часть вложенного золота.
 	function sell() {
 		const { state, setStatus, publish } = ctx
 
-		const tower = state.selectedBuiltTower
-		if (!tower || state.lives <= 0) return
+		if (state.lives <= 0 || state.selectedTowers.length === 0) return
 
-		// Возврат считается от полной стоимости с учётом улучшений.
-		const refund = towerSellValue(tower.invested)
-		const { name } = TOWER_TYPES[tower.type]
+		const sold = [...state.selectedTowers]
+		const single = sold.length === 1 ? sold[0] : null
+		let refund = 0
 
-		// Убираем башню со сцены и из состояния.
-		tower.body.destroy()
-		tower.icon.destroy()
-		tower.levelText.destroy()
+		for (const tower of sold) {
+			// Возврат считается от полной стоимости с учётом улучшений.
+			refund += towerSellValue(tower.invested)
 
-		const index = state.towers.indexOf(tower)
-		if (index >= 0) state.towers.splice(index, 1)
+			// Убираем башню со сцены и из состояния.
+			tower.body.destroy()
+			tower.icon.destroy()
+			tower.levelText.destroy()
 
-		state.towerCells.delete(tower.id)
+			const index = state.towers.indexOf(tower)
+			if (index >= 0) state.towers.splice(index, 1)
+
+			// Продали башню — освобождаем всю её площадку 2×2.
+			for (const cell of towerFootprintKeys(tower.id)) state.towerCells.delete(cell)
+		}
+
 		state.gold += refund
 
 		deselect()
 		updateGhost()
 
-		setStatus(`«${name}» продана. Возврат: ${refund} золота.`)
+		setStatus(
+			single
+				? `«${TOWER_TYPES[single.type].name}» продана. Возврат: ${refund} золота.`
+				: `Продано башен: ${sold.length}. Возврат: ${refund} золота.`,
+		)
 		publish()
 	}
 
@@ -594,6 +777,7 @@ export function createTowerSystem(
 		state.towers.length = 0
 		state.towerCells.clear()
 		deselect()
+		showSelectionBox(null)
 
 		// Убираем проекцию и сбрасываем выбранный тип башни.
 		ghost?.destroy()
@@ -610,6 +794,9 @@ export function createTowerSystem(
 		place,
 		select,
 		deselect,
+		showSelectionBox,
+		selectInBox,
+		isSelecting: () => boxing,
 		hover,
 		clearHover,
 		upgrade,

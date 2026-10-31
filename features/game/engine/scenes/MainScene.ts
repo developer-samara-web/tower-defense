@@ -5,7 +5,7 @@ import {
 	resetGameState,
 	type GameState,
 } from '@/features/game/domain/game-state'
-import { isBoardPosition } from '@/features/game/domain/game-rules'
+import { isBoardPosition, towerFootprintCells } from '@/features/game/domain/game-rules'
 import {
 	isTowerType,
 	readSessionEnemies,
@@ -21,9 +21,17 @@ import {
 } from '@/features/game/domain/upgrade-cards'
 
 import { drawBoard } from '../board/board-renderer'
-import { createTowerView } from '../rendering/tower-view'
+import {
+	createTowerView,
+	TOWER_SPRITE_LEVELS,
+	TOWER_TYPES_LIST,
+} from '../rendering/tower-view'
 import type { GameContext } from '../game-context'
-import { resetBoardSize, setBoardSize } from '../../config/game.config'
+import {
+	MAX_TOWER_LEVEL,
+	resetBoardSize,
+	setBoardSize,
+} from '../../config/game.config'
 import {
 	boardPixelHeight,
 	boardPixelWidth,
@@ -84,6 +92,9 @@ export class MainScene extends Phaser.Scene {
 	// Пауза может прийти до первого кадра, когда сцена ещё не активна.
 	private pauseRequested = false
 
+	// Пока игрок тянет рамку выделения, камера не должна уезжать от курсора.
+	private selectionBoxOpen = false
+
 	// Множитель игрового времени: 1 — обычная скорость, больше — ускорение.
 	private timeScale = 1
 
@@ -94,9 +105,20 @@ export class MainScene extends Phaser.Scene {
 	}
 
 	preload() {
-		this.load.image('tower-ice', '/game/towers/ice.png')
-		this.load.image('tower-fire', '/game/towers/fire.png')
-		this.load.image('tower-earth', '/game/towers/earth.png')
+		// Башни на поле выглядят по-своему на каждом уровне прокачки;
+		// плоские иконки earth/fire/ice.png остались только в панели строительства.
+		for (const type of TOWER_TYPES_LIST) {
+			for (
+				let level = 1;
+				level <= Math.min(MAX_TOWER_LEVEL, TOWER_SPRITE_LEVELS);
+				level++
+			) {
+				this.load.image(
+					`tower-${type}-${level}`,
+					`/game/towers/${type}-${level}.png`,
+				)
+			}
+		}
 		this.load.image('castle', '/game/path/castle.png')
 		this.load.image('barracks', '/game/monsters/barracks.png')
 		this.load.image('logo', '/game/logo.png')
@@ -159,7 +181,16 @@ export class MainScene extends Phaser.Scene {
 		// Фон за пределами поля рисует CSS-слой с картинкой леса,
 		// поэтому камера остаётся прозрачной.
 		this.setupCamera(map.castle)
-		this.cameraControls = bindCameraControls(this, castleCenterPoint(map.castle))
+		this.cameraControls = bindCameraControls(this, castleCenterPoint(map.castle), {
+			// Левая кнопка мыши рисует рамку выделения, поэтому камеру ею не
+			// двигаем: прокрутка остаётся на правой и средней кнопках.
+			// Палец — исключение: свайп по-прежнему катает карту.
+			shouldDrag: (pointer) =>
+				pointer.wasTouch ||
+				pointer.rightButtonDown() ||
+				pointer.middleButtonDown(),
+			blockEdgePan: () => this.selectionBoxOpen,
+		})
 
 		this.state.pathCells = drawBoard(
 			this,
@@ -236,9 +267,9 @@ export class MainScene extends Phaser.Scene {
 		state.selectedTower = isTowerType(saved.selectedTower)
 			? saved.selectedTower
 			: null
-		// DTO выбранной башни из снимка не содержит Phaser-объектов,
-		// поэтому выбор восстанавливается только кликом по башне.
-		state.selectedBuiltTower = null
+		// Выделение башен из снимка не восстанавливается: DTO не содержит
+		// объектов Phaser, поэтому выбор возвращается только кликом.
+		state.selectedTowers.length = 0
 		state.status = typeof saved.status === 'string' ? saved.status : ''
 		state.buffs = restoreBuffs(saved.buffs)
 		state.stats = restoreStats(saved.stats ?? payload.stats)
@@ -257,9 +288,10 @@ export class MainScene extends Phaser.Scene {
 			const [cellX, cellY] = tower.id.split(',').map(Number)
 			const position = { x: cellX, y: cellY }
 			if (!isBoardPosition(position)) continue
-			if (state.towerCells.has(tower.id)) continue
+			// Площадка 2×2: если её часть уже занята, башню не восстанавливаем.
+			if (towerFootprintCells(position).some((cell) => state.towerCells.has(cell))) continue
 
-			const view = createTowerView(this, tower.type, cellX, cellY)
+			const view = createTowerView(this, tower.type, cellX, cellY, tower.level)
 			state.towers.push({
 				id: tower.id,
 				type: tower.type,
@@ -273,7 +305,7 @@ export class MainScene extends Phaser.Scene {
 				icon: view.icon,
 				levelText: view.levelText,
 			})
-			state.towerCells.add(tower.id)
+			for (const cell of towerFootprintCells(position)) state.towerCells.add(cell)
 
 			if (tower.level > 1) {
 				view.levelText.setText(String(tower.level)).setVisible(true)
@@ -330,9 +362,18 @@ export class MainScene extends Phaser.Scene {
 	// Подключает мышь и клавиатуру Phaser.
 	private bindControls() {
 		bindSceneControls(this, {
-			onPointerDown: (worldX, worldY) => this.towers.place(worldX, worldY),
+			onPointerDown: (worldX, worldY, additive) =>
+				this.towers.place(worldX, worldY, additive),
 			onPointerMove: (worldX, worldY) => this.towers.hover(worldX, worldY),
 			onPointerLeave: () => this.towers.clearHover(),
+			onSelectionBox: (box) => {
+				this.selectionBoxOpen = box !== null
+				this.towers.showSelectionBox(box)
+			},
+			onSelectionCommit: (box, additive) => {
+				this.selectionBoxOpen = false
+				this.towers.selectInBox(box, additive)
+			},
 			onStartWave: () => this.waves.requestStart(),
 			onSelectType: (type) => this.towers.selectType(type),
 			onUpgrade: () => this.towers.upgrade(),
@@ -365,6 +406,21 @@ export class MainScene extends Phaser.Scene {
 				)
 				this.context.setStatus(`${upgradeCardTitle(card)} — ${card.description}.`)
 				// Форсируем отправку: сцена на паузе, а React ждёт снимок сразу.
+				this.hud.publish(true)
+			},
+			onRerollUpgrades: (cost) => {
+				// Деньги списываем здесь, а новые карты React генерирует сам.
+				// Выбор открыт и бой на паузе, так что запас золота за этот
+				// клик измениться не мог.
+				if (cost > this.state.gold) {
+					this.context.setStatus('Не хватает золота на обновление улучшений.')
+					this.hud.publish(true)
+					return
+				}
+
+				this.state.gold -= cost
+				this.state.stats.moneySpent += cost
+				this.context.setStatus(`Новые улучшения за ${cost} золота.`)
 				this.hud.publish(true)
 			},
 		})

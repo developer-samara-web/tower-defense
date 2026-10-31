@@ -1,32 +1,45 @@
 import type Phaser from 'phaser'
 
-import { CELL_SIZE, type TowerType } from '../../config/game.config'
+import {
+	CELL_SIZE,
+	TOWER_TYPES,
+	type TowerType,
+} from '../../config/game.config'
+import { TOWER_FOOTPRINT, towerSpriteSize } from '../../domain/game-rules'
 import type { Enemy, Tower } from '../../types/game.types'
 
-// Ключи для графических иконок больше не используются — иконки рисуются графикой.
+// Все типы башен — по ним сцена загружает покадровые спрайты уровней.
+export const TOWER_TYPES_LIST = Object.keys(TOWER_TYPES) as TowerType[]
 
+// Сколько ступеней прокачки нарисовано в /game/towers. Если баланс поднимет
+// потолок выше, башня остаётся в самом взрослом виде.
+export const TOWER_SPRITE_LEVELS = 5
 
-const TOWER_TEXTURES: Record<TowerType, string> = {
-    ice: 'tower-ice',
-    fire: 'tower-fire',
-    earth: 'tower-earth',
+// Ключ текстуры башни: свой спрайт на каждый уровень прокачки.
+export function towerTexture(type: TowerType, level: number) {
+	return `tower-${type}-${Math.min(Math.max(level, 1), TOWER_SPRITE_LEVELS)}`
 }
 
-//* Создаёт спрайт башни в центре игровой клетки. *
+// Сторона площадки башни в пикселях: 2×2 клетки.
+const FOOTPRINT_SIZE = CELL_SIZE * TOWER_FOOTPRINT
+
+//* Создаёт спрайт башни в центре её площадки 2×2. *
 export function createTowerView(
     scene: Phaser.Scene,
     type: TowerType,
     cellX: number,
     cellY: number,
+    level = 1,
 ) {
-    //* Координаты центра клетки. *
-    const x = cellX * CELL_SIZE + CELL_SIZE / 2
-    const y = cellY * CELL_SIZE + CELL_SIZE / 2
+    //* Координаты центра площадки. *
+    const x = cellX * CELL_SIZE + FOOTPRINT_SIZE / 2
+    const y = cellY * CELL_SIZE + FOOTPRINT_SIZE / 2
+    const size = towerSpriteSize(level)
 
-    //* Создаём изображение башни. *
+    //* Создаём изображение башни текущего уровня прокачки. *
     const body = scene.add
-        .image(x, y, TOWER_TEXTURES[type])
-        .setDisplaySize(CELL_SIZE * 1, CELL_SIZE * 1)
+        .image(x, y, towerTexture(type, level))
+        .setDisplaySize(size, size)
         .setOrigin(0.5)
         .setDepth(4)
 
@@ -36,9 +49,9 @@ export function createTowerView(
     //* Бейдж уровня башни. *
     const levelText = scene.add
         .text(
-            x + CELL_SIZE / 2 - 5,
-            y + CELL_SIZE / 2 - 5,
-            '1',
+            x + FOOTPRINT_SIZE / 2 - 5,
+            y + FOOTPRINT_SIZE / 2 - 5,
+            String(level),
             {
                 fontFamily: 'monospace',
                 fontSize: '10px',
@@ -59,30 +72,66 @@ export function createTowerView(
     return { x, y, body, icon, levelText }
 }
 
-
-// Возвращает ключ текстуры башни для отрисовки.
-export function towerTexture(type: TowerType) {
-	return TOWER_TEXTURES[type]
+// Меняет облик башни по её уровню: спрайт прокачки становится крупнее и
+// показывает более взрослую постройку.
+export function resizeTowerView(
+    body: Phaser.GameObjects.Image,
+    type: TowerType,
+    level: number,
+) {
+    const size = towerSpriteSize(level)
+    body.setTexture(towerTexture(type, level)).setDisplaySize(size, size)
 }
 
-// Создаёт рамку, подсвечивающую выбранную башню.
-export function createSelectionHighlight(scene: Phaser.Scene, tower: Tower) {
-	const highlight = scene.add.graphics().setDepth(8)
+// Рисует золотые рамки вокруг всех выбранных башен — по всей площадке 2×2.
+export function drawSelectionHighlight(
+	highlight: Phaser.GameObjects.Graphics,
+	towers: readonly Tower[],
+) {
+	highlight.clear()
+	if (towers.length === 0) return
+
 	highlight.lineStyle(3, 0xb89a3a, 1)
-	highlight.strokeRect(
-		tower.x - CELL_SIZE / 2,
-		tower.y - CELL_SIZE / 2,
-		CELL_SIZE,
-		CELL_SIZE,
-	)
-	return highlight
+
+	const half = FOOTPRINT_SIZE / 2
+
+	for (const tower of towers) {
+		highlight.strokeRect(
+			tower.x - half,
+			tower.y - half,
+			FOOTPRINT_SIZE,
+			FOOTPRINT_SIZE,
+		)
+	}
+}
+
+// Рисует рамку выделения, которую игрок тянет мышью.
+export function drawSelectionBox(
+	frame: Phaser.GameObjects.Graphics,
+	x1: number,
+	y1: number,
+	x2: number,
+	y2: number,
+) {
+	const left = Math.min(x1, x2)
+	const top = Math.min(y1, y2)
+	const width = Math.abs(x2 - x1)
+	const height = Math.abs(y2 - y1)
+
+	frame.clear()
+	frame.fillStyle(0xb89a3a, 0.15)
+	frame.fillRect(left, top, width, height)
+	frame.lineStyle(2, 0xf5e6c8, 0.95)
+	frame.strokeRect(left, top, width, height)
 }
 
 // Полупрозрачная проекция башни, которая следует за курсором.
 export function createTowerGhost(scene: Phaser.Scene, type: TowerType) {
+	const size = towerSpriteSize(1)
+
 	const body = scene.add
-		.image(0, 0, TOWER_TEXTURES[type])
-		.setDisplaySize(CELL_SIZE, CELL_SIZE)
+		.image(0, 0, towerTexture(type, 1))
+		.setDisplaySize(size, size)
 		.setOrigin(0.5)
 		.setDepth(9)
 		.setAlpha(0.55)
@@ -93,7 +142,7 @@ export function createTowerGhost(scene: Phaser.Scene, type: TowerType) {
 	return { body, cell }
 }
 
-// Перерисовывает подсветку клетки под проекцией башни.
+// Перерисовывает подсветку площадки под проекцией башни.
 export function drawBuildPreview(
 	cell: Phaser.GameObjects.Graphics,
 	cellX: number,
@@ -106,9 +155,9 @@ export function drawBuildPreview(
 
 	cell.clear()
 	cell.fillStyle(color, 0.18)
-	cell.fillRect(left, top, CELL_SIZE, CELL_SIZE)
+	cell.fillRect(left, top, FOOTPRINT_SIZE, FOOTPRINT_SIZE)
 	cell.lineStyle(2, color, 0.95)
-	cell.strokeRect(left + 1, top + 1, CELL_SIZE - 2, CELL_SIZE - 2)
+	cell.strokeRect(left + 1, top + 1, FOOTPRINT_SIZE - 2, FOOTPRINT_SIZE - 2)
 }
 
 // Создаёт круглый снаряд цвета башни и запускает его к цели.

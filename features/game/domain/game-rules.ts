@@ -48,21 +48,94 @@ export function isBoardPosition({ x, y }: BoardPosition) {
 	return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < COLS && y >= 0 && y < ROWS
 }
 
-export function canBuildTower({ position, pathCells, waterCells, forestCells, towerCells, gold, towerType }: {
+// Башня стоит на площадке 2×2 клетки. Якорем служит верхняя левая клетка:
+// курсор при клике всегда попадает внутрь площадки, а id башни остаётся
+// ключом реальной клетки, как и в старых сохранениях.
+export const TOWER_FOOTPRINT = 2
+
+// Клетки площадки башни по её якорю.
+export function towerFootprintCells({ x, y }: BoardPosition) {
+	const cells: string[] = []
+
+	for (let dy = 0; dy < TOWER_FOOTPRINT; dy++) {
+		for (let dx = 0; dx < TOWER_FOOTPRINT; dx++) {
+			cells.push(cellKey({ x: x + dx, y: y + dy }))
+		}
+	}
+
+	return cells
+}
+
+// Клетки площадки по id башни — по ним ищем здание под курсором и освобождаем
+// клетки при продаже.
+export function towerFootprintKeys(id: string) {
+	const [x, y] = id.split(',').map(Number)
+	if (x === undefined || y === undefined) return []
+	if (!Number.isInteger(x) || !Number.isInteger(y)) return []
+
+	return towerFootprintCells({ x, y })
+}
+
+// Площадь башни в клетках: на первом уровне — одна клетка плюс 20%,
+// на последнем — 90% площадки 2×2. Между уровнями площадь растёт линейно,
+// поэтому сторона спрайта растёт как корень из неё.
+const TOWER_AREA_FIRST_LEVEL = 1.2
+const TOWER_AREA_LAST_LEVEL = TOWER_FOOTPRINT * TOWER_FOOTPRINT * 0.9
+
+// Сторона спрайта башни в пикселях для её уровня.
+export function towerSpriteSize(level: number) {
+	const safeLevel = Math.min(Math.max(Math.trunc(level) || 1, 1), MAX_TOWER_LEVEL)
+	const step = (TOWER_AREA_LAST_LEVEL - TOWER_AREA_FIRST_LEVEL) / (MAX_TOWER_LEVEL - 1)
+	const area = TOWER_AREA_FIRST_LEVEL + step * (safeLevel - 1)
+
+	return CELL_SIZE * Math.sqrt(area)
+}
+
+// Казарма — нейтральная зона: башня у самого выхода расстреливает волну
+// ещё на старте. Радиус считаем квадратом в клетках, как и просеку вдоль
+// дорог, чтобы запрет совпадал с формой остальной застройки поля.
+export const SPAWNER_BUILD_CLEARANCE = 4
+
+// Клетки вокруг казарм, где строить башни нельзя.
+export function spawnerBuildCells(spawners: readonly BoardPosition[]) {
+	const blocked = new Set<string>()
+
+	for (const { x, y } of spawners) {
+		for (let dy = -SPAWNER_BUILD_CLEARANCE; dy <= SPAWNER_BUILD_CLEARANCE; dy++) {
+			for (let dx = -SPAWNER_BUILD_CLEARANCE; dx <= SPAWNER_BUILD_CLEARANCE; dx++) {
+				blocked.add(cellKey({ x: x + dx, y: y + dy }))
+			}
+		}
+	}
+
+	return blocked
+}
+
+export function canBuildTower({ position, pathCells, waterCells, forestCells, spawnerCells, towerCells, gold, towerType }: {
 	position: BoardPosition
 	pathCells: ReadonlySet<string>
 	waterCells: ReadonlySet<string>
 	forestCells: ReadonlySet<string>
+	spawnerCells: ReadonlySet<string>
 	towerCells: ReadonlySet<string>
 	gold: number
 	towerType: TowerType
 }) {
-	const key = cellKey(position)
-	if (!isBoardPosition(position)) return { allowed: false, reason: 'outside' as const }
-	if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
-	if (waterCells.has(key)) return { allowed: false, reason: 'water' as const }
-	if (forestCells.has(key)) return { allowed: false, reason: 'forest' as const }
-	if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
+	const corner = { x: position.x + TOWER_FOOTPRINT - 1, y: position.y + TOWER_FOOTPRINT - 1 }
+	if (!isBoardPosition(position) || !isBoardPosition(corner)) {
+		return { allowed: false, reason: 'outside' as const }
+	}
+
+	// Площадка 2×2: башня занимает все четыре клетки, поэтому блокирует
+	// любая из них — дорога, вода, лес, казарма или соседняя башня.
+	for (const key of towerFootprintCells(position)) {
+		if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
+		if (waterCells.has(key)) return { allowed: false, reason: 'water' as const }
+		if (forestCells.has(key)) return { allowed: false, reason: 'forest' as const }
+		if (spawnerCells.has(key)) return { allowed: false, reason: 'spawner' as const }
+		if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
+	}
+
 	if (gold < TOWER_TYPES[towerType].cost) return { allowed: false, reason: 'gold' as const }
 	return { allowed: true, reason: null }
 }
@@ -252,6 +325,134 @@ export function towerUpgradeCost(type: TowerType, level: number) {
 // Сколько золота вернётся при продаже башни с учётом всех вложений.
 export function towerSellValue(invested: number) {
 	return Math.floor(Math.max(0, invested) * TOWER_SELL_REFUND)
+}
+
+// Одна строка сводки по выделению: башни одного типа идут вместе.
+export type TowerSelectionGroup = {
+	type: TowerType
+	name: string
+	count: number
+	levelMin: number
+	levelMax: number
+}
+
+// Сводка по выделенным башням для панели и пакетных действий.
+export type TowerSelectionSummary = {
+	count: number
+	// Тип один на всех — в панели показываем его характеристики.
+	type: TowerType | null
+	groups: TowerSelectionGroup[]
+	levelMin: number
+	levelMax: number
+	// Цена следующего уровня у всех, кто ещё растёт.
+	upgradeCost: number
+	upgradeable: number
+	// Сколько башен вырастут с текущим золотом: кнопка улучшает по порядку
+	// выделения и пропускает те, на которые денег не хватает.
+	affordable: number
+	// Дороже одной — все башни на максимуме.
+	sellValue: number
+	// Автоулучшение включено у каждой выбранной башни.
+	autoUpgrade: boolean
+	// Характеристики образца: только когда тип у выделения общий.
+	stats: {
+		damage: number
+		range: number
+		attackSpeed: number
+		crit: number
+		burn: number
+		chain: number
+		execute: number
+	} | null
+}
+
+// Минимальные поля башни для сводки выделения — тестам не нужны объекты Phaser.
+export type SelectableTower = {
+	type: TowerType
+	level: number
+	invested: number
+	autoUpgrade: boolean
+}
+
+// Считает сводку по выделению. Башни идут в порядке выбора — он же задаёт
+// очередь пакетного улучшения.
+export function summarizeTowerSelection(
+	towers: readonly SelectableTower[],
+	gold: number,
+	buffs?: TowerBuffs,
+): TowerSelectionSummary | null {
+	if (towers.length === 0) return null
+
+	const groups: TowerSelectionGroup[] = []
+	let upgradeCost = 0
+	let upgradeable = 0
+	let affordable = 0
+	let remaining = Math.max(0, gold)
+	let sellValue = 0
+	let autoUpgrade = true
+	let levelMin = Number.MAX_SAFE_INTEGER
+	let levelMax = 0
+
+	for (const tower of towers) {
+		sellValue += towerSellValue(tower.invested)
+		if (!tower.autoUpgrade) autoUpgrade = false
+		levelMin = Math.min(levelMin, tower.level)
+		levelMax = Math.max(levelMax, tower.level)
+
+		const cost = towerUpgradeCost(tower.type, tower.level)
+		if (cost !== null) {
+			upgradeable += 1
+			upgradeCost += cost
+			if (cost <= remaining) {
+				remaining -= cost
+				affordable += 1
+			}
+		}
+
+		const group = groups.find((entry) => entry.type === tower.type)
+		if (group) {
+			group.count += 1
+			group.levelMin = Math.min(group.levelMin, tower.level)
+			group.levelMax = Math.max(group.levelMax, tower.level)
+		} else {
+			groups.push({
+				type: tower.type,
+				name: TOWER_TYPES[tower.type].name,
+				count: 1,
+				levelMin: tower.level,
+				levelMax: tower.level,
+			})
+		}
+	}
+
+	const type = groups.length === 1 ? groups[0]?.type ?? null : null
+	const stats = type === null ? null : pickStats(towerStats(type, towers[0].level, buffs))
+
+	return {
+		count: towers.length,
+		type,
+		groups,
+		levelMin,
+		levelMax,
+		upgradeCost,
+		upgradeable,
+		affordable,
+		sellValue,
+		autoUpgrade,
+		stats,
+	}
+}
+
+function pickStats(stats: ReturnType<typeof towerStats>) {
+	return {
+		damage: stats.damage,
+		range: stats.range,
+		attackSpeed: stats.attackSpeed,
+		crit: stats.crit,
+		burn: stats.burn,
+		chain: stats.chain,
+		execute: stats.execute,
+	}
 }
 
 export const initialResources = { gold: INITIAL_GOLD, lives: INITIAL_LIVES }

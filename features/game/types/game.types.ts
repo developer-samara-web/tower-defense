@@ -18,6 +18,14 @@ export type Tower = {
   levelText: Phaser.GameObjects.Text
 }
 
+// Прямоугольник выделения в мировых координатах: его игрок тянет мышью.
+export type SelectionBox = {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
 export type Enemy = {
 	type: EnemyType
   x: number

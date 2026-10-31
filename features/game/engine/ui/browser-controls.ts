@@ -14,6 +14,7 @@ export type BrowserHandlers = {
 	onDeselect: () => void
 	onRestart: () => void
 	onPickUpgrade: (card: UpgradeCard) => void
+	onRerollUpgrades: (cost: number) => void
 }
 
 // Связывает события HTML-интерфейса с действиями игры.
@@ -50,6 +51,15 @@ export function connectBrowserControls(
 		}
 	}
 
+	// Цена обновления набора приходит числом в detail.
+	const onRerollUpgrades = (event: Event) => {
+		const cost = (event as CustomEvent<{ cost?: number }>).detail?.cost
+
+		if (typeof cost === 'number' && Number.isFinite(cost) && cost >= 0) {
+			handlers.onRerollUpgrades(cost)
+		}
+	}
+
 	window.addEventListener('td:select-tower', onSelectTower)
 	window.addEventListener('td:start-wave', handlers.onStartWave)
 	window.addEventListener('td:restart', handlers.onRestart)
@@ -59,6 +69,7 @@ export function connectBrowserControls(
 	window.addEventListener('td:sell-tower', handlers.onSell)
 	window.addEventListener('td:deselect-tower', handlers.onDeselect)
 	window.addEventListener('td:pick-upgrade', onPickUpgrade)
+	window.addEventListener('td:reroll-upgrades', onRerollUpgrades)
 
 	// Удаляем браузерные обработчики при завершении сцены,
 	// чтобы избежать повторных вызовов после её перезапуска.
@@ -72,5 +83,6 @@ export function connectBrowserControls(
 		window.removeEventListener('td:sell-tower', handlers.onSell)
 		window.removeEventListener('td:deselect-tower', handlers.onDeselect)
 		window.removeEventListener('td:pick-upgrade', onPickUpgrade)
+		window.removeEventListener('td:reroll-upgrades', onRerollUpgrades)
 	})
 }

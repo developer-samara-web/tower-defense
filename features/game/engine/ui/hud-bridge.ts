@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 
 import { CELL_SIZE } from '../../config/game.config'
+import { TOWER_FOOTPRINT } from '../../domain/game-rules'
 import { buildSnapshot, type GameState } from '../../domain/game-state'
 
 export type HudBridge = {
@@ -27,22 +28,31 @@ export function createHudBridge(
 	let lastSnapshot = ''
 	let lastPublishedAt = 0
 
-	// Ставит панель напротив башни в координатах полотна. Границы камеры не
-	// трогаем: панель привязана к башне, поэтому при прокрутке уходит следом
-	// и может оказаться за краем экрана.
+	// Ставит панель справа от границ выделения и по центру по вертикали.
+	// Границы камеры не трогаем: панель привязана к башням, поэтому при
+	// прокрутке уходит следом и может оказаться за краем экрана.
 	function getPanelPosition() {
-		const tower = state.selectedBuiltTower
-		if (!tower || !scene) return null
+		const towers = state.selectedTowers
+		if (towers.length === 0 || !scene) return null
 
 		const camera = scene.cameras.main
 		const zoom = camera.zoom
-		const screenX = (tower.x - camera.worldView.x) * zoom
-		const screenY = (tower.y - camera.worldView.y) * zoom
-		const halfCell = (CELL_SIZE / 2) * zoom
+		// Панель привязана к площадке башни 2×2, а не к одной клетке.
+		const half = CELL_SIZE * TOWER_FOOTPRINT / 2
+
+		let right = Number.NEGATIVE_INFINITY
+		let top = Number.POSITIVE_INFINITY
+		let bottom = Number.NEGATIVE_INFINITY
+
+		for (const tower of towers) {
+			right = Math.max(right, tower.x + half)
+			top = Math.min(top, tower.y - half)
+			bottom = Math.max(bottom, tower.y + half)
+		}
 
 		return {
-			x: screenX + halfCell + PANEL_GAP,
-			y: screenY - PANEL_HEIGHT / 2,
+			x: (right - camera.worldView.x) * zoom + PANEL_GAP,
+			y: ((top + bottom) / 2 - camera.worldView.y) * zoom - PANEL_HEIGHT / 2,
 		}
 	}
 

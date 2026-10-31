@@ -28,6 +28,9 @@ type CameraOptions = {
 	// Движение от края экрана: включаем только когда курсор над полем,
 	// иначе прокрутка стартует от мыши, ушедшей на панель инструментов.
 	edgePan?: () => boolean
+	// Блокирует прокрутку от края: пока игрок тянет рамку выделения,
+	// камера должна стоять, иначе прямоугольник съедет относительно башен.
+	blockEdgePan?: () => boolean
 }
 
 // Минимальный зум, при котором камера ещё не показывает пустоту
@@ -244,7 +247,10 @@ export function bindCameraControls(
 		const isTouchDevice = scene.sys?.game?.device?.input?.touch === true
 		const pointer = scene.input.activePointer
 		const edgePanAllowed =
-			!isTouchDevice && (!options.edgePan || options.edgePan()) && Boolean(pointer)
+			!isTouchDevice &&
+			(!options.edgePan || options.edgePan()) &&
+			!options.blockEdgePan?.() &&
+			Boolean(pointer)
 
 		if (edgePanAllowed && pointer) {
 			const overBoard =

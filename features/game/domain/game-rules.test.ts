@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
 	BURN_DURATION,
+	CELL_SIZE,
+	COLS,
 	CRIT_MULTIPLIER,
 	ENEMY_GROUP_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL_MIN,
@@ -12,15 +14,23 @@ import {
 	WAVE_COMPLETION_BASE_REWARD,
 	WAVE_REWARD_GROWTH,
 	XP_WAVE_GROWTH,
+	type TowerType,
 } from '../config/game.config.ts'
 import {
 	addExperience,
 	canBuildTower,
+	cellKey,
 	enemyGroupSize,
 	enemySpawnDelay,
 	enemySpawnInterval,
 	enemyStats,
 	enemyTypeForSpawn,
+	spawnerBuildCells,
+	SPAWNER_BUILD_CLEARANCE,
+	summarizeTowerSelection,
+	towerFootprintCells,
+	towerSellValue,
+	towerSpriteSize,
 	towerStats,
 	towerUpgradeCost,
 	waveCompletionReward,
@@ -30,16 +40,81 @@ import {
 } from './game-rules.ts'
 
 test('allows building on an empty board cell when resources are sufficient', () => {
-	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
+	assert.deepEqual(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: INITIAL_GOLD, towerType: 'ice' }), { allowed: true, reason: null })
 })
 
 test('prevents invalid building placements', () => {
-	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), forestCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'forest')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
-	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+	assert.equal(canBuildTower({ position: { x: -1, y: 0 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'outside')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(['2,2']), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'path')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(['2,2']), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'water')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(['2,2']), spawnerCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'forest')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(['2,2']), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'spawner')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
+	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+})
+
+test('tower occupies a 2×2 platform', () => {
+	assert.deepEqual(towerFootprintCells({ x: 4, y: 3 }), ['4,3', '5,3', '4,4', '5,4'])
+
+	const build = (x: number, y: number, towerCells = new Set<string>()) => canBuildTower({
+		position: { x, y },
+		pathCells: new Set(),
+		waterCells: new Set(),
+		forestCells: new Set(),
+		spawnerCells: new Set(),
+		towerCells,
+		gold: 999,
+		towerType: 'ice',
+	}).reason
+
+	// Занята любая клетка площадки — строить нельзя.
+	assert.equal(build(4, 3), null)
+	assert.equal(build(4, 3, new Set(['5,4'])), 'occupied')
+	// Последний ряд: якорь ещё на поле, но площадка выходит за край.
+	assert.equal(build(COLS - 1, 5), 'outside')
+})
+
+test('tower sprite grows with its level', () => {
+	const area = (level: number) => towerSpriteSize(level) ** 2 / CELL_SIZE ** 2
+
+	// Первый уровень — клетка плюс 20%, максимальный — 90% четырёх клеток.
+	assert.equal(Math.round(area(1) * 1000) / 1000, 1.2)
+	assert.equal(Math.round(area(MAX_TOWER_LEVEL) * 1000) / 1000, 3.6)
+	assert.equal(towerSpriteSize(MAX_TOWER_LEVEL) < CELL_SIZE * 2, true)
+
+	// Каждый следующий уровень больше предыдущего.
+	for (let level = 2; level <= MAX_TOWER_LEVEL; level++) {
+		assert.equal(towerSpriteSize(level) > towerSpriteSize(level - 1), true)
+	}
+
+	// Уровень вне диапазона не делает спрайт меньше первого.
+	assert.equal(towerSpriteSize(0), towerSpriteSize(1))
+	assert.equal(towerSpriteSize(99), towerSpriteSize(MAX_TOWER_LEVEL))
+})
+
+test('blocks building in a four-cell square around every barracks', () => {
+	const blocked = spawnerBuildCells([{ x: 20, y: 20 }, { x: 60, y: 40 }])
+	const side = SPAWNER_BUILD_CLEARANCE * 2 + 1
+
+	assert.equal(blocked.size, side * side * 2)
+	assert.equal(blocked.has(cellKey({ x: 20, y: 20 })), true)
+	assert.equal(blocked.has(cellKey({ x: 20 + SPAWNER_BUILD_CLEARANCE, y: 20 + SPAWNER_BUILD_CLEARANCE })), true)
+	assert.equal(blocked.has(cellKey({ x: 20, y: 20 + SPAWNER_BUILD_CLEARANCE + 1 })), false)
+	assert.equal(blocked.has(cellKey({ x: 60 - SPAWNER_BUILD_CLEARANCE, y: 40 })), true)
+
+	const build = (x: number, y: number) => canBuildTower({
+		position: { x, y },
+		pathCells: new Set(),
+		waterCells: new Set(),
+		forestCells: new Set(),
+		spawnerCells: blocked,
+		towerCells: new Set(),
+		gold: 999,
+		towerType: 'ice',
+	}).reason
+
+	assert.equal(build(20 + SPAWNER_BUILD_CLEARANCE, 20), 'spawner')
+	assert.equal(build(20 + SPAWNER_BUILD_CLEARANCE + 1, 20), null)
 })
 
 test('scales wave composition predictably', () => {
@@ -151,4 +226,92 @@ test('charges more for each next upgrade and stops at max level', () => {
 	assert.equal(towerUpgradeCost('ice', 4), 192)
 	assert.ok(towerUpgradeCost('ice', 3)! > towerUpgradeCost('ice', 2)!)
 	assert.equal(towerUpgradeCost('ice', MAX_TOWER_LEVEL), null)
+})
+
+// Башни для сводки выделения: объекты Phaser тестам не нужны.
+function selectableTower(
+	type: TowerType,
+	level: number,
+	autoUpgrade = false,
+): SelectableTowerFixture {
+	return {
+		type,
+		level,
+		invested: TOWER_TYPES[type].cost + (level - 1) * 100,
+		autoUpgrade,
+	}
+}
+
+type SelectableTowerFixture = Parameters<typeof summarizeTowerSelection>[0][number]
+
+test('describes a single selected tower with its own stats', () => {
+	const only = summarizeTowerSelection([selectableTower('ice', 3)], 0)
+	assert.ok(only)
+
+	assert.equal(only.count, 1)
+	assert.equal(only.type, 'ice')
+	assert.equal(only.levelMin, 3)
+	assert.equal(only.levelMax, 3)
+	assert.equal(only.upgradeCost, towerUpgradeCost('ice', 3))
+	assert.equal(only.sellValue, towerSellValue(TOWER_TYPES.ice.cost + 2 * 100))
+	assert.deepEqual(only.stats?.damage, towerStats('ice', 3).damage)
+	assert.equal(only.affordable, 0)
+})
+
+test('summarises a mixed group without per-tower stats', () => {
+	const towers = [
+		selectableTower('ice', 1),
+		selectableTower('ice', 2),
+		selectableTower('fire', 1, true),
+	]
+	const group = summarizeTowerSelection(towers, 10_000)
+	assert.ok(group)
+
+	assert.equal(group.count, 3)
+	assert.equal(group.type, null)
+	assert.equal(group.stats, null)
+	assert.deepEqual(
+		group.groups.map((entry) => [entry.type, entry.count, entry.levelMin, entry.levelMax]),
+		[['ice', 2, 1, 2], ['fire', 1, 1, 1]],
+	)
+	assert.equal(group.upgradeable, 3)
+	assert.equal(
+		group.upgradeCost,
+		towerUpgradeCost('ice', 1)! + towerUpgradeCost('ice', 2)! + towerUpgradeCost('fire', 1)!,
+	)
+	assert.equal(
+		group.sellValue,
+		towers.reduce((sum, tower) => sum + towerSellValue(tower.invested), 0),
+	)
+	// Автоулучшение включено не у всех — кнопка показывает «выключено».
+	assert.equal(group.autoUpgrade, false)
+})
+
+test('counts batch upgrades in selection order and skips what gold cannot buy', () => {
+	const cheapFirst = summarizeTowerSelection(
+		[selectableTower('ice', 1), selectableTower('ice', 4)],
+		towerUpgradeCost('ice', 1)!,
+	)
+	assert.ok(cheapFirst)
+	assert.equal(cheapFirst.upgradeable, 2)
+	assert.equal(cheapFirst.affordable, 1)
+
+	// Дороговатая башня не блокирует следующую: деньги уходят на ту, что дешевле.
+	const expensiveFirst = summarizeTowerSelection(
+		[selectableTower('ice', 4), selectableTower('ice', 1)],
+		towerUpgradeCost('ice', 1)!,
+	)
+	assert.ok(expensiveFirst)
+	assert.equal(expensiveFirst.affordable, 1)
+
+	assert.equal(summarizeTowerSelection([], 1000), null)
+
+	const maxed = summarizeTowerSelection(
+		[selectableTower('ice', MAX_TOWER_LEVEL, true)],
+		1000,
+	)
+	assert.ok(maxed)
+	assert.equal(maxed.upgradeable, 0)
+	assert.equal(maxed.upgradeCost, 0)
+	assert.equal(maxed.autoUpgrade, true)
 })
