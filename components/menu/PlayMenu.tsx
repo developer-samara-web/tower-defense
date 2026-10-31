@@ -13,8 +13,6 @@ type Props = {
 	onBack: () => void
 	onRandomMap: () => void
 	onRankedMap: () => void
-	rankedBusy?: boolean
-	rankedError?: string | null
 	initialMode?: 'root' | 'solo' | 'coop'
 }
 
@@ -25,8 +23,6 @@ export default function PlayMenu({
 	onBack,
 	onRandomMap,
 	onRankedMap,
-	rankedBusy,
-	rankedError,
 	initialMode = 'root',
 }: Props) {
 	const router = useRouter()
@@ -46,12 +42,9 @@ export default function PlayMenu({
 				<MenuButton variant="primary" onClick={onRandomMap}>
 					Обычная игра
 				</MenuButton>
-				<MenuButton onClick={onRankedMap} disabled={rankedBusy} badge={rankedBusy ? 'ищем карту' : 'рейтинг'}>
+				<MenuButton onClick={onRankedMap} badge="рейтинг">
 					Рейтинговая игра
 				</MenuButton>
-				{rankedError ? (
-					<p className="text-center text-[9px] font-bold text-red-300">{rankedError}</p>
-				) : null}
 				<MenuButton onClick={() => router.push('/maps')}>Библиотека</MenuButton>
 				<MenuButton onClick={() => setMode('root')}>Назад</MenuButton>
 			</MenuShell>

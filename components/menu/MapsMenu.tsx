@@ -31,6 +31,9 @@ type Props = {
 	onEdit: (map: MapSummary) => void
 	// Открыть карту с её личным топом.
 	onOpenMap: (map: MapSummary) => void
+	// Страница с одним табом: например только рейтинговые карты.
+	// Табы тогда скрываются, а список стартует с указанной выборки.
+	fixedTab?: MapTab
 }
 
 const TABS: Array<{ id: MapTab; label: string }> = [
@@ -142,15 +145,19 @@ function forestRuns(cells: string[]) {
 	return runs
 }
 
+// Клетка-превью в карточке: список задаёт ей размер, поэтому он же
+// решает, остаётся ли миниатюра квадратом или растягивается на всю карточку.
+const THUMB_TILE = 'h-20 w-20 shrink-0 overflow-hidden'
+
 // Схема настоящей карты по её сиду: трава, лес, водоёмы, дороги и замок.
-function SeedThumbnail({ seed }: { seed: string }) {
+function SeedThumbnail({ seed, size = THUMB_TILE }: { seed: string; size?: string }) {
 	// Карта по сиду всегда занимает поле по умолчанию.
 	resetBoardSize()
 	const map = createGameMap(seed)
 	const [castleX, castleY] = [Math.floor(DEFAULT_COLS / 2), Math.floor(DEFAULT_ROWS / 2)]
 
 	return (
-		<span className="relative block h-20 w-20 shrink-0 overflow-hidden border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000]">
+		<span className={`relative block border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000] ${size}`}>
 			<svg
 				viewBox={`0 0 ${DEFAULT_COLS} ${DEFAULT_ROWS}`}
 				preserveAspectRatio="xMidYMid slice"
@@ -194,14 +201,14 @@ function SeedThumbnail({ seed }: { seed: string }) {
 
 // Превью пользовательской карты: местность из уменьшенной сетки сервера
 // плюс замок и точки казарм из сохранённого черновика.
-function CustomThumbnail({ map }: { map: MapSummary }) {
+function CustomThumbnail({ map, size = THUMB_TILE }: { map: MapSummary; size?: string }) {
 	const preview = map.preview
 	const runs = preview ? previewRuns(preview) : []
 	const cellWidth = preview ? map.cols / preview.cols : 0
 	const cellHeight = preview ? map.rows / preview.rows : 0
 
 	return (
-		<span className="relative block h-20 w-20 shrink-0 overflow-hidden border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000]">
+		<span className={`relative block border border-[#5c3a1a] bg-[#0f0a05] shadow-[inset_0_2px_8px_#000] ${size}`}>
 			<svg
 				viewBox={`0 0 ${map.cols} ${map.rows}`}
 				preserveAspectRatio="xMidYMid slice"
@@ -249,13 +256,13 @@ function CustomThumbnail({ map }: { map: MapSummary }) {
 	)
 }
 
-function MapThumbnail({ map }: { map: MapSummary }) {
-	return map.custom ? <CustomThumbnail map={map} /> : <SeedThumbnail seed={map.seed} />
+function MapThumbnail({ map, size }: { map: MapSummary; size?: string }) {
+	return map.custom ? <CustomThumbnail map={map} size={size} /> : <SeedThumbnail seed={map.seed} size={size} />
 }
 
-export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMap }: Props) {
+export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMap, fixedTab }: Props) {
 	const [mounted, setMounted] = useState(false)
-	const [tab, setTab] = useState<MapTab>('mine')
+	const [tab, setTab] = useState<MapTab>(fixedTab ?? 'mine')
 	const [maps, setMaps] = useState<MapSummary[]>([])
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
@@ -488,18 +495,18 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 	const rows = maps.map((map) => (
 		<div
 			key={map.id}
-			className="flex w-full items-start gap-3 border-b border-[#3a2a1a]/40 px-3 py-2 transition-colors last:border-b-0 hover:bg-[#21150c]/60"
+			className="flex flex-col gap-2 border border-[#3a2a1a]/60 bg-[#161009]/70 p-2 transition-colors hover:border-[#79502b] hover:bg-[#21150c]/70"
 		>
-			<MapThumbnail map={map} />
-
 			<button
 				type="button"
 				onClick={() => onOpenMap(map)}
 				aria-label={`Топ карты ${map.name}`}
-				className="flex min-w-0 flex-1 flex-col items-start leading-tight text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+				className="flex min-w-0 flex-col items-start gap-1.5 self-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
 			>
+				<MapThumbnail map={map} size="h-24 w-full overflow-hidden sm:h-28" />
+
 				<span className="flex flex-wrap items-center gap-1.5">
-					<span className="truncate text-[11px] font-black uppercase tracking-wide text-amber-200">{map.name}</span>
+					<span className="min-w-0 truncate text-[11px] font-black uppercase tracking-wide text-amber-200">{map.name}</span>
 					<span className={`border px-1 py-0.5 text-[7px] font-black uppercase tracking-[0.1em] ${STATUS_TONES[map.status]}`}>
 						{STATUS_LABELS[map.status]}
 					</span>
@@ -509,16 +516,16 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 						</span>
 					) : null}
 				</span>
-				<span className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
+				<span className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
 					{map.stars.toFixed(1)}★ &#183; {map.custom ? `Редактор · ${map.spawners.length} каз.` : `${map.cols}\u00d7${map.rows}`} &#183; Сложность: {map.difficulty}
 				</span>
-				<span className="mt-0.5 truncate text-[8px] font-bold tabular-nums text-[#5c3a1a]">
+				<span className="w-full truncate text-[8px] font-bold tabular-nums text-[#5c3a1a]">
 					{map.custom ? `HP ${map.castle?.hp ?? '—'}` : `Сид ${map.seed.slice(0, 8)}`} &#183; {dateFormat.format(new Date(map.createdAt))}
 					{map.author ? ` · Автор: ${map.author}` : ''}
 				</span>
 			</button>
 
-			<span className="flex w-[104px] shrink-0 flex-col gap-1 sm:w-[124px]">{renderActions(map)}</span>
+			<span className="mt-auto flex flex-wrap gap-1">{renderActions(map)}</span>
 		</div>
 	))
 
@@ -535,7 +542,7 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
 			<div className="fixed inset-0 bg-[#05080a]/85" />
 
-			<div className="relative mx-auto w-full max-w-3xl pb-6">
+			<div className="relative mx-auto w-full max-w-3xl pb-6 sm:max-w-5xl xl:max-w-7xl">
 				<button
 					type="button"
 					onClick={onBack}
@@ -549,10 +556,12 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 					<div className="flex items-center justify-between gap-3 border-b border-[#3a2a1a] px-3 py-2.5">
 						<div className="min-w-0">
 							<h1 className="text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">
-								Библиотека карт
+								{fixedTab === 'rated' ? 'Рейтинговые карты' : 'Библиотека карт'}
 							</h1>
 							<p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">
-								Опубликованные и свои карты
+								{fixedTab === 'rated'
+									? 'Выбери карту — забег засчитается в рейтинг'
+									: 'Опубликованные и свои карты'}
 							</p>
 						</div>
 
@@ -568,28 +577,30 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 						) : null}
 					</div>
 
-					<div className="flex flex-wrap gap-1 border-b border-[#3a2a1a] p-1.5">
-						{tabs.map((item) => {
-							const active = tab === item.id
-							return (
-								<button
-									key={item.id}
-									type="button"
-									onClick={() => changeTab(item.id)}
-									aria-pressed={active}
-									className={`border-2 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition-colors ${
-										active
-											? 'border-amber-500 bg-[#3a2a12] text-amber-100'
-											: 'border-[#3a2a1a] bg-[#161009] text-[#8a7340] hover:border-[#79502b] hover:text-amber-200'
-									}`}
-								>
-									{item.label}
-								</button>
-							)
-						})}
-					</div>
+					{fixedTab ? null : (
+						<div className="flex flex-wrap gap-1 border-b border-[#3a2a1a] p-1.5">
+							{tabs.map((item) => {
+								const active = tab === item.id
+								return (
+									<button
+										key={item.id}
+										type="button"
+										onClick={() => changeTab(item.id)}
+										aria-pressed={active}
+										className={`border-2 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition-colors ${
+											active
+												? 'border-amber-500 bg-[#3a2a12] text-amber-100'
+												: 'border-[#3a2a1a] bg-[#161009] text-[#8a7340] hover:border-[#79502b] hover:text-amber-200'
+										}`}
+									>
+										{item.label}
+									</button>
+								)
+							})}
+						</div>
+					)}
 
-					<div>
+					<div className={rows.length > 0 ? 'grid gap-2 p-1.5 sm:grid-cols-2 xl:grid-cols-3' : undefined}>
 						{!mounted || loading ? (
 							<p className="px-3 py-6 text-center text-[9px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">Загрузка карт…</p>
 						) : rows.length > 0 ? (
