@@ -11,6 +11,9 @@ export interface IUser {
 	password: string
 	record: number
 	bestWave: number
+	// Очки рейтинга: сумма лучших результатов игрока по рейтинговым картам.
+	// Пересчитывается сервером при записи забега, по ней строится общий топ.
+	ratingPoints: number
 	// Админ видит очередь модерации карт и назначает рейтинг.
 	role: UserRole
 	// id аватара и рамки из lib/account/avatar-options.ts.
@@ -27,6 +30,7 @@ const UserSchema = new mongoose.Schema<IUser>({
 	password: { type: String, required: true },
 	record: { type: Number, default: 0 },
 	bestWave: { type: Number, default: 0 },
+	ratingPoints: { type: Number, default: 0 },
 	role: { type: String, enum: ['user', 'admin'], default: 'user' },
 	avatar: { type: String, default: DEFAULT_AVATAR },
 	avatarFrame: { type: String, default: DEFAULT_FRAME },

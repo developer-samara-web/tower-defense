@@ -1,4 +1,4 @@
-import { ScoreEntry } from '@/types'
+import type { PlayerBestMaps, ScoreEntry } from '@/types'
 
 const SCORE_KEY = 'tower-defense:scores'
 const MAX = 8
@@ -32,4 +32,19 @@ export async function updateUserScore(token: string, gold: number, wave: number,
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: JSON.stringify({ gold, wave, mapId: mapId ?? null }),
   }).catch(() => {})
+}
+
+// Рекорды игрока по картам для профиля. null — если авторизации нет или сервер недоступен.
+export async function fetchBestMaps(token: string, limit = 8): Promise<PlayerBestMaps | null> {
+  try {
+    const res = await fetch(`/api/scores/best-maps?limit=${limit}`, { headers: { Authorization: 'Bearer ' + token } })
+    if (!res.ok) return null
+    const data = (await res.json()) as Partial<PlayerBestMaps>
+    return {
+      maps: Array.isArray(data.maps) ? data.maps : [],
+      ratingPoints: Number(data.ratingPoints) || 0,
+      rank: Number(data.rank) || 0,
+      ratedMaps: Number(data.ratedMaps) || 0,
+    }
+  } catch { return null }
 }

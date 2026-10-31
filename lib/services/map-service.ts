@@ -1,4 +1,4 @@
-import type { MapDetail, MapSummary } from '@/types'
+import type { MapDetail, MapLeaderboard, MapSummary } from '@/types'
 import type { MapDraft } from '@/features/game/engine/map/custom-map'
 
 // Разделы библиотеки карт. «pending» доступен только администратору.
@@ -29,6 +29,22 @@ export async function fetchMap(token: string, id: string): Promise<MapDetail> {
 	const data = await res.json()
 	if (!data.map) throw new Error('Не удалось загрузить карту')
 	return data.map
+}
+
+// Топ конкретной карты. Пустая доска — не ошибка: карта просто ещё никем
+// не пройдена, и интерфейс показывает «нет рекордов».
+export async function fetchMapBoard(
+	token: string,
+	id: string,
+	limit = 8,
+): Promise<MapLeaderboard | null> {
+	const res = await fetch(`/api/maps/${encodeURIComponent(id)}/scores?limit=${limit}`, {
+		headers: { Authorization: 'Bearer ' + token },
+	})
+
+	if (res.status === 404) return null
+	if (!res.ok) throw new Error('Не удалось загрузить топ карты')
+	return res.json()
 }
 
 export type SaveMapInput = {

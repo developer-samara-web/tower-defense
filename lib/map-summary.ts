@@ -5,6 +5,11 @@ import {
 } from '@/features/game/config/game.config'
 import type { MapDraft } from '@/features/game/engine/map/custom-map'
 import { buildMapPreview } from '@/features/game/engine/map/map-preview'
+import {
+	difficultyFromDraft,
+	mapStars,
+	starsFromDifficultyLabel,
+} from '@/lib/map-points'
 import type { MapStatus, MapSummary } from '@/types'
 
 export type StoredMap = {
@@ -36,6 +41,19 @@ export type MapSummaryContext = {
 	authorLogin?: string | null
 }
 
+// Звёзды сложности карты. У карт из редактора они считаются по её данным,
+// старые сидовые карты описаны только словом сложности.
+export function mapStarsOf(map: Pick<StoredMap, 'data' | 'difficulty'>): number {
+	const draft = readDraft(map.data)
+	return draft ? mapStars(difficultyFromDraft(draft)) : starsFromDifficultyLabel(map.difficulty)
+}
+
+// Доска рекордов есть только у опубликованных карт: черновик и карта на
+// модерации чужим результатам не показываются.
+export function hasMapBoard(map: Pick<StoredMap, 'moderation'>): boolean {
+	return readMapStatus(map.moderation) === 'approved'
+}
+
 // Список карт не должен тянуть в браузер тысячи клеток леса,
 // поэтому местность уезжает в уменьшенном превью 48×48.
 export function toMapSummary(
@@ -64,6 +82,8 @@ export function toMapSummary(
 		author: context.authorLogin ?? null,
 		status: readMapStatus(map.moderation),
 		rated: Boolean(map.rated),
+		stars: mapStarsOf(map),
+		board: hasMapBoard(map),
 		preview,
 	}
 }

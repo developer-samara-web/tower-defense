@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { normalizeMapDraft } from '@/features/game/engine/map/custom-map'
 import { verifyToken } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
+import { dropMapBoard } from '@/lib/map-score'
 import { readMapStatus, toMapSummary } from '@/lib/map-summary'
 import { GameMap } from '@/models/GameMap'
 import User from '@/models/User'
@@ -195,6 +196,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 		}
 
 		await map.deleteOne()
+		await dropMapBoard(id)
 		return Response.json({ ok: true })
 	} catch {
 		return Response.json({ error: 'Неверный токен' }, { status: 401 })

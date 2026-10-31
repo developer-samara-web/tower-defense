@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { connectDB } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { isRatedMap } from '@/lib/map-rating'
+import { recordMapScore } from '@/lib/map-score'
 import { GameResult } from '@/models/GameResult'
 
 const DEFAULT_LIMIT = 10
@@ -66,11 +67,12 @@ export async function POST(req: Request) {
 			return Response.json({ error: 'Некорректный результат' }, { status: 400 })
 		}
 
+		const mapId = Types.ObjectId.isValid(body?.mapId) ? String(body.mapId) : null
 		const game = await GameResult.create({
 			userId: payload.userId,
 			wave,
 			gold,
-			mapId: Types.ObjectId.isValid(body?.mapId) ? body.mapId : null,
+			mapId,
 			rated: await isRatedMap(body?.mapId),
 			level: Math.max(1, toCount(body?.level) ?? 1),
 			monstersKilled: toCount(body?.monstersKilled) ?? 0,
@@ -79,7 +81,21 @@ export async function POST(req: Request) {
 			damageDealt: toCount(body?.damageDealt) ?? 0,
 		})
 
-		return Response.json({ game: toGameRecord(game) }, { status: 201 })
+		// Очки топа карты начисляет сервер: звёзды сложности и место в таблице
+		// клиенту неизвестны, а доверять им нельзя. Жизни берутся из забега —
+		// целый замок означает, что оборона выдержала полностью.
+		const mapScore = mapId
+			? await recordMapScore({
+					userId: payload.userId,
+					mapId,
+					wave,
+					gold,
+					lives: toCount(body?.lives) ?? 0,
+					maxLives: toCount(body?.maxLives) ?? 0,
+				})
+			: null
+
+		return Response.json({ game: toGameRecord(game), mapScore }, { status: 201 })
 	} catch {
 		return Response.json({ error: 'Authentication failed' }, { status: 401 })
 	}

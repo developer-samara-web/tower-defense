@@ -1,7 +1,10 @@
+import { Types } from 'mongoose'
+
 import { connectDB } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
 import { DEFAULT_AVATAR, DEFAULT_FRAME, isAvatarId, isFrameId } from '@/lib/account/avatar-options'
 import { NO_TITLE, isTitleId } from '@/lib/account/title-options'
+import { ratingSummary } from '@/lib/map-score'
 import User from '@/models/User'
 import { GameResult } from '@/models/GameResult'
 
@@ -11,6 +14,7 @@ type StoredUser = {
 	email: string
 	record?: number
 	bestWave?: number
+	ratingPoints?: number
 	role?: string
 	avatar?: string
 	avatarFrame?: string
@@ -99,13 +103,15 @@ export async function PATCH(req: Request) {
 
 async function serializeUser(user: StoredUser) {
 	// Один запрос даёт и число игр, и суммарную статистику для мини-профиля.
-	const [totals] = await GameResult.aggregate<{
+	const totals = await GameResult.aggregate<{
 		_id: null
 		gamesPlayed: number
 		monstersKilled: number
 		buildingsBuilt: number
 	}>([
-		{ $match: { userId: user._id.toString() } },
+		// В GameResult.userId лежит ObjectId, а в JWT — строка: без приведения
+		// $match не Finds бы ни одной партии и статистика профиля была нулевой.
+		{ $match: { userId: new Types.ObjectId(user._id.toString()) } },
 		{
 			$group: {
 				_id: null,
@@ -115,6 +121,7 @@ async function serializeUser(user: StoredUser) {
 			},
 		},
 	])
+	const rating = await ratingSummary(new Types.ObjectId(user._id.toString()))
 
 	return {
 		id: user._id.toString(),
@@ -126,8 +133,12 @@ async function serializeUser(user: StoredUser) {
 		avatar: user.avatar ?? DEFAULT_AVATAR,
 		avatarFrame: user.avatarFrame ?? DEFAULT_FRAME,
 		title: user.title || NO_TITLE,
-		gamesPlayed: totals?.gamesPlayed ?? 0,
-		monstersKilled: totals?.monstersKilled ?? 0,
-		buildingsBuilt: totals?.buildingsBuilt ?? 0,
+		gamesPlayed: totals[0]?.gamesPlayed ?? 0,
+		monstersKilled: totals[0]?.monstersKilled ?? 0,
+		buildingsBuilt: totals[0]?.buildingsBuilt ?? 0,
+		ratingPoints: rating.ratingPoints,
+		// Место в общем топе по очкам рейтинга.
+		rank: rating.rank,
+		ratedMaps: rating.ratedMaps,
 	}
 }

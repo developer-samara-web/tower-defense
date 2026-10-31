@@ -1,6 +1,12 @@
 import type { GameRecordInput, GamesPage } from '@/features/account/types'
+import type { MapRunScore } from '@/types'
 
-export async function recordGame(token: string, game: GameRecordInput) {
+// Сервер возвращает очки топа карты: по ним интерфейс показывает место
+// игрока сразу после финиша, без второго запроса.
+export async function recordGame(
+	token: string,
+	game: GameRecordInput,
+): Promise<MapRunScore | null> {
 	const res = await fetch('/api/games', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
@@ -8,6 +14,9 @@ export async function recordGame(token: string, game: GameRecordInput) {
 	})
 
 	if (!res.ok) throw new Error('Не удалось сохранить результат игры')
+
+	const data = await res.json().catch(() => null)
+	return (data?.mapScore as MapRunScore | undefined) ?? null
 }
 
 export async function fetchGames(

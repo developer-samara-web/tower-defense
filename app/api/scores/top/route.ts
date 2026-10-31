@@ -11,9 +11,11 @@ export async function GET(req: Request) {
 		? Math.min(Math.max(Math.trunc(requested), 1), 50)
 		: 8
 
+	// Общий топ — как рейтинг игроков в osu!: сортируем по очкам рейтинга,
+	// которые начисляются только за рейтинговые карты.
 	const users = await User.find({})
 		.select('-password')
-		.sort({ record: -1 })
+		.sort({ ratingPoints: -1, record: -1 })
 		.limit(limit)
 
 	const scores = users.map((u) => ({
@@ -21,6 +23,7 @@ export async function GET(req: Request) {
 		login: u.login,
 		wave: u.bestWave || Math.floor(u.record / 25) || 1,
 		gold: u.record,
+		points: u.ratingPoints || 0,
 		createdAt: u.createdAt.toISOString(),
 		avatar: u.avatar,
 		avatarFrame: u.avatarFrame,
