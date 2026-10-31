@@ -57,7 +57,7 @@ test('custom plan uses wave percentages and repeats the last wave', () => {
 test('barracks growth scales on top of the map plan', () => {
 	const growth = { health: 20, speed: 5, count: 50 }
 
-	// Первая волна — базовая: рост прибавляется начиная со второй.
+	// Первая волна — базовая: рост применяется начиная со второй.
 	assert.deepEqual(waveModifiers(undefined, 1, growth), {
 		health: 1,
 		speed: 1,
@@ -65,8 +65,8 @@ test('barracks growth scales on top of the map plan', () => {
 	})
 
 	const third = waveModifiers(undefined, 3, growth)
-	assert.equal(third.health, (1 + 2 * WAVE_HP_GROWTH) * (1 + 0.2 * 2))
-	assert.equal(third.count, 1 + 0.5 * 2)
+	assert.equal(third.health, (1 + 2 * WAVE_HP_GROWTH) * 1.2 ** 2)
+	assert.equal(third.count, 1.5 ** 2)
 
 	// Личный рост касается только своей казармы.
 	const map = makeMap()

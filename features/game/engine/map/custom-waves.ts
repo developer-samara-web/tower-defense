@@ -3,7 +3,16 @@ import {
 	WAVE_SPEED_GROWTH,
 	WAVE_SPEED_GROWTH_CAP,
 } from '../../config/game.config.ts'
-import type { GameMap, MapWaves, SpawnerGrowth, SpawnerTroop } from './game-map.ts'
+import type {
+	GameMap,
+	MapWaves,
+	SpawnerGrowth,
+	SpawnerTroop,
+} from './game-map.ts'
+
+// Для плана волны нужны только казармы и настройки волн, поэтому черновик
+// карты из редактора подходит сюда без приведения к GameMap.
+export type WaveSourceMap = Pick<GameMap, 'spawners' | 'waves'>
 
 export type WaveModifiers = {
 	// Множители характеристик монстров относительно базовых в казарме.
@@ -23,7 +32,8 @@ const COMMON_MODIFIERS: WaveModifiers = { health: 1, speed: 1, count: 1 }
 // правилам, что и на картах по сиду. Свой список волн использует
 // проценты выбранной волны, а после последней повторяет её настройку.
 // growth — личный рост одной казармы: проценты к каждому множителю
-// за каждую следующую волну поверх настроек карты.
+// за каждую следующую волну поверх настроек карты. Рост начисляется от
+// уже достигнутого значения, поэтому множитель растёт как сложный процент.
 export function waveModifiers(
 	plan: MapWaves | undefined,
 	wave: number,
@@ -35,9 +45,9 @@ export function waveModifiers(
 
 	const level = safeWave - 1
 	return {
-		health: base.health * (1 + (growth.health / 100) * level),
-		speed: base.speed * (1 + (growth.speed / 100) * level),
-		count: base.count * (1 + (growth.count / 100) * level),
+		health: base.health * Math.pow(1 + growth.health / 100, level),
+		speed: base.speed * Math.pow(1 + growth.speed / 100, level),
+		count: base.count * Math.pow(1 + growth.count / 100, level),
 	}
 }
 
@@ -63,9 +73,9 @@ function planModifiers(plan: MapWaves | undefined, safeWave: number): WaveModifi
 
 // Очередь появления монстров на волне: казармы выпускают своих
 // монстров по очереди, виды внутри казармы чередуются.
-const UNIT_CACHE = new WeakMap<GameMap, Map<number, WaveSpawnUnit[]>>()
+const UNIT_CACHE = new WeakMap<WaveSourceMap, Map<number, WaveSpawnUnit[]>>()
 
-export function waveSpawnUnits(map: GameMap, wave: number): WaveSpawnUnit[] {
+export function waveSpawnUnits(map: WaveSourceMap, wave: number): WaveSpawnUnit[] {
 	const safeWave = Math.max(1, Math.trunc(wave))
 	let cached = UNIT_CACHE.get(map)
 	if (!cached) {
@@ -116,6 +126,6 @@ export function waveSpawnUnits(map: GameMap, wave: number): WaveSpawnUnit[] {
 	return units
 }
 
-export function waveSpawnTotal(map: GameMap, wave: number) {
+export function waveSpawnTotal(map: WaveSourceMap, wave: number) {
 	return waveSpawnUnits(map, wave).length
 }

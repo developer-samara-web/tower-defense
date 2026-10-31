@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react'
 export function useGameUI() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+  const [showWaveInfo, setShowWaveInfo] = useState(false)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
@@ -33,9 +34,13 @@ export function useGameUI() {
     setShowInfo(false)
     setShowLeaderboard(false)
     setShowProfile(false)
+    setShowWaveInfo(false)
   }, [])
 
   const closeMenu = useCallback(() => setShowGameMenu(false), [])
+
+  // Панель информации о волне живёт поверх поля и игру не останавливает.
+  const toggleWaveInfo = useCallback(() => setShowWaveInfo((prev) => !prev), [])
 
   // Профиль открывается поверх игры, не уводя со страницы /game.
   const openProfile = useCallback(() => {
@@ -50,15 +55,18 @@ export function useGameUI() {
   return {
     showLeaderboard,
     showInfo,
+    showWaveInfo,
     showGameMenu,
     showProfile,
     toggleLeaderboard,
     toggleInfo,
+    toggleWaveInfo,
     openMenu,
     closeMenu,
     openProfile,
     closeProfile,
     closeLeaderboard: () => setShowLeaderboard(false),
     closeInfo: () => setShowInfo(false),
+    closeWaveInfo: () => setShowWaveInfo(false),
   }
 }

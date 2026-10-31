@@ -266,8 +266,9 @@ export default function SpawnerDialog({ spawner, onApply, onDelete, onClose }: P
 				</div>
 
 				<p className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#5c3a1a]">
-					Монстры выходят по очереди; кол-во — за волну. Рост прибавляется к
-					общим настройкам волн начиная со второй волны.
+					Монстры выходят по очереди; кол-во — за волну. Начиная со второй
+					волны рост берётся процентом от уже достигнутого значения, как
+					сложный процент.
 				</p>
 
 				<div className="flex gap-1.5 pt-0.5">
