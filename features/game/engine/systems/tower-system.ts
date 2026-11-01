@@ -92,10 +92,31 @@ export function createTowerSystem(
 		ghostCell?.clear()
 	}
 
+	// Точка-заполнитель для перевода курсора в мировые координаты.
+	const cursorWorld = new Phaser.Math.Vector2()
+
+	// Пересчитывает клетку под курсором по текущей камере. Указатель мог
+	// остаться на месте, пока колесо зума или инерция сдвигали карту:
+	// без пересчёта проекция горела на одной клетке, а башня строилась
+	// на другой — клик Phaser считает уже по новой камере.
+	function syncHoverWithCamera() {
+		if (hoverX === null || hoverY === null) return
+
+		const pointer = ctx.scene.input.activePointer
+		// Пока жест не отпущен, мировые координаты ведёт его обработчик.
+		if (pointer.isDown) return
+
+		ctx.scene.cameras.main.getWorldPoint(pointer.x, pointer.y, cursorWorld)
+		hoverX = cursorWorld.x
+		hoverY = cursorWorld.y
+	}
+
 	// Показывает проекцию выбранной башни в клетке под курсором.
 	function updateGhost() {
 		const { scene, state } = ctx
 		const type = state.selectedTower
+
+		syncHoverWithCamera()
 
 		if (!type || state.lives <= 0 || hoverX === null || hoverY === null) {
 			hideGhost()
