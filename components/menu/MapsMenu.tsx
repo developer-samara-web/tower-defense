@@ -38,7 +38,7 @@ type Props = {
 
 const TABS: Array<{ id: MapTab; label: string }> = [
 	{ id: 'rated', label: 'Рейтинговые' },
-	{ id: 'unrated', label: 'Не рейтинговые' },
+	{ id: 'unrated', label: 'Обычные' },
 	{ id: 'mine', label: 'Мои' },
 ]
 
