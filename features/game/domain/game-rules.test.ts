@@ -119,7 +119,7 @@ test('blocks building in a four-cell square around every barracks', () => {
 	assert.equal(build(20 + SPAWNER_BUILD_CLEARANCE + 1, 20), null)
 })
 
-test('keeps the castle zone clear and towers a cell apart', () => {
+test('keeps the castle zone clear and blocks only the occupied plate', () => {
 	const castleCells = new Set(['30,30', '31,30', '30,31', '31,31'])
 	const towerCells = new Set(['10,10', '11,10', '10,11', '11,11'])
 
@@ -139,13 +139,15 @@ test('keeps the castle zone clear and towers a cell apart', () => {
 	assert.equal(build(30, 30), 'castle')
 	assert.equal(build(29, 30), 'castle')
 
-	// Внахлёст и вплотную к соседней башне ставить нельзя.
+	// Любая клетка площадки 2×2 соседней башни занята — строить нельзя,
+	// даже когда якорь новой башни стоит снаружи чужих клеток.
 	assert.equal(build(11, 11), 'occupied')
-	assert.equal(build(12, 10), 'crowded')
-	assert.equal(build(8, 10), 'crowded')
+	assert.equal(build(9, 9), 'occupied')
+	assert.equal(build(9, 10), 'occupied')
 
-	// Одна свободная клетка между площадками — уже можно.
-	assert.equal(build(13, 10), null)
+	// Всё, что не попало в чужую площадку, свободно: отступ не нужен.
+	assert.equal(build(12, 10), null)
+	assert.equal(build(8, 10), null)
 	assert.equal(build(7, 7), null)
 })
 

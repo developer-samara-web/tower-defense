@@ -71,7 +71,7 @@ export function createTowerSystem(
 	// Застройка вокруг казарм запрещена, чтобы монстров не расстреливали
 	// у самого выхода. У сид-карт казарм нет, поэтому зона пустая.
 	const spawnerCells = spawnerBuildCells(ctx.map.spawners)
-	// Замок тоже зона запрета: три клетки вокруг площадки остаются свободными.
+	// Замок тоже зона запрета: одна клетка вокруг площадки остаётся свободной.
 	const castleCells = castleBuildCells(ctx.map.castle)
 	// Рамки, подсвечивающие выбранные башни, и прямоугольник протяжки.
 	let selectionFrame: Phaser.GameObjects.Graphics | null = null
@@ -373,7 +373,7 @@ export function createTowerSystem(
 			return
 		}
 
-		// Площадку замка и три клетки вокруг неё держим свободными.
+		// Площадку замка и одну клетку вокруг неё держим свободными.
 		if (buildCheck.reason === 'castle') {
 			setStatus('Вокруг замка строить нельзя.')
 			publish()
@@ -406,9 +406,11 @@ export function createTowerSystem(
 			return
 		}
 
-		// Башни не ставим вплотную: между площадками остаётся одна клетка.
-		if (buildCheck.reason === 'crowded') {
-			setStatus('Башни ставят с отступом в одну клетку.')
+		// Площадка 2×2 перекрывает уже построенную башню: здесь строить
+		// нельзя. Раньше эта причина не имела своей ветки и проваливалась
+		// к постройке — проекция горела красным, а башня всё равно вставала.
+		if (buildCheck.reason === 'occupied') {
+			setStatus('Здесь уже стоит башня — её площадка занята.')
 			publish()
 			return
 		}

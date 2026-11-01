@@ -111,14 +111,12 @@ export function spawnerBuildCells(spawners: readonly BoardPosition[]) {
 	return blocked
 }
 
-// Замок — последний рубеж: три свободные клетки вокруг него остаются
-// пустыми, чтобы прорвавшиеся монстры не прятались за стеной башен.
-export const CASTLE_BUILD_CLEARANCE = 3
+// Замок — последний рубеж: одна свободная клетка вокруг площадки остаётся
+// пустой, чтобы прорвавшиеся монстры не прятались за стеной башен.
+export const CASTLE_BUILD_CLEARANCE = 1
 
-// Между башнями оставляют одну свободную клетку: площадки 2×2,
-// стоящие вплотную, читаются как одно здание и загораживают обзор.
-export const TOWER_BUILD_CLEARANCE = 1
-
+// Башня занимает только свою площадку 2×2: отступ между соседними
+// площадками не требуется, блокируют лишь уже занятые клетки.
 export function canBuildTower({ position, pathCells, waterCells, forestCells, spawnerCells, castleCells, towerCells, gold, towerType }: {
 	position: BoardPosition
 	pathCells: ReadonlySet<string>
@@ -137,6 +135,7 @@ export function canBuildTower({ position, pathCells, waterCells, forestCells, sp
 
 	// Площадка 2×2: башня занимает все четыре клетки, поэтому блокирует
 	// любая из них — замок, дорога, вода, лес, казарма или соседняя башня.
+	// Всё, что осталось за пределами занятых клеток, свободно для стройки.
 	for (const key of towerFootprintCells(position)) {
 		if (castleCells.has(key)) return { allowed: false, reason: 'castle' as const }
 		if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
@@ -144,20 +143,6 @@ export function canBuildTower({ position, pathCells, waterCells, forestCells, sp
 		if (forestCells.has(key)) return { allowed: false, reason: 'forest' as const }
 		if (spawnerCells.has(key)) return { allowed: false, reason: 'spawner' as const }
 		if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
-	}
-
-	// Отступ от чужих башен: клетка соседней площадки не должна попадать
-	// в кольцо вокруг новой площадки. Проверка по занимаемым клеткам,
-	// поэтому не требует отдельного множества для отступов.
-	for (let fy = 0; fy < TOWER_FOOTPRINT; fy++) {
-		for (let fx = 0; fx < TOWER_FOOTPRINT; fx++) {
-			for (let dy = -TOWER_BUILD_CLEARANCE; dy <= TOWER_BUILD_CLEARANCE; dy++) {
-				for (let dx = -TOWER_BUILD_CLEARANCE; dx <= TOWER_BUILD_CLEARANCE; dx++) {
-					if (towerCells.has(cellKey({ x: position.x + fx + dx, y: position.y + fy + dy })))
-						return { allowed: false, reason: 'crowded' as const }
-				}
-			}
-		}
 	}
 
 	if (gold < TOWER_TYPES[towerType].cost) return { allowed: false, reason: 'gold' as const }

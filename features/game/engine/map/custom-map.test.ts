@@ -124,15 +124,18 @@ test('never lets a barracks stand next to the castle', () => {
 	assert.equal(canPlaceSpawner(null, 10, 10), true)
 })
 
-test('castle keeps three free cells around its platform', () => {
+test('castle keeps one free cell around its platform', () => {
 	const blocked = castleBuildCells({ x: 50, y: 50 })
-	// Площадка 3×3 плюс кольцо в три клетки: квадрат 9×9.
+	// Площадка 3×3 плюс кольцо в одну клетку: квадрат 5×5.
 	const side = CASTLE_SIZE + CASTLE_BUILD_CLEARANCE * 2
 
+	assert.equal(CASTLE_BUILD_CLEARANCE, 1)
 	assert.equal(blocked.size, side * side)
 	assert.equal(blocked.has(cellKey(50, 50)), true)
-	assert.equal(blocked.has(cellKey(48, 52)), true)
-	assert.equal(blocked.has(cellKey(50 + side / 2, 50)), false)
+	assert.equal(blocked.has(cellKey(49, 51)), true)
+	assert.equal(blocked.has(cellKey(52, 48)), true)
+	assert.equal(blocked.has(cellKey(53, 50)), false)
+	assert.equal(blocked.has(cellKey(47, 50)), false)
 })
 
 test('normalizes numbers, duplicates and terrain under the castle', () => {
