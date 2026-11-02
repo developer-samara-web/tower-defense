@@ -114,6 +114,16 @@ export function createWaveSystem(
 			// Следы от убитых врагов держатся только до конца волны.
 			hooks.onWaveComplete()
 
+			// Карта с ограничением волн (обучение) заканчивается победой:
+			// паузу не заводим и следующую волну не зовём.
+			if (state.waveLimit > 0 && state.wave >= state.waveLimit) {
+				state.victory = true
+				state.waveBreakRemaining = 0
+				setStatus(`Волна ${state.wave} пройдена! Бонус: ${reward} золота. Все волны отбиты.`)
+				ctx.publish()
+				return
+			}
+
 			// Запускаем паузу, после которой следующая волна начнётся сама.
 			state.waveBreakRemaining = WAVE_BREAK_DURATION
 

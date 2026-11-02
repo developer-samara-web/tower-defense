@@ -13,6 +13,7 @@ type Props = {
 	onBack: () => void
 	onRandomMap: () => void
 	onRankedMap: () => void
+	onTutorial: () => void
 	initialMode?: 'root' | 'solo' | 'coop'
 }
 
@@ -23,6 +24,7 @@ export default function PlayMenu({
 	onBack,
 	onRandomMap,
 	onRankedMap,
+	onTutorial,
 	initialMode = 'root',
 }: Props) {
 	const router = useRouter()
@@ -39,9 +41,12 @@ export default function PlayMenu({
 	if (mode === 'solo') {
 		return (
 			<MenuShell user={user}>
-				<MenuButton variant="primary" onClick={onRandomMap}>
-					Обычная игра
+				{/* Обучение стоит выше обычной игры: новичок обязан увидеть его
+					первым, и оно не ведёт в рейтинг. */}
+				<MenuButton variant="primary" onClick={onTutorial}>
+					Обучение
 				</MenuButton>
+				<MenuButton onClick={onRandomMap}>Обычная игра</MenuButton>
 				<MenuButton onClick={onRankedMap} badge="рейтинг">
 					Рейтинговая игра
 				</MenuButton>

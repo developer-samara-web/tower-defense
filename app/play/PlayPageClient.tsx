@@ -18,6 +18,9 @@ export default function PlayPageClient() {
       initialMode={initialMode}
       onBack={() => router.push('/menu')}
       onRandomMap={() => router.push('/game')}
+      // Обучение — своя зафиксированная карта с подсказками и пятью волнами;
+      // режим отдаётся игровому клиенту через запрос.
+      onTutorial={() => router.push('/game?tutorial=1')}
       // Рейтинг начинают с выбора карты: страница показывает только
       // одобренные рейтинговые карты, и забег засчитывается по её id.
       onRankedMap={() => router.push('/maps/rated')}
