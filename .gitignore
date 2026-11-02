@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Временные снимки браузера и CDP-профили проверок — не часть проекта.
+/.screens/
