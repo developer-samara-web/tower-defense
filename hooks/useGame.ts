@@ -25,6 +25,7 @@ import { useAuth } from './useAuth'
 import { saveSession, loadSession, deleteSession, fetchLatestSession } from '@/lib/services/session-service'
 import { fetchMap, fetchMapBoard } from '@/lib/services/map-service'
 import { fetchTopScores, updateUserScore } from '@/lib/services/score-service'
+import { markProgress } from '@/lib/services/progress-service'
 import { recordGame } from '@/lib/services/game-service'
 import { ApiError, isUnauthorized } from '@/lib/services/api-error'
 import { NOT_AUTHORIZED } from '@/lib/access-messages'
@@ -528,6 +529,13 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     })
   }, [finishRun, token, tutorial])
 
+  // Прохождение обучения — единственное, что оно оставляет в аккаунте:
+  // флаг включает рассказ про рейтинг в главном меню. Ошибку гасим: без
+  // сети забег всё равно пройден, а повторная подсказка лучше, чем сбой.
+  const markTutorialDone = useCallback(() => {
+    if (token) void markProgress(token, { tutorialCompleted: true }).catch(() => {})
+  }, [token])
+
   // Живая строка топа: пока забег не завершён, на сервер ничего не уходит,
   // но игрок видит, какое место займут его текущие волна и золото. Значения
   // берутся из боя, поэтому строка живёт по тем же правилам, что и запись
@@ -652,6 +660,7 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     // Урок обрывается на пятой волне: движок берёт лимит из этих данных.
     waveLimit: tutorial ? TUTORIAL_WAVES : 0,
     restartGame, resumeGame, startNew, leaveGame,
+    markTutorialDone,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     rerollUpgrades,
     toggleAutoUpgrade, cycleSpeed, togglePause,

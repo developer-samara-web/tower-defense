@@ -21,6 +21,12 @@ export interface IUser {
 	avatarFrame: string
 	// id титула из lib/account/title-options.ts или 'none'.
 	title: string
+	// Обучение пройдено: после него в главном меню один раз рассказываем
+	// про рейтинговые игры. Флаг держим на сервере — сброс localStorage
+	// не должен превращать пройденное обучение в не пройденное.
+	tutorialCompleted: boolean
+	// Рассказ про рейтинг уже показан: второй раз игрока не отвлекаем.
+	ratedIntroShown: boolean
 	createdAt: Date
 }
 
@@ -35,6 +41,8 @@ const UserSchema = new mongoose.Schema<IUser>({
 	avatar: { type: String, default: DEFAULT_AVATAR },
 	avatarFrame: { type: String, default: DEFAULT_FRAME },
 	title: { type: String, default: NO_TITLE },
+	tutorialCompleted: { type: Boolean, default: false },
+	ratedIntroShown: { type: Boolean, default: false },
 	createdAt: { type: Date, default: Date.now },
 })
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import GameCanvas from '@/components/game/GameCanvas'
@@ -33,7 +33,7 @@ export default function GamePageClient() {
     mapSeed, speed, paused,
     mapDraft, mapLoading, mapError, waveLimit,
     needsLogin, accessError,
-    restartGame, resumeGame, startNew, leaveGame, refreshScores,
+    restartGame, resumeGame, startNew, leaveGame, refreshScores, markTutorialDone,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     rerollUpgrades,
     toggleAutoUpgrade, cycleSpeed, togglePause,
@@ -73,6 +73,15 @@ export default function GamePageClient() {
   useEffect(() => {
     window.dispatchEvent(new Event(frozen ? 'td:pause' : 'td:resume'))
   }, [frozen])
+
+  // Обучение засчитываем на сервере один раз за забег: флаг живёт в аккаунте,
+  // поэтому пройденное не придётся повторять после очистки браузера.
+  const tutorialMarked = useRef(false)
+  useEffect(() => {
+    if (!tutorial || !game.victory || tutorialMarked.current) return
+    tutorialMarked.current = true
+    markTutorialDone()
+  }, [game.victory, markTutorialDone, tutorial])
 
   // Панель информации показывает текущую волну в бою, а до её старта
   // и в перерыве — следующую, чтобы игрок успел подготовиться.
