@@ -5,15 +5,18 @@ import MenuShell from './MenuShell'
 type Props = {
 	user: PlayerProfile | null
 	onPlay: () => void
+	onAdventures: () => void
 	onProfile: () => void
 	onLeaderboard: () => void
 	onLogout: () => void
 }
 
-// Главное меню: только вход в игру, таблица лидеров, статистика и выход.
+// Главное меню: только вход в игру, тропа приключений, таблица лидеров,
+// статистика и выход.
 export default function MainMenu({
 	user,
 	onPlay,
+	onAdventures,
 	onProfile,
 	onLeaderboard,
 	onLogout,
@@ -22,6 +25,11 @@ export default function MainMenu({
 		<MenuShell user={user}>
 			<MenuButton variant="primary" onClick={onPlay}>
 				Играть
+			</MenuButton>
+			{/* Компендиум выделен своим цветом: это не режим боя, а путь
+				по картам с призами, и терять его в списке нельзя. */}
+			<MenuButton variant="adventure" onClick={onAdventures}>
+				Приключения
 			</MenuButton>
 			<MenuButton onClick={onLeaderboard}>Таблица лидеров</MenuButton>
 			<MenuButton onClick={onProfile}>Статистика</MenuButton>

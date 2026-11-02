@@ -4,12 +4,12 @@ type Props = {
 	children: ReactNode
 	onClick?: () => void
 	disabled?: boolean
-	variant?: 'primary' | 'default' | 'danger'
+	variant?: 'primary' | 'default' | 'danger' | 'adventure'
 	badge?: string
 }
 
-// Кнопка главного меню: зелёная для основного действия,
-// красная для выхода и тёмная для остальных пунктов.
+// Кнопка главного меню: зелёная для основного действия, красная для выхода,
+// сине-фиолетовая для приключений и тёмная для остальных пунктов.
 export default function MenuButton({
 	children,
 	onClick,
@@ -41,6 +41,20 @@ export default function MenuButton({
 			>
 				{content}
 				<span className="text-[16px] leading-none text-lime-300">▶</span>
+			</button>
+		)
+	}
+
+	if (variant === 'adventure') {
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				disabled={disabled}
+				className={`${base} border-[#4a3d8f] bg-gradient-to-b from-[#5b3fa8] to-[#2a2f74] text-indigo-100 shadow-[inset_0_1px_0_#8f7ad6,0_4px_0_#1a1440] hover:from-[#6d4fc0] hover:to-[#35398c] hover:text-white active:translate-y-[2px] active:shadow-[0_2px_0_#1a1440] focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:from-[#2a2350] disabled:to-[#171636] disabled:text-indigo-200/50 disabled:shadow-[0_3px_0_#1a1440]`}
+			>
+				{content}
+				<span className="text-[14px] leading-none text-indigo-300">✦</span>
 			</button>
 		)
 	}
