@@ -142,6 +142,35 @@ export function createTowerGhost(scene: Phaser.Scene, type: TowerType) {
 	return { body, cell }
 }
 
+// Башня из очереди стройки: полупрозрачный спрайт на своей площадке,
+// пока золото не придёт. Янтарная рамка отличается от зелёной и красной
+// подсветки под курсором, поэтому заявка не выглядит построенной.
+export function createQueuedTowerView(
+	scene: Phaser.Scene,
+	type: TowerType,
+	cellX: number,
+	cellY: number,
+) {
+	const size = towerSpriteSize(1)
+	const left = cellX * CELL_SIZE
+	const top = cellY * CELL_SIZE
+
+	const body = scene.add
+		.image(left + FOOTPRINT_SIZE / 2, top + FOOTPRINT_SIZE / 2, towerTexture(type, 1))
+		.setDisplaySize(size, size)
+		.setOrigin(0.5)
+		.setDepth(9)
+		.setAlpha(0.35)
+
+	const cell = scene.add.graphics().setDepth(8)
+	cell.fillStyle(0xb89a3a, 0.12)
+	cell.fillRect(left, top, FOOTPRINT_SIZE, FOOTPRINT_SIZE)
+	cell.lineStyle(2, 0xb89a3a, 0.8)
+	cell.strokeRect(left + 1, top + 1, FOOTPRINT_SIZE - 2, FOOTPRINT_SIZE - 2)
+
+	return { body, cell }
+}
+
 // Перерисовывает подсветку площадки под проекцией башни.
 export function drawBuildPreview(
 	cell: Phaser.GameObjects.Graphics,

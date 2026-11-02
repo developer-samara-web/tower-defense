@@ -7,6 +7,7 @@ import type { Enemy, Tower } from '../types/game.types.ts'
 import {
 	summarizeTowerSelection,
 	xpToNextLevel,
+	type QueuedBuild,
 	type TowerSelectionSummary,
 } from './game-rules.ts'
 import { createEmptyBuffs, type TowerBuffs } from './game-rules.ts'
@@ -27,6 +28,11 @@ export type GameState = {
 	maxLives: number
 	wave: number
 	waveActive: boolean
+	// Сколько волн нужно отбить, чтобы забег считался пройденным.
+	// 0 — волн столько, сколько выдержит игрок: обычная игра и песочница.
+	waveLimit: number
+	// Последняя волна лимита отбита: показываем победу, а не поражение.
+	victory: boolean
 	waveBreakRemaining: number
 	spawnRemaining: number
 	spawnedInWave: number
@@ -35,6 +41,10 @@ export type GameState = {
 	// Выделение башен: одна после клика, группа — рамкой или Ctrl+кликом.
 	// Порядок равен порядку выбора и задаёт очередь пакетного улучшения.
 	selectedTowers: Tower[]
+	// Очередь стройки: площадки, заявленные правым кликом в ожидании золота.
+	// Порядок равен порядку строительства, поэтому игрок размечает оборону
+	// заранее, а резерв клеток считается из списка.
+	buildQueue: QueuedBuild[]
 	pathCells: Set<string>
 	waterCells: Set<string>
 	towerCells: Set<string>
@@ -64,6 +74,8 @@ export type GameSnapshot = {
 	panelPosition: { x: number; y: number } | null
 	status: string
 	waveActive: boolean
+	waveLimit: number
+	victory: boolean
 	nextWaveIn: number
 	gameOver: boolean
 	towers: Array<{
@@ -73,7 +85,11 @@ export type GameSnapshot = {
 		type: TowerType
 		level: number
 		invested: number
+		autoUpgrade: boolean
 	}>
+	// Очередь стройки в том же порядке, что и строительство: React-панель
+	// показывает число заявок, а подсказки обучения — её содержимое.
+	buildQueue: QueuedBuild[]
 	// Живые враги нужны, чтобы продолжить волну с того же места.
 	enemyStates: SessionEnemy[]
 	towerCells: string[]
@@ -101,19 +117,22 @@ export type GameSnapshot = {
 
 export const DEFAULT_STATUS = 'Выбери башню и подготовь оборону'
 
-export function createGameState(lives = INITIAL_LIVES): GameState {
+export function createGameState(lives = INITIAL_LIVES, waveLimit = 0): GameState {
 	return {
 		gold: INITIAL_GOLD,
 		lives,
 		maxLives: lives,
 		wave: 0,
 		waveActive: false,
+		waveLimit: Math.max(0, Math.trunc(waveLimit)),
+		victory: false,
 		waveBreakRemaining: 0,
 		spawnRemaining: 0,
 		spawnedInWave: 0,
 		spawnCooldown: 0,
 		selectedTower: null,
 		selectedTowers: [],
+		buildQueue: [],
 		pathCells: new Set(),
 		waterCells: new Set(),
 		towerCells: new Set(),
@@ -143,6 +162,9 @@ export function resetGameState(state: GameState, lives = INITIAL_LIVES) {
 	state.maxLives = lives
 	state.wave = 0
 	state.waveActive = false
+	// waveLimit — настройка карты, а не прогресс забега: рестарт обязан
+	// оставить её, иначе обучение теряет свой конец.
+	state.victory = false
 	state.waveBreakRemaining = 0
 	state.spawnRemaining = 0
 	state.spawnedInWave = 0
@@ -178,9 +200,12 @@ export function buildSnapshot(
 		panelPosition: selection ? panelPosition : null,
 		status: state.status || DEFAULT_STATUS,
 		waveActive: state.waveActive,
+		waveLimit: state.waveLimit,
+		victory: state.victory,
 		nextWaveIn: Math.ceil(state.waveBreakRemaining / 1000),
 		gameOver: state.lives <= 0,
-		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type, level: t.level, invested: t.invested })),
+		towers: state.towers.map((t) => ({ id: t.id, x: t.x, y: t.y, type: t.type, level: t.level, invested: t.invested, autoUpgrade: t.autoUpgrade })),
+		buildQueue: state.buildQueue.map((item) => ({ ...item })),
 		enemyStates: state.enemies.map((enemy) => ({
 			type: enemy.type,
 			x: enemy.x,

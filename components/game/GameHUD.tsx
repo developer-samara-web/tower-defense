@@ -12,6 +12,8 @@ type Props = {
   waveActive: boolean
   gameOver: boolean
   selectedTower: TowerType | null
+  // Сколько башен ждёт золота в очереди стройки; 0 — меттку не показывать.
+  queuedBuilds: number
   status: string
   level: number
   xp: number
@@ -45,7 +47,7 @@ const SQUARE_BUTTON =
 const SQUARE_BUTTON_ON = 'border-yellow-400 bg-[#493713] text-yellow-200 shadow-[0_0_8px_#eab30866]'
 
 export default function GameHUD({
-  gold, lives, maxLives, wave, waveActive, gameOver, selectedTower,
+  gold, lives, maxLives, wave, waveActive, gameOver, selectedTower, queuedBuilds,
   status, level, xp, xpToNextLevel, buffs, minimap, waveInfo,
   speed, paused, showWaveInfo,
   onSelectTower, onStartWave, onRestart, onCycleSpeed, onTogglePause, onToggleWaveInfo,
@@ -100,7 +102,14 @@ export default function GameHUD({
               </div>
 
               {/* Tower cards */}
-              <div className="grid min-w-0 grid-cols-3 gap-1 sm:gap-2">
+              <div className="relative grid min-w-0 grid-cols-3 gap-1 sm:gap-2">
+                {/* Очередь стройки: башни на поле ждут золота полупрозрачными
+                    призраками, поэтому счётчик живёт у панели башен. */}
+                {queuedBuilds > 0 && (
+                  <span className="pointer-events-none absolute -top-2 right-0 z-10 border border-[#a67c36] bg-[#21170d] px-1.5 py-[1px] text-[8px] font-black uppercase tracking-[0.12em] leading-none text-amber-200 shadow-[0_2px_0_#0f0a05]">
+                    Очередь: {queuedBuilds}
+                  </span>
+                )}
                 {towerDefs.map((tower) => {
                   const isSelected = selectedTower === tower.id
                   const canAfford = gold >= tower.cost
@@ -137,6 +146,11 @@ export default function GameHUD({
                           <span className="mt-0.5 flex items-baseline justify-between gap-3 border-t border-[#3a2a1a] pt-1">
                             <span className="text-[8px] font-black uppercase tracking-[0.12em] text-[#8a7340]">Цена</span>
                             <span className={`whitespace-nowrap text-[10px] font-black tabular-nums ${canAfford ? 'text-yellow-300' : 'text-red-300'}`}>🪙 {tower.cost}</span>
+                          </span>
+                          {/* Подсказка про очередь: правая кнопка скрыта в интерфейсе,
+                              о ней нужно сказать явно. */}
+                          <span className="mt-1 block border-t border-[#3a2a1a] pt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
+                            Правый клик — поставить в очередь стройки
                           </span>
                         </span>
                         <span className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b-2 border-r-2 border-[#3a2a1a] bg-[#0f0a05]" />

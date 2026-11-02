@@ -12,6 +12,9 @@ export type SceneHandlers = {
 	// Рамка выделения: показываем во время протяжки, null — спрятать.
 	onSelectionBox: (box: SelectionBox | null) => void
 	onSelectionCommit: (box: SelectionBox, additive: boolean) => void
+	// Правый клик без смещения: заявка башни в очередь стройки. Протяжка
+	// правой кнопкой остаётся перетаскиванием камеры.
+	onRightClick: (worldX: number, worldY: number) => void
 	onStartWave: () => void
 	onSelectType: (type: TowerType | null) => void
 	onUpgrade: () => void
@@ -32,6 +35,11 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	let boxing = false
 	// Второй палец превращает жест в pinch-зум: строить башню по нему нельзя.
 	let multiTouch = false
+	// Правая кнопка таскает камеру, поэтому её жест считаем отдельно:
+	// клик без смещения — заявка в очередь, протяжка — панорама.
+	let rightPressed = false
+	let rightPressX = 0
+	let rightPressY = 0
 
 	// Клавиша множительного выделения, как в Warcraft 3.
 	function isAdditive(pointer: Phaser.Input.Pointer) {
@@ -52,6 +60,11 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	// левой кнопкой ставило бы башню в точке начала жеста.
 	scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
 		const isLeftButton = pointer.button === 0
+		if (pointer.button === 2) {
+			rightPressed = true
+			rightPressX = pointer.x
+			rightPressY = pointer.y
+		}
 		if (pressed && isLeftButton) multiTouch = true
 		pressed = isLeftButton
 		boxing = false
@@ -64,6 +77,18 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	})
 
 	scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+		// Правая кнопка: заявка в очередь, если за жест курсор не уехал.
+		// Проверяем до левой логики — `pressed` следит только за ней.
+		if (pointer.button === 2) {
+			const clicked =
+				rightPressed &&
+				!pointer.wasTouch &&
+				Math.hypot(pointer.x - rightPressX, pointer.y - rightPressY) <= CLICK_DISTANCE
+			rightPressed = false
+			if (clicked) handlers.onRightClick(pointer.worldX, pointer.worldY)
+			return
+		}
+
 		const gesture = multiTouch
 		const pointersDown = scene.input.manager.pointers.filter((p) => p.isDown).length
 		if (pointersDown === 0) multiTouch = false
@@ -104,6 +129,8 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 		pressed = false
 		multiTouch = false
 		boxing = false
+		// Правую кнопку отпустили над интерфейсом — клика по полю не было.
+		rightPressed = false
 
 		if (wasBoxing || dragged) handlers.onSelectionCommit(boxOf(pointer), isAdditive(pointer))
 		else handlers.onSelectionBox(null)

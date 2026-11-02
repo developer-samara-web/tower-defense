@@ -5,10 +5,11 @@ import {
 	resetGameState,
 	type GameState,
 } from '@/features/game/domain/game-state'
-import { isBoardPosition, towerFootprintCells } from '@/features/game/domain/game-rules'
+import { cellKey, isBoardPosition, towerFootprintCells } from '@/features/game/domain/game-rules'
 import {
 	isTowerType,
 	readSessionEnemies,
+	readSessionQueuedBuild,
 	readSessionTower,
 	restoreBuffs,
 	restoreProgress,
@@ -21,6 +22,7 @@ import {
 } from '@/features/game/domain/upgrade-cards'
 
 import { drawBoard } from '../board/board-renderer'
+import { loadPackTextures } from '../board/pack-textures'
 import {
 	createTowerView,
 	TOWER_SPRITE_LEVELS,
@@ -86,6 +88,9 @@ export class MainScene extends Phaser.Scene {
 	// Пользовательская карта из редактора: заменяет генерацию по сиду.
 	private readonly customDraft: MapDraft | null
 
+	// Сколько волн отбить до победы: 0 — без лимита, как в обычной игре.
+	private readonly waveLimit: number
+
 	// Карта игры: нужна для перезапуска с тем же замком и дорогами.
 	private map!: GameMap
 
@@ -98,10 +103,15 @@ export class MainScene extends Phaser.Scene {
 	// Множитель игрового времени: 1 — обычная скорость, больше — ускорение.
 	private timeScale = 1
 
-	constructor(mapSeed = 'default', customDraft: MapDraft | null = null) {
+	constructor(
+		mapSeed = 'default',
+		customDraft: MapDraft | null = null,
+		waveLimit = 0,
+	) {
 		super('MainScene')
 		this.mapSeed = mapSeed
 		this.customDraft = customDraft
+		this.waveLimit = waveLimit
 	}
 
 	preload() {
@@ -119,44 +129,49 @@ export class MainScene extends Phaser.Scene {
 				)
 			}
 		}
-		this.load.image('castle', '/game/path/castle.png')
-		this.load.image('barracks', '/game/monsters/barracks.png')
-		this.load.image('logo', '/game/logo.png')
+		this.load.image('castle', '/game/buildings/castle.png')
+		this.load.image('barracks', '/game/buildings/barracks.png')
+		this.load.image('logo', '/ui/logo.png')
 
-		this.load.image('enemy-small', '/game/enemy/small.png')
-		this.load.image('enemy-average', '/game/enemy/average.png')
-		this.load.image('enemy-big', '/game/enemy/big.png')
-		this.load.image('enemy-boss', '/game/enemy/boss.png')
+		this.load.image('enemy-small', '/game/enemies/small.png')
+		this.load.image('enemy-average', '/game/enemies/average.png')
+		this.load.image('enemy-big', '/game/enemies/big.png')
+		this.load.image('enemy-boss', '/game/enemies/boss.png')
 
-		this.load.image('gate-bottom', '/game/path/gate-bottom.png')
-		this.load.image('gate-left', '/game/path/gate-left.png')
-		this.load.image('gate-right', '/game/path/gate-right.png')
-		this.load.image('gate-top', '/game/path/gate-top.png')
+		this.load.image('gate-bottom', '/game/buildings/gate-bottom.png')
+		this.load.image('gate-left', '/game/buildings/gate-left.png')
+		this.load.image('gate-right', '/game/buildings/gate-right.png')
+		this.load.image('gate-top', '/game/buildings/gate-top.png')
 
-		// Кромка дороги и её декор: полоса утоптанной земли, трава и камешки.
-		this.load.image('road-edge', '/game/path/road-edge.png')
-		this.load.image('road-grass-fringe-1', '/game/path/road-grass-fringe-1.png')
-		this.load.image('road-grass-fringe-2', '/game/path/road-grass-fringe-2.png')
-		this.load.image('road-grass-fringe-3', '/game/path/road-grass-fringe-3.png')
-		this.load.image('road-grass-fringe-4', '/game/path/road-grass-fringe-4.png')
-		this.load.image('road-pebbles-1', '/game/path/road-pebbles-1.png')
-		this.load.image('road-pebbles-2', '/game/path/road-pebbles-2.png')
-		this.load.image('road-pebbles-3', '/game/path/road-pebbles-3.png')
+		// Старая кромка дороги и её декор. Дорогам теперь служит пак, но
+		// пучки травы и галька нужны векторному берегу рек, а кромка —
+		// отключённому режиму ROAD_EDGE_DECOR.
+		this.load.image('road-edge', '/game/roads/edge.png')
+		this.load.image('road-grass-fringe-1', '/game/roads/fringe-1.png')
+		this.load.image('road-grass-fringe-2', '/game/roads/fringe-2.png')
+		this.load.image('road-grass-fringe-3', '/game/roads/fringe-3.png')
+		this.load.image('road-grass-fringe-4', '/game/roads/fringe-4.png')
+		this.load.image('road-pebbles-1', '/game/roads/pebbles-1.png')
+		this.load.image('road-pebbles-2', '/game/roads/pebbles-2.png')
+		this.load.image('road-pebbles-3', '/game/roads/pebbles-3.png')
 
 		// Берег рек: сухой песок с камешками и его мокрый вариант у кромки воды.
-		this.load.image('river-bank', '/game/rivers/river-bank.png')
-		this.load.image('river-bank-wet', '/game/rivers/river-bank-wet.png')
+		this.load.image('river-bank', '/game/rivers/bank.png')
+		this.load.image('river-bank-wet', '/game/rivers/bank-wet.png')
 
 		// Лес собран в атлас: одна текстура и рамки деревьев из JSON.
 		this.load.image('forest-atlas', '/game/forest/atlas.png')
 		this.load.json('forest-frames', '/game/forest/atlas.json')
 
-		// Квадратные текстуры для живой карты.
-		;[
-			'grass',
-			'river',
-			'path',
-		].forEach((key) => this.load.image(key, `/game/grid/${key}.png`))
+		// Квадратные текстуры поля: трава, вода и исходное полотно дороги.
+		// Пак подменяет их своими коврами, если загружен.
+		this.load.image('grass', '/game/terrain/grass.png')
+		this.load.image('river', '/game/terrain/river.png')
+		this.load.image('path', '/game/terrain/road.png')
+
+		// Пак земли и пропов: из него собираются ковры поля и полотна
+		// дорог, им же декорируется свободная земля.
+		loadPackTextures(this.load)
 	}
 
 	// Вызывается Phaser при создании сцены.
@@ -176,7 +191,7 @@ export class MainScene extends Phaser.Scene {
 			? createCustomGameMap(this.customDraft)
 			: createGameMap(this.mapSeed)
 		this.map = map
-		this.state = createGameState(map.castle.hp)
+		this.state = createGameState(map.castle.hp, this.waveLimit)
 
 		// Фон за пределами поля рисует CSS-слой с картинкой леса,
 		// поэтому камера остаётся прозрачной.
@@ -297,7 +312,7 @@ export class MainScene extends Phaser.Scene {
 				type: tower.type,
 				level: tower.level,
 				invested: tower.invested,
-				autoUpgrade: false,
+				autoUpgrade: tower.autoUpgrade === true,
 				x: view.x,
 				y: view.y,
 				cooldown: 0,
@@ -314,6 +329,21 @@ export class MainScene extends Phaser.Scene {
 
 		// Врагов возвращаем на те же места, чтобы волна не завершилась мгновенно.
 		this.enemies.restore(readSessionEnemies(saved.enemies))
+
+		// Заявки очереди стройки возвращаем после башен: площадка могла
+		// освободиться, а построенная башня — занять клетку из сохранения.
+		state.buildQueue.length = 0
+		for (const entry of saved.buildQueue ?? []) {
+			const item = readSessionQueuedBuild(entry)
+			if (!item) continue
+
+			const position = { x: item.x, y: item.y }
+			if (!isBoardPosition(position)) continue
+			if (towerFootprintCells(position).some((cell) => state.towerCells.has(cell))) continue
+
+			state.buildQueue.push({ ...item, id: cellKey(position) })
+		}
+		this.towers.refreshQueue()
 
 		delete sessionWindow.__sessionData
 	}
@@ -364,6 +394,7 @@ export class MainScene extends Phaser.Scene {
 		bindSceneControls(this, {
 			onPointerDown: (worldX, worldY, additive) =>
 				this.towers.place(worldX, worldY, additive),
+			onRightClick: (worldX, worldY) => this.towers.queueAt(worldX, worldY),
 			onPointerMove: (worldX, worldY) => this.towers.hover(worldX, worldY),
 			onPointerLeave: () => this.towers.clearHover(),
 			onSelectionBox: (box) => {

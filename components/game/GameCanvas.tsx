@@ -9,9 +9,15 @@ type Props = {
 	mapSeed?: string
 	// Черновик из редактора: если он есть, сид не используется.
 	customDraft?: MapDraft | null
+	// Сколько волн отбить до победы; 0 — забег без конца, как в обычной игре.
+	waveLimit?: number
 }
 
-export default function GameCanvas({ mapSeed = 'default', customDraft = null }: Props) {
+export default function GameCanvas({
+	mapSeed = 'default',
+	customDraft = null,
+	waveLimit = 0,
+}: Props) {
 	const containerRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
@@ -39,9 +45,10 @@ export default function GameCanvas({ mapSeed = 'default', customDraft = null }: 
 				width: parent.clientWidth,
 				height: parent.clientHeight,
 				parent,
-				scene: [new MainScene(mapSeed, customDraft)],
-				// Правая кнопка перетаскивает камеру, поэтому
-				// стандартное контекстное меню браузера отключаем.
+				scene: [new MainScene(mapSeed, customDraft, waveLimit)],
+				// Правая кнопка перетаскивает камеру, а клик без смещения
+				// ставит башню в очередь стройки, поэтому стандартное
+				// контекстное меню браузера отключаем.
 				disableContextMenu: true,
 				input: {
 					// Два пальца нужны для pinch-зума, третий — запас для мыши.
@@ -63,6 +70,10 @@ export default function GameCanvas({ mapSeed = 'default', customDraft = null }: 
 					transparent: true,
 					antialias: true,
 					roundPixels: true,
+					// Тайлы земли из пака — 256 px, а на поле они весят по
+					// 32 px. Без мипмапов GPU берёт один пиксель из восьми,
+					// и двухпиксельная обводка кромки дороги рвётся в пунктир.
+					mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
 				},
 			})
 		}
@@ -73,7 +84,7 @@ export default function GameCanvas({ mapSeed = 'default', customDraft = null }: 
 			disposed = true
 			game?.destroy(true)
 		}
-	}, [mapSeed, customDraft])
+	}, [mapSeed, customDraft, waveLimit])
 
 	return (
 		<div

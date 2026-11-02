@@ -18,13 +18,16 @@ import {
 } from '../config/game.config.ts'
 import {
 	addExperience,
+	buildQueueCells,
 	canBuildTower,
+	canQueueTower,
 	cellKey,
 	enemyGroupSize,
 	enemySpawnDelay,
 	enemySpawnInterval,
 	enemyStats,
 	enemyTypeForSpawn,
+	MAX_BUILD_QUEUE,
 	spawnerBuildCells,
 	SPAWNER_BUILD_CLEARANCE,
 	summarizeTowerSelection,
@@ -51,6 +54,57 @@ test('prevents invalid building placements', () => {
 	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(['2,2']), castleCells: new Set(), towerCells: new Set(), gold: 999, towerType: 'ice' }).reason, 'spawner')
 	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(['2,2']), gold: 999, towerType: 'ice' }).reason, 'occupied')
 	assert.equal(canBuildTower({ position: { x: 2, y: 2 }, pathCells: new Set(), waterCells: new Set(), forestCells: new Set(), spawnerCells: new Set(), castleCells: new Set(), towerCells: new Set(), gold: TOWER_TYPES.ice.cost - 1, towerType: 'ice' }).reason, 'gold')
+})
+
+test('queue reserves its platform and ignores the gold balance', () => {
+	const free = {
+		pathCells: new Set<string>(),
+		waterCells: new Set<string>(),
+		forestCells: new Set<string>(),
+		spawnerCells: new Set<string>(),
+		castleCells: new Set<string>(),
+		towerCells: new Set<string>(),
+	}
+	const item = { id: '4,3', type: 'fire' as const, x: 4, y: 3 }
+
+	// В очередь ставят именно когда денег нет, поэтому золото в проверке
+	// заявки не участвует.
+	assert.deepEqual(canQueueTower({ position: { x: 7, y: 7 }, queue: [], ...free }), {
+		allowed: true,
+		reason: null,
+	})
+
+	assert.deepEqual(buildQueueCells([item]), new Set(['4,3', '5,3', '4,4', '5,4']))
+
+	// Заявка резервирует всю площадку 2×2: пересекающийся якорь не проходит.
+	assert.equal(canQueueTower({ position: { x: 5, y: 3 }, queue: [item], ...free }).reason, 'queued')
+	// Тот же резерв видит и левая кнопка: башня не встанет поверх призрака.
+	assert.equal(
+		canBuildTower({
+			position: { x: 5, y: 4 },
+			...free,
+			queuedCells: buildQueueCells([item]),
+			gold: 999,
+			towerType: 'ice',
+		}).reason,
+		'queued',
+	)
+
+	// Занятая построенной башней клетка важнее свободной очереди.
+	assert.equal(
+		canQueueTower({ position: { x: 2, y: 2 }, queue: [], ...free, towerCells: new Set(['2,2']) })
+			.reason,
+		'occupied',
+	)
+
+	const full = Array.from({ length: MAX_BUILD_QUEUE }, (_, index) => ({
+		id: `${index * 4},0`,
+		type: 'earth' as const,
+		x: index * 4,
+		y: 0,
+	}))
+
+	assert.equal(canQueueTower({ position: { x: 30, y: 30 }, queue: full, ...free }).reason, 'full')
 })
 
 test('tower occupies a 2×2 platform', () => {

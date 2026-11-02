@@ -213,14 +213,24 @@ export function bindCameraControls(
 
 	// Клик по миникарте переносит камеру в выбранную точку мира.
 	const onFocusPoint = (event: Event) => {
-		const detail = (event as CustomEvent<{ x?: number; y?: number }>).detail
+		const detail = (
+			event as CustomEvent<{ x?: number; y?: number; zoom?: number }>
+		).detail
 		const x = detail?.x
 		const y = detail?.y
 
 		if (typeof x !== 'number' || typeof y !== 'number') return
 		if (!Number.isFinite(x) || !Number.isFinite(y)) return
 
+		// Обучение просит масштаб вместе с точкой: на общем плане поле
+		// целиком влезает в экран, и centerOn упирается в границы камеры,
+		// так что указанная клетка так и остаётся точкой «где-то там».
+		// Зум ставим до centerOn — с ним коридор clamp'а шире.
+		if (typeof detail?.zoom === 'number' && Number.isFinite(detail.zoom)) {
+			camera.setZoom(clampZoom(detail.zoom))
+		}
 		camera.centerOn(x, y)
+		clampToBounds()
 	}
 
 	scene.input.on('pointerdown', onPointerDown)

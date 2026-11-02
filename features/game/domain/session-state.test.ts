@@ -6,6 +6,7 @@ import {
 	hasSessionProgress,
 	readSessionEnemies,
 	readSessionEnemy,
+	readSessionQueuedBuild,
 	readSessionTower,
 	restoreBuffs,
 	restoreProgress,
@@ -59,7 +60,8 @@ test('serializes only the fields needed to resume', () => {
 		level: 4,
 		xp: 120,
 		pendingUpgrades: 1,
-		towers: [{ id: 't1', x: 64, y: 96, type: 'fire' as const, level: 2, invested: 200 }],
+		towers: [{ id: 't1', x: 64, y: 96, type: 'fire' as const, level: 2, invested: 200, autoUpgrade: true }],
+		buildQueue: [{ id: '7,9', type: 'earth' as const, x: 7, y: 9 }],
 		enemyStates: [validEnemy],
 	}
 
@@ -71,9 +73,26 @@ test('serializes only the fields needed to resume', () => {
 	assert.equal(session.level, 4)
 	assert.equal(session.xp, 120)
 	assert.equal(session.pendingUpgrades, 1)
-	assert.deepEqual(session.towers, [{ id: 't1', type: 'fire', level: 2, invested: 200 }])
+	assert.deepEqual(session.towers, [{ id: 't1', type: 'fire', level: 2, invested: 200, autoUpgrade: true }])
+	assert.deepEqual(session.buildQueue, [{ id: '7,9', type: 'earth', x: 7, y: 9 }])
 	assert.deepEqual(session.enemies, [validEnemy])
 	assert.equal('x' in (session.towers[0] as object), false)
+})
+
+test('restores queued builds and drops broken entries', () => {
+	assert.deepEqual(readSessionQueuedBuild({ id: ' ignored ', type: 'ice', x: 4, y: 6 }), {
+		id: '4,6',
+		type: 'ice',
+		x: 4,
+		y: 6,
+	})
+
+	// Старые сохранения не знали про очередь: заявка без координат просто
+	// исчезает, а не ломает восстановление всей игры.
+	assert.equal(readSessionQueuedBuild({ type: 'ice', x: 4 }), null)
+	assert.equal(readSessionQueuedBuild({ type: 'lava', x: 4, y: 6 }), null)
+	assert.equal(readSessionQueuedBuild({ type: 'ice', x: -1, y: 6 }), null)
+	assert.equal(readSessionQueuedBuild(null), null)
 })
 
 test('keeps valid enemies and clamps their health to the maximum', () => {
@@ -118,14 +137,23 @@ test('clamps restored towers to valid levels and falls back on invested gold', (
 		type: 'ice',
 		level: MAX_TOWER_LEVEL,
 		invested: 40,
+		autoUpgrade: false,
 	})
 
+	// Сохранение до появления автоулучшения не содержит флага: башня
+	// восстанавливается с выключенным автоулучшением, а не ломает игру.
 	assert.deepEqual(readSessionTower({ id: 't2', type: 'fire', level: 0 }), {
 		id: 't2',
 		type: 'fire',
 		level: 1,
 		invested: TOWER_TYPES.fire.cost,
+		autoUpgrade: false,
 	})
+
+	assert.deepEqual(
+		readSessionTower({ id: 't4', type: 'earth', level: 3, invested: 100, autoUpgrade: true }),
+		{ id: 't4', type: 'earth', level: 3, invested: 100, autoUpgrade: true },
+	)
 
 	assert.equal(readSessionTower({ id: 't3', type: 'lava', level: 1 }), null)
 	assert.equal(readSessionTower({ type: 'ice', level: 1 }), null)

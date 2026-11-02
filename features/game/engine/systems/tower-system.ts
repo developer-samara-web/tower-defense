@@ -10,7 +10,9 @@ import {
 	type TowerType,
 } from '../../config/game.config'
 import {
+	buildQueueCells,
 	canBuildTower,
+	canQueueTower,
 	cellKey,
 	isBoardPosition,
 	isInsideBoardPoint,
@@ -22,11 +24,13 @@ import {
 	towerStats,
 	towerUpgradeCost,
 	TOWER_FOOTPRINT,
+	type QueuedBuild,
 } from '../../domain/game-rules'
 import type { Enemy, SelectionBox, Tower } from '../../types/game.types'
 import type { GameContext } from '../game-context'
 import { castleBuildCells } from '../map/custom-map'
 import {
+	createQueuedTowerView,
 	createTowerGhost,
 	createTowerView,
 	drawBuildPreview,
@@ -42,6 +46,10 @@ import type { EnemySystem } from './enemy-system'
 export type TowerSystem = {
 	selectType: (type: TowerType | null) => void
 	place: (worldX: number, worldY: number, additive: boolean) => void
+	// Правый клик: заявка башни в очередь стройки или снятие заявки.
+	queueAt: (worldX: number, worldY: number) => void
+	// Перерисовывает призраков очереди — после восстановления сохранения.
+	refreshQueue: () => void
 	select: (tower: Tower) => void
 	deselect: () => void
 	// Рамка выделения: рисуем во время протяжки, применяем по её отпусканию.
@@ -85,6 +93,53 @@ export function createTowerSystem(
 	// Последняя позиция курсора в мировых координатах.
 	let hoverX: number | null = null
 	let hoverY: number | null = null
+
+	// Полупрозрачные башни очереди: ключ площадки → спрайт и рамка.
+	// Множество пересоздаём при каждой заявке, поэтому вид всегда
+	// соответствует содержимому state.buildQueue.
+	let queueViews: {
+		body: Phaser.GameObjects.Image
+		cell: Phaser.GameObjects.Graphics
+	}[] = []
+
+	// Причина отказа, кроме нехватки золота: она одна и для постройки,
+	// и для заявки в очередь.
+	type BlockedReason = Exclude<
+		| NonNullable<ReturnType<typeof canBuildTower>['reason']>
+		| NonNullable<ReturnType<typeof canQueueTower>['reason']>,
+		'gold'
+	>
+
+	// Одна формулировка отказа для левой кнопки (стройка) и правой
+	// (заявка в очередь): игрок получает тот же текст, где бы ни кликнул.
+	function blockedMessage(reason: BlockedReason) {
+		switch (reason) {
+			case 'outside':
+				return 'За пределами поля строить нельзя.'
+			case 'castle':
+				return 'Вокруг замка строить нельзя.'
+			case 'path':
+				return 'На дороге строить нельзя.'
+			case 'water':
+				return 'На воде строить нельзя.'
+			case 'forest':
+				return 'В лесу строить нельзя — расчистите место у дороги.'
+			case 'spawner':
+				return 'Вокруг казармы строить нельзя.'
+			case 'occupied':
+				return 'Здесь уже стоит башня — её площадка занята.'
+			case 'queued':
+				return 'Эта площадка уже заявлена в очередь стройки.'
+			case 'full':
+				return 'Очередь стройки полная — расчисти её правым кликом.'
+		}
+	}
+
+	// Клетки очереди для проверки площадки: построенная башня не должна
+	// встать поверх чужой заявки, а заявка — поверх башни.
+	function queuedCells() {
+		return buildQueueCells(ctx.state.buildQueue)
+	}
 
 	// Прячет проекцию башни, когда она не нужна.
 	function hideGhost() {
@@ -134,7 +189,7 @@ export function createTowerSystem(
 		}
 
 		// Зелёная подсветка — строить можно, красная — клетка занята,
-		// это дорога, вода или не хватает золота.
+		// это дорога, вода, чужая очередь или не хватает золота.
 		const buildCheck = canBuildTower({
 			position: { x, y },
 			pathCells: state.pathCells,
@@ -143,6 +198,7 @@ export function createTowerSystem(
 			spawnerCells,
 			castleCells,
 			towerCells: state.towerCells,
+			queuedCells: queuedCells(),
 			gold: state.gold,
 			towerType: type,
 		})
@@ -337,7 +393,7 @@ export function createTowerSystem(
 	// Кликает по полю: выделяет башню, строит новую или снимает выделение.
 	// additive (Ctrl/Cmd/Shift) правит выделение, а не заменяет его.
 	function place(worldX: number, worldY: number, additive: boolean) {
-		const { scene, state, setStatus, publish } = ctx
+		const { state, setStatus, publish } = ctx
 
 		// Запрещаем строительство после поражения.
 		if (state.lives <= 0) return
@@ -383,9 +439,12 @@ export function createTowerSystem(
 			spawnerCells,
 			castleCells,
 			towerCells: state.towerCells,
+			queuedCells: queuedCells(),
 			gold: state.gold,
 			towerType: type,
 		})
+
+		const stats = TOWER_TYPES[type]
 
 		// Клик за пределами поля просто снимает выбор с башни.
 		if (buildCheck.reason === 'outside') {
@@ -394,64 +453,41 @@ export function createTowerSystem(
 			return
 		}
 
-		// Площадку замка и одну клетку вокруг неё держим свободными.
-		if (buildCheck.reason === 'castle') {
-			setStatus('Вокруг замка строить нельзя.')
+		// Любая площадка недоступна по местности — сообщаем причину. Нехватка
+		// золота больше не тупик: правая кнопка ставит башню в очередь.
+		if (buildCheck.reason) {
+			setStatus(
+				buildCheck.reason === 'gold'
+					? `Недостаточно золота. Нужно: ${stats.cost}. Правый клик поставит башню в очередь.`
+					: blockedMessage(buildCheck.reason),
+			)
 			publish()
 			return
 		}
 
-		// Запрещаем строительство на дороге.
-		if (buildCheck.reason === 'path') {
-			setStatus('На дороге строить нельзя.')
-			publish()
-			return
-		}
+		buildTowerAt(type, x, y)
 
-		if (buildCheck.reason === 'water') {
-			setStatus('На воде строить нельзя.')
-			publish()
-			return
-		}
+		// Снимаем выбор с ранее улучшаемой башни.
+		deselect()
 
-		if (buildCheck.reason === 'forest') {
-			setStatus('В лесу строить нельзя — расчистите место у дороги.')
-			publish()
-			return
-		}
+		// Прячем проекцию: клетка теперь занята.
+		hideGhost()
 
-		// Вокруг казармы башни не ставят: слишком близко к выходу монстров.
-		if (buildCheck.reason === 'spawner') {
-			setStatus('Вокруг казармы строить нельзя.')
-			publish()
-			return
-		}
+		setStatus('Башня построена.')
+		publish()
+	}
 
-		// Площадка 2×2 перекрывает уже построенную башню: здесь строить
-		// нельзя. Раньше эта причина не имела своей ветки и проваливалась
-		// к постройке — проекция горела красным, а башня всё равно вставала.
-		if (buildCheck.reason === 'occupied') {
-			setStatus('Здесь уже стоит башня — её площадка занята.')
-			publish()
-			return
-		}
-
-		// Получаем характеристики выбранной башни.
+	// Ставит башню на проверенную площадку: создание спрайта, захват
+	// клеток 2×2 и списание золота. Этим же строит очередь.
+	function buildTowerAt(type: TowerType, x: number, y: number) {
+		const { scene, state } = ctx
 		const stats = TOWER_TYPES[type]
 
-		// Проверяем, хватает ли золота на строительство.
-		if (buildCheck.reason === 'gold') {
-			setStatus(`Недостаточно золота. Нужно: ${stats.cost}.`)
-			publish()
-			return
-		}
-
-		// Создаём графическое представление башни.
 		const view = createTowerView(scene, type, x, y)
 
 		// Добавляем башню в массив объектов, которые будут атаковать врагов.
 		state.towers.push({
-			id: key,
+			id: cellKey({ x, y }),
 			type,
 			level: 1,
 			// Запоминаем полную стоимость постройки для расчёта продажи.
@@ -465,20 +501,135 @@ export function createTowerSystem(
 			levelText: view.levelText,
 		})
 
-		// Снимаем выбор с ранее улучшаемой башни.
-		deselect()
-
 		// Занимаем все четыре клетки площадки и списываем стоимость башни.
 		for (const cell of towerFootprintCells({ x, y })) state.towerCells.add(cell)
 		state.gold -= stats.cost
 		state.stats.buildingsBuilt++
 		state.stats.moneySpent += stats.cost
+	}
 
-		// Прячем проекцию: клетка теперь занята.
-		hideGhost()
+	// Заявка башни в очередь стройки или снятие уже поставленной заявки.
+	// Площадка резервируется сразу, поэтому второй правый клик возвращает
+	// её в свободное состояние, а не плодит дубликат.
+	function queueAt(worldX: number, worldY: number) {
+		const { state, setStatus, publish } = ctx
 
-		setStatus('Башня построена.')
+		if (state.lives <= 0) return
+
+		const x = Math.floor(worldX / CELL_SIZE)
+		const y = Math.floor(worldY / CELL_SIZE)
+		const key = cellKey({ x, y })
+
+		const existing = state.buildQueue.findIndex((item) =>
+			towerFootprintCells({ x: item.x, y: item.y }).includes(key),
+		)
+
+		if (existing >= 0) {
+			state.buildQueue.splice(existing, 1)
+			syncQueueViews()
+			setStatus('Заявка убрана из очереди стройки.')
+			publish()
+			return
+		}
+
+		const type = state.selectedTower
+
+		if (!type) {
+			setStatus('Сначала выбери башню в панели внизу, потом ставь её в очередь.')
+			publish()
+			return
+		}
+
+		const queueCheck = canQueueTower({
+			position: { x, y },
+			pathCells: state.pathCells,
+			waterCells: state.waterCells,
+			forestCells,
+			spawnerCells,
+			castleCells,
+			towerCells: state.towerCells,
+			queue: state.buildQueue,
+		})
+
+		if (queueCheck.reason === 'outside') return
+
+		if (queueCheck.reason) {
+			setStatus(blockedMessage(queueCheck.reason))
+			publish()
+			return
+		}
+
+		state.buildQueue.push({ id: key, type, x, y })
+		syncQueueViews()
+
+		const cost = TOWER_TYPES[type].cost
+		setStatus(
+			state.gold >= cost
+				? `«${TOWER_TYPES[type].name}» в очереди — построится сразу.`
+				: `«${TOWER_TYPES[type].name}» в очереди: ждёт ${cost} золота.`,
+		)
 		publish()
+	}
+
+	// Перерисовывает призраков очереди: их всегда ровно столько, сколько
+	// заявок, поэтому достаточно пересобрать список целиком.
+	function syncQueueViews() {
+		const { scene, state } = ctx
+
+		for (const view of queueViews) {
+			view.body.destroy()
+			view.cell.destroy()
+		}
+		queueViews = []
+
+		for (const item of state.buildQueue) {
+			queueViews.push(createQueuedTowerView(scene, item.type, item.x, item.y))
+		}
+	}
+
+	// Очередь строится сама, как только золота хватает на очередную башню.
+	// Порядок заявок сохраняется, поэтому игрок размечает оборону заранее.
+	function tickBuildQueue() {
+		const { state } = ctx
+
+		if (state.buildQueue.length === 0) return
+
+		let built: QueuedBuild | null = null
+
+		for (let index = 0; index < state.buildQueue.length; ) {
+			const item = state.buildQueue[index]!
+
+			// Проверка площадки на каждом шаге: за время ожидания клетку
+			// могла занять построенная башня — заявка тогда не нужна.
+			const check = canBuildTower({
+				position: { x: item.x, y: item.y },
+				pathCells: state.pathCells,
+				waterCells: state.waterCells,
+				forestCells,
+				spawnerCells,
+				castleCells,
+				towerCells: state.towerCells,
+				gold: state.gold,
+				towerType: item.type,
+			})
+
+			if (check.reason === 'gold') {
+				index += 1
+				continue
+			}
+
+			state.buildQueue.splice(index, 1)
+			if (check.reason) continue
+
+			buildTowerAt(item.type, item.x, item.y)
+			built = item
+		}
+
+		if (!built) return
+
+		syncQueueViews()
+		ctx.setStatus(`Очередь построила «${TOWER_TYPES[built.type].name}».`)
+		ctx.publish()
 	}
 
 	// Списывает стоимость улучшения и поднимает уровень башни.
@@ -734,7 +885,10 @@ export function createTowerSystem(
 		const { scene, state } = ctx
 
 		// После поражения золото не тратим.
-		if (state.lives > 0) tickAutoUpgrade()
+		if (state.lives > 0) {
+			tickBuildQueue()
+			tickAutoUpgrade()
+		}
 
 		// После поражения проекцию башни больше не показываем.
 		if (state.lives <= 0) {
@@ -821,6 +975,10 @@ export function createTowerSystem(
 		deselect()
 		showSelectionBox(null)
 
+		// Очередь живёт вместе с полем: после рестарта заявок нет.
+		state.buildQueue.length = 0
+		syncQueueViews()
+
 		// Убираем проекцию и сбрасываем выбранный тип башни.
 		ghost?.destroy()
 		ghost = null
@@ -834,6 +992,10 @@ export function createTowerSystem(
 	return {
 		selectType,
 		place,
+		queueAt,
+		// Перерисовка призраков очереди нужна сцене после восстановления
+		// сохранения: заявки приходят не из клика.
+		refreshQueue: syncQueueViews,
 		select,
 		deselect,
 		showSelectionBox,

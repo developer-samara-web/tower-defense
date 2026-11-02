@@ -115,37 +115,97 @@ export function spawnerBuildCells(spawners: readonly BoardPosition[]) {
 // пустой, чтобы прорвавшиеся монстры не прятались за стеной башен.
 export const CASTLE_BUILD_CLEARANCE = 1
 
-// Башня занимает только свою площадку 2×2: отступ между соседними
-// площадками не требуется, блокируют лишь уже занятые клетки.
-export function canBuildTower({ position, pathCells, waterCells, forestCells, spawnerCells, castleCells, towerCells, gold, towerType }: {
-	position: BoardPosition
+// Башня, поставленная в очередь: ждёт золото на той же площадке 2×2,
+// что и построенная. Якорь и id совпадают с future-башней, поэтому
+// отмена и постройка работают по одному ключу.
+export type QueuedBuild = {
+	id: string
+	type: TowerType
+	x: number
+	y: number
+}
+
+// Казарма строит одну башню за раз, а очередь длиннее только для того,
+// чтобы игрок успел разметить оборону до следующей волны.
+export const MAX_BUILD_QUEUE = 8
+
+// Клетки, зарезервированные очередью: по ним проходит та же проверка
+// площадки, что по клеткам построенных башен.
+export function buildQueueCells(queue: readonly QueuedBuild[]) {
+	const cells = new Set<string>()
+
+	for (const item of queue) {
+		for (const key of towerFootprintCells({ x: item.x, y: item.y })) {
+			cells.add(key)
+		}
+	}
+
+	return cells
+}
+
+type BuildCellSets = {
 	pathCells: ReadonlySet<string>
 	waterCells: ReadonlySet<string>
 	forestCells: ReadonlySet<string>
 	spawnerCells: ReadonlySet<string>
 	castleCells: ReadonlySet<string>
 	towerCells: ReadonlySet<string>
-	gold: number
-	towerType: TowerType
-}) {
+	queuedCells?: ReadonlySet<string>
+}
+
+// Что мешает поставить башню на площадку, кроме золота. Порядок проверок
+// важен: занятая клетка важнее нехватки денег, поэтому игрок видит
+// настоящую причину, а не «мало золота» на месте чужой башни.
+function buildBlockReason(position: BoardPosition, cells: BuildCellSets) {
 	const corner = { x: position.x + TOWER_FOOTPRINT - 1, y: position.y + TOWER_FOOTPRINT - 1 }
 	if (!isBoardPosition(position) || !isBoardPosition(corner)) {
-		return { allowed: false, reason: 'outside' as const }
+		return 'outside' as const
 	}
 
 	// Площадка 2×2: башня занимает все четыре клетки, поэтому блокирует
 	// любая из них — замок, дорога, вода, лес, казарма или соседняя башня.
 	// Всё, что осталось за пределами занятых клеток, свободно для стройки.
 	for (const key of towerFootprintCells(position)) {
-		if (castleCells.has(key)) return { allowed: false, reason: 'castle' as const }
-		if (pathCells.has(key)) return { allowed: false, reason: 'path' as const }
-		if (waterCells.has(key)) return { allowed: false, reason: 'water' as const }
-		if (forestCells.has(key)) return { allowed: false, reason: 'forest' as const }
-		if (spawnerCells.has(key)) return { allowed: false, reason: 'spawner' as const }
-		if (towerCells.has(key)) return { allowed: false, reason: 'occupied' as const }
+		if (cells.castleCells.has(key)) return 'castle' as const
+		if (cells.pathCells.has(key)) return 'path' as const
+		if (cells.waterCells.has(key)) return 'water' as const
+		if (cells.forestCells.has(key)) return 'forest' as const
+		if (cells.spawnerCells.has(key)) return 'spawner' as const
+		if (cells.towerCells.has(key)) return 'occupied' as const
+		if (cells.queuedCells?.has(key)) return 'queued' as const
 	}
 
+	return null
+}
+
+// Башня занимает только свою площадку 2×2: отступ между соседними
+// площадками не требуется, блокируют лишь уже занятые клетки.
+export function canBuildTower({ position, towerCells, gold, towerType, ...cells }: BuildCellSets & {
+	position: BoardPosition
+	gold: number
+	towerType: TowerType
+}) {
+	const blocked = buildBlockReason(position, { ...cells, towerCells })
+	if (blocked) return { allowed: false, reason: blocked }
+
 	if (gold < TOWER_TYPES[towerType].cost) return { allowed: false, reason: 'gold' as const }
+	return { allowed: true, reason: null }
+}
+
+// Можно ли поставить башню в очередь. Золото здесь не причина отказа:
+// в очередь как раз становятся тогда, когда денег не хватает.
+export function canQueueTower({ position, queue, towerCells, ...cells }: BuildCellSets & {
+	position: BoardPosition
+	queue: readonly QueuedBuild[]
+}) {
+	const queuedCells = buildQueueCells(queue)
+	const blocked = buildBlockReason(position, { ...cells, towerCells, queuedCells })
+	if (blocked) return { allowed: false, reason: blocked }
+
+	if (queue.length >= MAX_BUILD_QUEUE) {
+		return { allowed: false, reason: 'full' as const }
+	}
+
 	return { allowed: true, reason: null }
 }
 

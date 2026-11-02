@@ -9,13 +9,20 @@ import {
 	type TowerType,
 } from '../config/game.config.ts'
 import type { GameSnapshot, GameStats } from './game-state.ts'
-import { createEmptyBuffs, type TowerBuffs } from './game-rules.ts'
+import {
+	createEmptyBuffs,
+	type QueuedBuild,
+	type TowerBuffs,
+} from './game-rules.ts'
 
 export type SessionTower = {
 	id: string
 	type: TowerType
 	level: number
 	invested: number
+	// Автоулучшение переживает перезагрузку: игрок включил его осознанно,
+	// и выключать его молча при восстановлении нельзя.
+	autoUpgrade: boolean
 }
 
 export type SessionEnemy = {
@@ -53,6 +60,8 @@ export type SessionGameState = {
 	resultReported: boolean
 	towers: SessionTower[]
 	enemies: SessionEnemy[]
+	// Очередь стройки: заявки переживают перезагрузку страницы.
+	buildQueue: QueuedBuild[]
 	level: number
 	xp: number
 	pendingUpgrades: number
@@ -88,13 +97,16 @@ export function toSessionGameState(snapshot: GameSnapshot): SessionGameState {
 		buffs: snapshot.buffs,
 		stats: snapshot.stats,
 		resultReported: snapshot.resultReported,
-		towers: snapshot.towers.map(({ id, type, level, invested }) => ({
-			id,
-			type,
-			level,
-			invested,
+		towers: snapshot.towers.map((tower) => ({
+			id: tower.id,
+			type: tower.type,
+			level: tower.level,
+			invested: tower.invested,
+			autoUpgrade: tower.autoUpgrade,
 		})),
 		enemies: snapshot.enemyStates.map((enemy) => ({ ...enemy })),
+		// Заявки очереди переживают перезагрузку: башня достроится сама.
+		buildQueue: snapshot.buildQueue.map((item) => ({ ...item })),
 		level: snapshot.level,
 		xp: snapshot.xp,
 		pendingUpgrades: snapshot.pendingUpgrades,
@@ -167,7 +179,23 @@ export function readSessionTower(raw: unknown): SessionTower | null {
 		type: tower.type,
 		level: clampInt(tower.level, 1, MAX_TOWER_LEVEL),
 		invested: nonNegative(tower.invested, TOWER_TYPES[tower.type].cost),
+		// Старые сохранения не знали про автоулучшение: там оно выключено.
+		autoUpgrade: tower.autoUpgrade === true,
 	}
+}
+
+// Заявка очереди стройки: тип башни и якорь её площадки 2×2.
+export function readSessionQueuedBuild(raw: unknown): QueuedBuild | null {
+	if (!raw || typeof raw !== 'object') return null
+
+	const item = raw as Record<string, unknown>
+	if (!isTowerType(item.type)) return null
+
+	const x = nonNegativeIntOrNull(item.x)
+	const y = nonNegativeIntOrNull(item.y)
+	if (x === null || y === null) return null
+
+	return { id: `${x},${y}`, type: item.type, x, y }
 }
 
 export function readSessionEnemies(raw: unknown): SessionEnemy[] {
