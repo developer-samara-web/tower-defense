@@ -278,19 +278,6 @@ export function createMapSpawner(x: number, y: number, id?: string): MapSpawner 
 	}
 }
 
-let waveCounter = 0
-
-export function createMapWave(): MapWave {
-	waveCounter += 1
-
-	return {
-		id: `wave-${Date.now().toString(36)}-${waveCounter}`,
-		health: 100,
-		speed: 100,
-		count: 100,
-	}
-}
-
 // Клетки, куда может прийти дорога: всё, что примыкает к замку снаружи.
 // Воды и леса тут быть не должно — иначе казарма останется без пути.
 export function castleApproachCells(
@@ -318,13 +305,6 @@ export function castleCenterPoint(castle: Pick<MapCastle, 'x' | 'y'>): RoadPoint
 	return {
 		x: castle.x * CELL_SIZE + CELL_SIZE / 2,
 		y: castle.y * CELL_SIZE + CELL_SIZE / 2,
-	}
-}
-
-export function spawnerCenterPoint(spawner: Pick<MapSpawner, 'x' | 'y'>): RoadPoint {
-	return {
-		x: spawner.x * CELL_SIZE + CELL_SIZE / 2,
-		y: spawner.y * CELL_SIZE + CELL_SIZE / 2,
 	}
 }
 

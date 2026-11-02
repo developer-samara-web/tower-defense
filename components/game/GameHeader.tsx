@@ -21,7 +21,7 @@ export default function GameHeader({
     <>
       {SHOW_FIELD_LOGO && (
         <div className="absolute top-3 left-3 z-40 pointer-events-none drop-shadow-lg">
-          <Image src="/game/logo.png" alt="Logo" width={330} height={180} className="opacity-90" />
+          <Image src="/ui/logo.png" alt="Logo" width={330} height={180} className="opacity-90" />
         </div>
       )}
 

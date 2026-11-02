@@ -8,6 +8,13 @@ import {
 	cellKey,
 	isBoardCell,
 } from '../map/custom-map'
+import {
+	applyPackTextures,
+	PACK_DECOR,
+	PACK_ROAD_TILE_SIZE,
+	packRoadTexturesReady,
+	packRoadTileKey,
+} from './pack-textures'
 
 // Палитра Pixel Art D&D
 const PIXEL_COLORS = {
@@ -42,6 +49,7 @@ export function drawBoard(
 	for (const cell of map.forestCells) occupiedCells.add(cell)
 
 	drawTerrainDetails(scene, occupiedCells, seed)
+	scatterPackDecor(scene, occupiedCells, seed)
 	drawPathEndpoints(scene, map)
 
 	return pathCells
@@ -50,6 +58,11 @@ export function drawBoard(
 // Пустая карта: трава, сетка и затемнение по краю. Редактор
 // дорисовывает на неё воду, лес, дороги и пропсы.
 export function drawStaticBoard(scene: Phaser.Scene) {
+	// Ковры пака подменяют текстуру поля и полотна дороги, поэтому их
+	// собираем до первой отрисовки: за ними придут и дороги, и площадка
+	// под замком.
+	applyPackTextures(scene)
+
 	drawGrass(scene)
 	drawGrid(scene)
 	drawEdgeShade(scene)
@@ -95,9 +108,31 @@ const RIVER_WET_WIDTH = 4
 const RIVER_SHALLOW_WIDTH = 3.5
 const RIVER_SHALLOW_COLOR = 'rgba(210, 250, 255, 0.38)'
 
-// Водоёмы — связные фигуры из клеток. Рисуем их как дороги: круг
-// в центре каждой клетки и перемычки к соседям, поэтому углы
-// скруглены, а форма остаётся произвольной.
+// Берега из пака: те же плитки, что у дороги, поэтому река и дорога
+// выглядят одним арт-сетом. Флаг держим — векторный берег остаётся рабочей
+// fallback веткой, если пака в сцене нет.
+const RIVER_PACK_BANK = true
+
+// На сколько мирных пикселей паковая плитка свешивается за клетку: волна
+// кромки залезает в соседнюю клетку.
+const PACK_RIVER_OVERHANG = (PACK_ROAD_TILE_SIZE - CELL_SIZE) / 2
+
+// Насколько силуэт воды отступает от внешнего края банки. Кромка плитки
+// занимает ~4 px, остаток до песчаной банки.
+const RIVER_PACK_WATER_INSET = 8
+
+// Шаг морфологической эрозии: силуэт прорезаем пересечением копий маски,
+// сдвинутых на пиксель в каждую из сторон.
+const RIVER_EROSION_SHIFTS: ReadonlyArray<readonly [number, number]> = [
+	[1, 0],
+	[-1, 0],
+	[0, 1],
+	[0, -1],
+]
+
+// Водоёмы — связные фигуры из клеток: у каждой свой холст. Берег либо
+// из пака (плитки дороги, внутри которых прорезана вода), либо векторными
+// кольцами вокруг формы.
 function drawRivers(scene: Phaser.Scene, waterCells: string[], seed: number) {
 	if (waterCells.length === 0) return
 
@@ -106,18 +141,24 @@ function drawRivers(scene: Phaser.Scene, waterCells: string[], seed: number) {
 	}
 
 	const groups = groupWaterCells(waterCells)
+	const pack = RIVER_PACK_BANK && packRoadTexturesReady(scene)
+	const vectorGroups: string[][] = []
 
 	for (const cells of groups) {
-		const image = createRiverImage(scene, cells)
+		const image = createRiverImage(scene, cells, pack)
 		if (!image) continue
 
 		scene.add
 			.image(image.left, image.top, image.key)
 			.setOrigin(0, 0)
 			.setDepth(0.4)
+
+		if (!image.pack) vectorGroups.push(cells)
 	}
 
-	scatterRiverDressing(scene, groups, seed)
+	// Пучки травы нужны только векторным берегам: у пакового банки их роль
+	// играет травяная кромка плитки.
+	if (vectorGroups.length > 0) scatterRiverDressing(scene, vectorGroups, seed)
 }
 
 // Каждый водоём — отдельная картинка: текстура воды, обрезанная
@@ -125,7 +166,8 @@ function drawRivers(scene: Phaser.Scene, waterCells: string[], seed: number) {
 function createRiverImage(
 	scene: Phaser.Scene,
 	cells: string[],
-): { key: string; left: number; top: number } | null {
+	usePack: boolean,
+): { key: string; left: number; top: number; pack: boolean } | null {
 	const positions = cells.map(
 		(cell) => cell.split(',').map(Number) as [number, number],
 	)
@@ -137,7 +179,8 @@ function createRiverImage(
 	const shapeWidth = (maxX - minX + 1) * CELL_SIZE
 	const shapeHeight = (maxY - minY + 1) * CELL_SIZE
 
-	// Холст чуть больше фигуры: запас под береговую полосу.
+	// Холст чуть больше фигуры: запас под береговую полосу и под волну
+	// пакового силуэта, свешивающуюся за крайние клетки.
 	const left = minX * CELL_SIZE - RIVER_BANK_MARGIN
 	const top = minY * CELL_SIZE - RIVER_BANK_MARGIN
 	const width = shapeWidth + RIVER_BANK_MARGIN * 2
@@ -151,13 +194,155 @@ function createRiverImage(
 	const source = scene.textures
 		.get('river')
 		.getSourceImage() as HTMLImageElement
+
+	const water = new Set(cells)
+
+	const scratch = document.createElement('canvas')
+	scratch.width = width
+	scratch.height = height
+	const scratchContext = scratch.getContext('2d')
+	if (!scratchContext) return null
+
+	const pack =
+		usePack &&
+		drawPackRiverSurface(scene, context, scratchContext, water, source, left, top)
+
+	if (!pack) {
+		const pattern = createRiverPattern(context, source, left, top, width, height)
+		if (!pattern) return null
+
+		context.fillStyle = pattern
+		context.fillRect(0, 0, width, height)
+
+		// Оставляем текстуру только внутри формы, остальное — прозрачное.
+		context.globalCompositeOperation = 'destination-in'
+		context.fillStyle = '#ffffff'
+		traceWaterShape(context, water, left, top, 0)
+		context.fill()
+		context.globalCompositeOperation = 'source-over'
+	}
+
+	// Тень набирается из двух колец: далёкое совсем прозрачное,
+	// ближнее плотнее — край берега не обрывается в траву тёмной каймой.
+	if (!pack) {
+		paintWaterRing({
+			context,
+			scratchContext,
+			water,
+			offsetX: left,
+			offsetY: top,
+			width,
+			height,
+			outerExpand: RIVER_SHADOW_WIDE_WIDTH,
+			innerExpand: 0,
+			color: RIVER_SHADOW_WIDE_COLOR,
+		})
+
+		// Песок берега лежит на мировых координатах, как и вода: соседние
+		// водоёмы продолжают друг друга, а текстура не плывёт при движении камеры.
+		const bankSource = scene.textures
+			.get(RIVER_SHORE_TEXTURE_KEY)
+			.getSourceImage() as HTMLImageElement
+		const wetSource = scene.textures
+			.get(RIVER_WET_TEXTURE_KEY)
+			.getSourceImage() as HTMLImageElement
+		const bankPattern = createWorldPattern(
+			scratchContext,
+			bankSource,
+			left,
+			top,
+			RIVER_SHORE_TEXTURE_SCALE,
+		)
+		const wetPattern = createWorldPattern(
+			scratchContext,
+			wetSource,
+			left,
+			top,
+			RIVER_SHORE_TEXTURE_SCALE,
+		)
+
+		paintWaterRing({
+			context,
+			scratchContext,
+			water,
+			offsetX: left,
+			offsetY: top,
+			width,
+			height,
+			outerExpand: RIVER_SHADOW_WIDTH,
+			innerExpand: 0,
+			color: RIVER_SHADOW_COLOR,
+		})
+		// Берег — не ровная кайма: по внешнему краю выкусываем песок
+		// вразнобой, чтобы полоса тоньше прижималась к траве.
+		paintWaterRing({
+			context,
+			scratchContext,
+			water,
+			offsetX: left,
+			offsetY: top,
+			width,
+			height,
+			outerExpand: RIVER_SHORE_WIDTH,
+			innerExpand: 0,
+			pattern: bankPattern,
+			decorate: (scratch) =>
+				dressBankEdge(
+					scratch,
+					bankPattern,
+					water,
+					left,
+					top,
+					RIVER_SHORE_WIDTH,
+				),
+		})
+		paintWaterRing({
+			context,
+			scratchContext,
+			water,
+			offsetX: left,
+			offsetY: top,
+			width,
+			height,
+			outerExpand: RIVER_WET_WIDTH,
+			innerExpand: 0,
+			pattern: wetPattern,
+		})
+
+		paintWaterRing({
+			context,
+			scratchContext,
+			water,
+			offsetX: left,
+			offsetY: top,
+			width,
+			height,
+			outerExpand: 0,
+			innerExpand: -RIVER_SHALLOW_WIDTH,
+			color: RIVER_SHALLOW_COLOR,
+			clipToWater: true,
+		})
+	}
+
+	texture.refresh()
+
+	return { key, left, top, pack }
+}
+
+// Узор воды привязываем к мировым координатам, а не к холсту водоёма,
+// но сдвиг ограничиваем периодом за вычетом размера фигуры: водоём
+// целиком ложится внутрь одного повтора, и шва на нём не видно.
+function createRiverPattern(
+	context: CanvasRenderingContext2D,
+	source: HTMLImageElement,
+	left: number,
+	top: number,
+	width: number,
+	height: number,
+): CanvasPattern | null {
 	const pattern = context.createPattern(source, 'repeat')
 	if (!pattern) return null
 
-	// Сдвигаем узор по положению водоёма на карте: так соседние
-	// водоёмы не показывают одинаковый кусок текстуры. Сдвиг ограничен
-	// периодом за вычетом размера водоёма, чтобы фигура целиком легла
-	// внутрь одного повтора и на ней не было шва текстуры.
 	const tile = source.width * RIVER_TEXTURE_SCALE
 	pattern.setTransform(
 		new DOMMatrix()
@@ -168,127 +353,91 @@ function createRiverImage(
 			.scale(RIVER_TEXTURE_SCALE),
 	)
 
-	context.fillStyle = pattern
-	context.fillRect(0, 0, width, height)
+	return pattern
+}
 
-	const water = new Set(cells)
+// Паковый берег собирается из дорожных плиток, поэтому река и дорога
+// выглядят одним арт-сетом. Воду кладём не на весь песок, а внутрь него:
+// маску силуэта эродируем на ширину банки. Эрозия — пересечение копий,
+// сдвинутых на пиксель, поэтому отступ одинаков вдоль всего края и
+// скругления на поворотах сохраняются.
+function drawPackRiverSurface(
+	scene: Phaser.Scene,
+	context: CanvasRenderingContext2D,
+	maskContext: CanvasRenderingContext2D,
+	water: ReadonlySet<string>,
+	source: HTMLImageElement,
+	left: number,
+	top: number,
+): boolean {
+	const width = context.canvas.width
+	const height = context.canvas.height
 
-	// Оставляем текстуру только внутри формы, остальное — прозрачное.
-	context.globalCompositeOperation = 'destination-in'
-	context.fillStyle = '#ffffff'
-	traceWaterShape(context, water, left, top, 0)
-	context.fill()
-	context.globalCompositeOperation = 'source-over'
+	maskContext.clearRect(0, 0, width, height)
+	if (!drawPackRiverBank(scene, maskContext, water, left, top)) return false
 
-	// Берег рисуем кольцами от края воды: сначала тень, затем
-	// песчаная полоса, а отмель — уже поверх воды.
-	const scratch = document.createElement('canvas')
-	scratch.width = width
-	scratch.height = height
-	const scratchContext = scratch.getContext('2d')
-	if (!scratchContext) return null
+	context.drawImage(maskContext.canvas, 0, 0)
 
-	// Песок берега лежит на мировых координатах, как и вода: соседние
-	// водоёмы продолжают друг друга, а текстура не плывёт при движении камеры.
-	const bankSource = scene.textures
-		.get(RIVER_SHORE_TEXTURE_KEY)
-		.getSourceImage() as HTMLImageElement
-	const wetSource = scene.textures
-		.get(RIVER_WET_TEXTURE_KEY)
-		.getSourceImage() as HTMLImageElement
-	const bankPattern = createWorldPattern(
-		scratchContext,
-		bankSource,
-		left,
-		top,
-		RIVER_SHORE_TEXTURE_SCALE,
-	)
-	const wetPattern = createWorldPattern(
-		scratchContext,
-		wetSource,
-		left,
-		top,
-		RIVER_SHORE_TEXTURE_SCALE,
-	)
+	const copy = document.createElement('canvas')
+	copy.width = width
+	copy.height = height
+	const copyContext = copy.getContext('2d')
+	if (!copyContext) return false
 
-	// Тень набирается из двух колец: далёкое совсем прозрачное,
-	// ближнее плотнее — край берега не обрывается в траву тёмной каймой.
-	paintWaterRing({
-		context,
-		scratchContext,
-		water,
-		offsetX: left,
-		offsetY: top,
-		width,
-		height,
-		outerExpand: RIVER_SHADOW_WIDE_WIDTH,
-		innerExpand: 0,
-		color: RIVER_SHADOW_WIDE_COLOR,
-	})
-	paintWaterRing({
-		context,
-		scratchContext,
-		water,
-		offsetX: left,
-		offsetY: top,
-		width,
-		height,
-		outerExpand: RIVER_SHADOW_WIDTH,
-		innerExpand: 0,
-		color: RIVER_SHADOW_COLOR,
-	})
-	// Берег — не ровная кайма: по внешнему краю выкусываем песок
-	// вразнобой, чтобы полоса тоньше прижималась к траве.
-	paintWaterRing({
-		context,
-		scratchContext,
-		water,
-		offsetX: left,
-		offsetY: top,
-		width,
-		height,
-		outerExpand: RIVER_SHORE_WIDTH,
-		innerExpand: 0,
-		pattern: bankPattern,
-		decorate: (scratch) =>
-			dressBankEdge(
-				scratch,
-				bankPattern,
-				water,
-				left,
-				top,
-				RIVER_SHORE_WIDTH,
-			),
-	})
-	paintWaterRing({
-		context,
-		scratchContext,
-		water,
-		offsetX: left,
-		offsetY: top,
-		width,
-		height,
-		outerExpand: RIVER_WET_WIDTH,
-		innerExpand: 0,
-		pattern: wetPattern,
-	})
-	paintWaterRing({
-		context,
-		scratchContext,
-		water,
-		offsetX: left,
-		offsetY: top,
-		width,
-		height,
-		outerExpand: 0,
-		innerExpand: -RIVER_SHALLOW_WIDTH,
-		color: RIVER_SHALLOW_COLOR,
-		clipToWater: true,
-	})
+	for (let inset = 0; inset < RIVER_PACK_WATER_INSET; inset += 1) {
+		copyContext.clearRect(0, 0, width, height)
+		copyContext.drawImage(maskContext.canvas, 0, 0)
+		maskContext.globalCompositeOperation = 'destination-in'
 
-	texture.refresh()
+		for (const [dx, dy] of RIVER_EROSION_SHIFTS) {
+			maskContext.drawImage(copy, dx, dy)
+		}
 
-	return { key, left, top }
+		maskContext.globalCompositeOperation = 'source-over'
+	}
+
+	// Внутри эродированной маски узор воды лежит на тех же мировых
+	// координатах, что и у векторного берега.
+	const pattern = createRiverPattern(maskContext, source, left, top, width, height)
+	if (!pattern) return false
+
+	maskContext.globalCompositeOperation = 'source-atop'
+	maskContext.fillStyle = pattern
+	maskContext.fillRect(0, 0, width, height)
+	maskContext.globalCompositeOperation = 'source-over'
+
+	context.drawImage(maskContext.canvas, 0, 0)
+
+	return true
+}
+
+// Плитка на клетку: банка берётся той же маской соседей, что и дорога,
+// поэтому кромка обходит изгиб русла без швов.
+function drawPackRiverBank(
+	scene: Phaser.Scene,
+	context: CanvasRenderingContext2D,
+	water: ReadonlySet<string>,
+	left: number,
+	top: number,
+): boolean {
+	for (const key of water) {
+		const [x = 0, y = 0] = key.split(',').map(Number)
+		const tileKey = packRoadTileKey(roadNeighborMask(water, x, y), scene)
+		if (!tileKey) return false
+
+		const tile = scene.textures.get(tileKey).getSourceImage()
+		if (!tile) return false
+
+		context.drawImage(
+			tile as CanvasImageSource,
+			x * CELL_SIZE - PACK_RIVER_OVERHANG - left,
+			y * CELL_SIZE - PACK_RIVER_OVERHANG - top,
+			PACK_ROAD_TILE_SIZE,
+			PACK_ROAD_TILE_SIZE,
+		)
+	}
+
+	return true
 }
 
 // Рисует кольцо между двумя расширениями формы воды: полоса снаружи
@@ -723,9 +872,11 @@ const FOREST_VARIANTS: ForestVariant[] = [
 	{ frame: 'bush', width: 35, height: 48 },
 ]
 
-// Часть клеток оставляем пустой, чтобы чаща дышала, а не выглядела ковром.
-const FOREST_TREE_SKIP = 0.14
-const FOREST_SECOND_TREE = 0.18
+// Пустых клеток почти не остаётся, а купы собираются из двух-трёх
+// деревьев: лес должен читаться стеной, а не редким посадочным рядком.
+const FOREST_TREE_SKIP = 0.05
+const FOREST_SECOND_TREE = 0.62
+const FOREST_THIRD_TREE = 0.3
 const FOREST_DEPTH_MIN = 0.6
 const FOREST_DEPTH_MAX = 0.78
 
@@ -762,11 +913,16 @@ function drawForest(scene: Phaser.Scene, forestCells: string[], seed: number) {
 		const centerX = x * CELL_SIZE + CELL_SIZE / 2
 		const centerY = y * CELL_SIZE + CELL_SIZE / 2
 
-		plantTree(scene, random, centerX, centerY, 1)
+		plantTree(scene, random, centerX, centerY, 1, 1)
 
-		// Второе дерево делает купу плотнее и убирает ощущение сетки клеток.
+		// Подлесок в той же купе: ниже ростом и ближе к стволу соседа,
+		// поэтому купы сливаются в сплошную стену, а не в сетку клеток.
 		if (random() < FOREST_SECOND_TREE) {
-			plantTree(scene, random, centerX, centerY, 0.62)
+			plantTree(scene, random, centerX, centerY, 0.62, 0.7)
+		}
+
+		if (random() < FOREST_THIRD_TREE) {
+			plantTree(scene, random, centerX, centerY, 0.5, 0.55)
 		}
 	}
 }
@@ -777,6 +933,7 @@ function plantTree(
 	centerX: number,
 	centerY: number,
 	scale: number,
+	spread: number,
 ) {
 	const pick = random()
 	const variant =
@@ -788,8 +945,8 @@ function plantTree(
 	if (!variant) return
 
 	const size = scale * (0.85 + random() * 0.35)
-	const x = centerX + (random() - 0.5) * CELL_SIZE * 0.6
-	const y = centerY + (random() - 0.5) * CELL_SIZE * 0.5
+	const x = centerX + (random() - 0.5) * CELL_SIZE * 0.6 * spread
+	const y = centerY + (random() - 0.5) * CELL_SIZE * 0.5 * spread
 
 	// Сортировка по Y: нижние деревья перекрывают верхние и лес читается объёмно.
 	const depth =
@@ -804,16 +961,25 @@ function plantTree(
 		.setDepth(depth)
 }
 
-// Текстура дороги 800×800: уменьшаем её в восемь раз, чтобы камни
-// были размером с мелкие детали травы и ясно читались на клетке.
+// Полотно дороги: без пака это камень 800×800, с паком — ковёр 512×512
+// из песчаных плиток. Масштаб держит одну плитку пака примерно в две
+// клетки поля: при 0.25 ковёр кладётся периодом в 128 пикселей, и
+// песчинки остаются читаемыми на 26-пиксельной дороге.
 const PATH_TEXTURE_PREFIX = 'path-shape-'
-const PATH_TEXTURE_SCALE = 0.05
+const PATH_TEXTURE_SCALE = 0.25
+
+// Старая кромка дороги: тёмная полоса утоптанной земли, в которую
+// нарисованы трава и камешки, плюс отдельные пучки и галька поверх
+// границы полотна. Под песок из пака она не подходит — по краям
+// дороги остаются зелёные полудиски старой травы. Код и текстуры
+// сохранены: флаг возвращает прежний край одним значением.
+const ROAD_EDGE_DECOR = false
 
 // Кромка дороги: полоса утоптанной земли с травой и камешками.
 // Канвасы кромки тоже пересоздаются при каждом запуске сцены.
 const ROAD_SHOULDER_TEXTURE_PREFIX = 'road-shoulder-'
 const ROAD_SHOULDER_TEXTURE_KEY = 'road-edge'
-const ROAD_SHOULDER_TEXTURE_SCALE = 0.05
+const ROAD_SHOULDER_TEXTURE_SCALE = 0.15
 const ROAD_SHOULDER_WIDTH = 7
 
 // Декор, который смягчает стык полотна с травой: пучки травы,
@@ -858,7 +1024,33 @@ function drawPath(
 
 	const roadWidth = CELL_SIZE - 6
 	const roadRadius = roadWidth / 2
-	const shadowPad = ROAD_SHOULDER_WIDTH + 2
+
+	//* Клетки дорог и площадки под замком: по ним кладётся полотно и на
+	//* них нельзя строить. *
+	const pathCells = new Set<string>()
+
+	for (const road of map.roads) {
+		for (let i = 0; i < road.length - 1; i++) {
+			addLineCells(pathCells, road[i], road[i + 1])
+		}
+	}
+
+	// Замок занимает клетки вокруг своей точки — строить на них нельзя.
+	for (const cell of castleCellKeys(map.castle)) {
+		pathCells.add(cell)
+	}
+
+	// Песок из пака — это тайлы перехода в траву: полотно, углы и тупики
+	// приходят из маски соседей, поэтому капсулы, тень и кромка ему не
+	// нужны. Без пака остаётся прежняя дорога камнем.
+	if (packRoadTexturesReady(scene)) {
+		drawPackRoadSurface(scene, pathCells)
+		return pathCells
+	}
+
+	// Без кромки тень остаётся узкой каймой прямо под полотном: широкая
+	// подсветка была нужна, чтобы утоптанная земля не висела в воздухе.
+	const shadowPad = ROAD_EDGE_DECOR ? ROAD_SHOULDER_WIDTH + 2 : 2
 
 	// Тень по краю полотна лежит под всеми сегментами сразу: так на стыках
 	// капсул не проступают тёмные дуги от соседних теней.
@@ -949,19 +1141,21 @@ function drawPath(
 	//* из-под дороги полосой утоптанной земли. *
 	let shoulderIndex = 0
 
-	for (const { start, end } of segments) {
-		const shoulder = createRoadShoulder(
-			scene,
-			start,
-			end,
-			`${ROAD_SHOULDER_TEXTURE_PREFIX}${shoulderIndex++}`,
-		)
-		if (!shoulder) continue
+	if (ROAD_EDGE_DECOR) {
+		for (const { start, end } of segments) {
+			const shoulder = createRoadShoulder(
+				scene,
+				start,
+				end,
+				`${ROAD_SHOULDER_TEXTURE_PREFIX}${shoulderIndex++}`,
+			)
+			if (!shoulder) continue
 
-		scene.add
-			.image(shoulder.left, shoulder.top, shoulder.key)
-			.setOrigin(0, 0)
-			.setDepth(0.95)
+			scene.add
+				.image(shoulder.left, shoulder.top, shoulder.key)
+				.setOrigin(0, 0)
+				.setDepth(0.95)
+		}
 	}
 
 	let imageIndex = 0
@@ -981,7 +1175,7 @@ function drawPath(
 			.setDepth(1)
 	}
 
-	scatterRoadDressing(scene, segments, seed)
+	if (ROAD_EDGE_DECOR) scatterRoadDressing(scene, segments, seed)
 
 	//* Площадка 3×3 клетки под замком: сквозь прозрачные края
 	//* спрайта крепости просвечивает дорога, а не трава. *
@@ -998,32 +1192,34 @@ function drawPath(
 		ROAD_PLATE_RADIUS + shadowPad,
 	)
 
-	const plateShoulderSize = plateSize + ROAD_SHOULDER_WIDTH * 2
-	const plateShoulder = createRoadCanvas(
-		scene,
-		`${ROAD_SHOULDER_TEXTURE_PREFIX}plate`,
-		Math.round(plateLeft - ROAD_SHOULDER_WIDTH),
-		Math.round(plateTop - ROAD_SHOULDER_WIDTH),
-		Math.round(plateShoulderSize),
-		Math.round(plateShoulderSize),
-		(context) => {
-			context.roundRect(
-				0,
-				0,
-				plateShoulderSize,
-				plateShoulderSize,
-				ROAD_PLATE_RADIUS + ROAD_SHOULDER_WIDTH,
-			)
-		},
-		ROAD_SHOULDER_TEXTURE_KEY,
-		ROAD_SHOULDER_TEXTURE_SCALE,
-	)
+	if (ROAD_EDGE_DECOR) {
+		const plateShoulderSize = plateSize + ROAD_SHOULDER_WIDTH * 2
+		const plateShoulder = createRoadCanvas(
+			scene,
+			`${ROAD_SHOULDER_TEXTURE_PREFIX}plate`,
+			Math.round(plateLeft - ROAD_SHOULDER_WIDTH),
+			Math.round(plateTop - ROAD_SHOULDER_WIDTH),
+			Math.round(plateShoulderSize),
+			Math.round(plateShoulderSize),
+			(context) => {
+				context.roundRect(
+					0,
+					0,
+					plateShoulderSize,
+					plateShoulderSize,
+					ROAD_PLATE_RADIUS + ROAD_SHOULDER_WIDTH,
+				)
+			},
+			ROAD_SHOULDER_TEXTURE_KEY,
+			ROAD_SHOULDER_TEXTURE_SCALE,
+		)
 
-	if (plateShoulder) {
-		scene.add
-			.image(plateShoulder.left, plateShoulder.top, plateShoulder.key)
-			.setOrigin(0, 0)
-			.setDepth(0.95)
+		if (plateShoulder) {
+			scene.add
+				.image(plateShoulder.left, plateShoulder.top, plateShoulder.key)
+				.setOrigin(0, 0)
+				.setDepth(0.95)
+		}
 	}
 
 	const plate = createRoadPlate(
@@ -1042,20 +1238,48 @@ function drawPath(
 	}
 
 	//* Возвращаем клетки пути для размещения башен и декора. *
-	const pathCells = new Set<string>()
-
-	for (const road of map.roads) {
-		for (let i = 0; i < road.length - 1; i++) {
-			addLineCells(pathCells, road[i], road[i + 1])
-		}
-	}
-
-	// Замок занимает клетки вокруг своей точки — строить на них нельзя.
-	for (const cell of castleCellKeys(map.castle)) {
-		pathCells.add(cell)
-	}
-
 	return pathCells
+}
+
+// Плитка дороги собирается под маску соседей и кладётся ровно в клетку:
+// её полотно занимает клетку целиком, а травяная кромка свешивается
+// на 4 px в соседние клетки. Тайл больше клетки не делать — волна
+// кромки стыкуется только на границе клетки.
+function drawPackRoadSurface(scene: Phaser.Scene, cells: ReadonlySet<string>) {
+	for (const key of cells) {
+		const [x = 0, y = 0] = key.split(',').map(Number)
+		const mask = roadNeighborMask(cells, x, y)
+		const texture = packRoadTileKey(mask, scene)
+		if (!texture) continue
+
+		scene.add
+			.image(
+				x * CELL_SIZE + CELL_SIZE / 2,
+				y * CELL_SIZE + CELL_SIZE / 2,
+				texture,
+			)
+			.setDisplaySize(PACK_ROAD_TILE_SIZE, PACK_ROAD_TILE_SIZE)
+			.setDepth(1)
+	}
+}
+
+// Стороны клетки, у которых сосед — тоже дорога. Клетки за краем поля
+// считаются дорогой, чтобы дорога уходила за границу без тупика.
+function roadNeighborMask(cells: ReadonlySet<string>, x: number, y: number) {
+	let mask = ''
+
+	if (isRoadNeighbor(cells, x, y - 1)) mask += 'N'
+	if (isRoadNeighbor(cells, x + 1, y)) mask += 'E'
+	if (isRoadNeighbor(cells, x, y + 1)) mask += 'S'
+	if (isRoadNeighbor(cells, x - 1, y)) mask += 'W'
+
+	return mask
+}
+
+function isRoadNeighbor(cells: ReadonlySet<string>, x: number, y: number) {
+	if (!isBoardCell(x, y)) return true
+
+	return cells.has(cellKey(x, y))
 }
 
 // Капсула сегмента: канвас по габаритам и скруглённый прямоугольник
@@ -1407,6 +1631,62 @@ function drawTerrainDetails(
 			}
 		}
 	}
+}
+
+// Камни, кусты, пни и бочки из пака вместо процедурных квадратиков.
+// Ставим редко и только на свободной земле: декор не должен спорить с
+// лесом и мешать читать поле.
+const PACK_DECOR_CHANCE = 0.05
+const PACK_DECOR_WEIGHT = PACK_DECOR.reduce((sum, item) => sum + item.weight, 0)
+
+function scatterPackDecor(
+	scene: Phaser.Scene,
+	occupiedCells: ReadonlySet<string>,
+	seed: number,
+) {
+	if (!PACK_DECOR.some((entry) => scene.textures.exists(entry.key))) return
+
+	const random = createSeededRandom(seed ^ 0x9e3779b)
+
+	for (let y = 0; y < ROWS; y++) {
+		for (let x = 0; x < COLS; x++) {
+			if (occupiedCells.has(`${x},${y}`)) continue
+
+			if (random() > PACK_DECOR_CHANCE) continue
+
+			const entry = pickPackDecor(random())
+			if (!entry || !scene.textures.exists(entry.key)) continue
+
+			const source = scene.textures
+				.get(entry.key)
+				.getSourceImage() as HTMLImageElement
+			if (!source?.width) continue
+
+			const height = entry.size * (source.height / source.width)
+
+			scene.add
+				.image(
+					x * CELL_SIZE + CELL_SIZE / 2 + (random() - 0.5) * CELL_SIZE * 0.5,
+					y * CELL_SIZE + CELL_SIZE / 2 + (random() - 0.5) * CELL_SIZE * 0.5,
+					entry.key,
+				)
+				.setDisplaySize(entry.size, height)
+				.setFlipX(random() > 0.5)
+				.setDepth(0.5)
+		}
+	}
+}
+
+// Выбор пропа по весу: камней больше, чем пней и бочек.
+function pickPackDecor(value: number) {
+	let remaining = value * PACK_DECOR_WEIGHT
+
+	for (const entry of PACK_DECOR) {
+		remaining -= entry.weight
+		if (remaining < 0) return entry
+	}
+
+	return PACK_DECOR[0]
 }
 
 // Во сколько раз спрайт крепости больше занимаемых ею клеток.

@@ -50,7 +50,7 @@ export default function ProfileScreen({
 	]
 
 	return (
-		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
+		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/ui/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
 			<div className="fixed inset-0 bg-[#05080a]/85" />
 
 			<div className="relative mx-auto w-full max-w-3xl pb-6">

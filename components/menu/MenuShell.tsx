@@ -18,13 +18,13 @@ export default function MenuShell({
 	wide,
 }: Props) {
 	return (
-		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
+		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/ui/background.png)] bg-cover bg-center font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
 			<div className="fixed inset-0 bg-gradient-to-b from-[#05080a]/70 via-[#0a0e12]/40 to-[#05080a]/85" />
 
 			<div className="relative flex min-h-full items-center justify-center px-4 py-4">
 				<div className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
 					<Image
-						src="/game/logo.png"
+						src="/ui/logo.png"
 						alt="Legends of Prigranica"
 						width={330}
 						height={180}

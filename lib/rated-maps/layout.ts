@@ -321,12 +321,6 @@ export function createBoard(
 	return builder
 }
 
-// Полоса свободно травы вдоль дорог: без неё игрок не может приткнуть
-// башню у поворота, и карта кажется нечестной уже в первой волне.
-export function roadBuildCorridor(draft: MapDraft, width = 3): Set<string> {
-	return dilate(new Set(draft.roadCells), width, { cols: draft.cols, rows: draft.rows })
-}
-
 // Сколько башен помещается в зоне поражения дороги. Считаем по
 // фактическим блокирующим клеткам карты, а не «на глаз».
 export function buildSlots(draft: MapDraft, rangeCells: number): number {

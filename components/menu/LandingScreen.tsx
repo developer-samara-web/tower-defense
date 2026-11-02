@@ -6,12 +6,12 @@ type LandingScreenProps = {
 
 export default function LandingScreen({ onStart }: LandingScreenProps) {
 	return (
-		<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/game/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
+		<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/ui/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
 			<div className="absolute inset-0 bg-gradient-to-b from-[#05080a]/70 via-[#0a0e12]/35 to-[#05080a]/85" />
 
 			<div className="relative flex w-full max-w-lg flex-col items-center text-center">
 				<Image
-					src="/game/logo.png"
+					src="/ui/logo.png"
 					alt="Legends of Prigranica"
 					width={330}
 					height={180}

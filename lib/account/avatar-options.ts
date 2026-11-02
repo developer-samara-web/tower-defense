@@ -10,7 +10,7 @@ export type FrameOption = {
 	src: string | null
 }
 
-// Портреты лежат в public/users/avatars, рамки — в public/users/framings.
+// Портреты лежат в public/avatars, рамки — в public/avatars/frames.
 // Порядок id совпадает с нумерацией файлов, поэтому новую картинку
 // достаточно положить в папку и дописать строкой ниже.
 const AVATAR_LABELS: Array<[string, string]> = [
@@ -42,7 +42,7 @@ const FRAME_LABELS: Array<[string, string]> = [
 export const AVATAR_OPTIONS: AvatarOption[] = AVATAR_LABELS.map(([label, id]) => ({
 	id,
 	label,
-	src: `/users/avatars/${id}.png`,
+	src: `/avatars/${id}.png`,
 }))
 
 // Первая позиция — «без рамки»: id сохраняется, картинки нет.
@@ -51,26 +51,39 @@ export const FRAME_OPTIONS: FrameOption[] = [
 	...FRAME_LABELS.map(([label, id]) => ({
 		id,
 		label,
-		src: `/users/framings/${id}.png`,
+		src: `/avatars/frames/${id}.png`,
 	})),
 ]
 
-export const DEFAULT_AVATAR = AVATAR_OPTIONS[0].id
-export const DEFAULT_FRAME = 'none'
+// Аватар и рамка по умолчанию выдаются при регистрации. В диалоге выбора
+// их нет: игрок всегда берёт один из готовых образов.
+const DEFAULT_AVATAR_SRC = '/avatars/avatar-default.png'
+const DEFAULT_FRAME_SRC = '/avatars/frames/framing-default.png'
+
+export const DEFAULT_AVATAR = 'default'
+export const DEFAULT_FRAME = 'default'
 
 export function avatarSrc(id: string | null | undefined) {
+	if (id === DEFAULT_AVATAR) return DEFAULT_AVATAR_SRC
 	const option = AVATAR_OPTIONS.find((item) => item.id === id)
 	return (option ?? AVATAR_OPTIONS[0]).src
 }
 
 export function frameSrc(id: string | null | undefined) {
+	if (id === DEFAULT_FRAME) return DEFAULT_FRAME_SRC
 	return FRAME_OPTIONS.find((item) => item.id === id)?.src ?? null
 }
 
 export function isAvatarId(value: unknown): value is string {
-	return typeof value === 'string' && AVATAR_OPTIONS.some((item) => item.id === value)
+	return (
+		value === DEFAULT_AVATAR ||
+		(typeof value === 'string' && AVATAR_OPTIONS.some((item) => item.id === value))
+	)
 }
 
 export function isFrameId(value: unknown): value is string {
-	return typeof value === 'string' && FRAME_OPTIONS.some((item) => item.id === value)
+	return (
+		value === DEFAULT_FRAME ||
+		(typeof value === 'string' && FRAME_OPTIONS.some((item) => item.id === value))
+	)
 }

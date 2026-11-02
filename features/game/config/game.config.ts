@@ -306,11 +306,3 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyStats> = {
 		color: 0x263746,
 	},
 }
-
-export const COLORS = {
-	grass: 0xf8fbfd,
-	path: 0xF2F8FE,
-	enemyBorder: 0xffffff,
-	health: 0x4593f8,
-	healthBackground: 0xd5e7fc,
-}

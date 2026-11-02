@@ -32,7 +32,7 @@ export default function AuthScreen({
 	onBack,
 }: AuthScreenProps) {
 	return (
-		<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/game/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
+		<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/ui/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
 			<div className="absolute inset-0 bg-gradient-to-b from-[#05080a]/75 via-[#0a0e12]/45 to-[#05080a]/85" />
 
 			<div className="relative w-full max-w-md rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-5 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.2)] sm:p-7">
@@ -47,7 +47,7 @@ export default function AuthScreen({
 
 				<div className="mb-5 flex flex-col items-center gap-3">
 					<Image
-						src="/game/logo.png"
+						src="/ui/logo.png"
 						alt="Legends of Prigranica"
 						width={330}
 						height={180}

@@ -91,12 +91,14 @@ npm run build
 ```
 app/                      Next.js App Router: страницы и API-роуты
 components/game/          React-оболочка: HUD, оверлеи, миникарта, меню
+components/map-editor/    Редактор карт: холст, диалоги замка и казарм
 components/menu/          Экраны меню, профиля и таблицы рекордов
 features/account/         Типы профиля и рекордов
 features/game/
   config/game.config.ts   Баланс: башни, враги, ресурсы, константы
   domain/                 Чистые правила и состояние игры, формат сессии (+ тесты)
-  engine/board/           Отрисовка поля, дороги и ландшафта
+  editor/                 MapEditorScene — сцена редактора
+  engine/board/           Отрисовка поля, дорог, рек, леса и замка
   engine/map/             Генерация карты по seed (+ тесты)
   engine/rendering/       Внешний вид врагов и башен
   engine/scenes/          MainScene — сцена-клей
@@ -105,8 +107,27 @@ features/game/
   types/                  Типы игровых сущностей
 hooks/                    useAuth, useGame, useGameUI, useLeaderboard, useProfile
 lib/                      JWT, подключение к MongoDB, сервисы API
+lib/rated-maps/           Генерация, балансировка и каталог рейтинговых карт
 models/                   Mongoose-схемы User и Session
 types/                    Общие типы приложения
+```
+
+## Что лежит в public
+
+```
+fonts/                    Семейство CeraPro
+ui/                       Фон экранов и логотип
+avatars/                  Портреты игроков, frames/ — рамки к ним;
+                          avatar-default / frames/framing-default выдаются при регистрации
+game/
+  terrain/                Квадратные текстуры поля: трава, вода, песок
+  terrain-pack/           Тайлы пака «Top-Down Simple Summer», которые реально загружаются
+  roads/                  Старая кромка дороги, пучки травы и галька
+  rivers/                 Сухой и мокрый берег рек
+  forest/                 Атлас деревьев (PNG + JSON рамок)
+  buildings/              Замок, ворота сторон и казарма
+  towers/                 Башни: иконка вида и уровни 1–5
+  enemies/                Враги по размерам
 ```
 
 Phaser и React общаются через браузерные события: `td:state`, `td:select-tower`, `td:start-wave`, `td:upgrade-tower`, `td:deselect-tower`, `td:pick-upgrade`, `td:pause`, `td:resume`, `td:restart`, `td:game-over`. Состояние публикуется не чаще 10 раз в секунду, а автосейв уходит только при изменении данных.

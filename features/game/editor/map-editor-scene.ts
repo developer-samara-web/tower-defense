@@ -8,6 +8,7 @@ import {
 	drawSpawnerAt,
 	drawStaticBoard,
 } from '../engine/board/board-renderer'
+import { loadPackTextures } from '../engine/board/pack-textures'
 import {
 	canPlaceSpawner,
 	castleCenterPoint,
@@ -70,30 +71,34 @@ export class MapEditorScene extends Phaser.Scene {
 	}
 
 	preload() {
-		this.load.image('grass', '/game/grid/grass.png')
-		this.load.image('river', '/game/grid/river.png')
-		this.load.image('castle', '/game/path/castle.png')
-		this.load.image('gate-bottom', '/game/path/gate-bottom.png')
-		this.load.image('barracks', '/game/monsters/barracks.png')
-		this.load.image('river-bank', '/game/rivers/river-bank.png')
-		this.load.image('river-bank-wet', '/game/rivers/river-bank-wet.png')
+		this.load.image('grass', '/game/terrain/grass.png')
+		this.load.image('river', '/game/terrain/river.png')
+		this.load.image('castle', '/game/buildings/castle.png')
+		this.load.image('gate-bottom', '/game/buildings/gate-bottom.png')
+		this.load.image('barracks', '/game/buildings/barracks.png')
+		this.load.image('river-bank', '/game/rivers/bank.png')
+		this.load.image('river-bank-wet', '/game/rivers/bank-wet.png')
 
 		// Тот же декор кромки, что и в игре: берег водоёма усыпан
 		// пучками травы и камешками из этих текстур.
 		for (let index = 1; index <= 4; index++) {
 			this.load.image(
 				`road-grass-fringe-${index}`,
-				`/game/path/road-grass-fringe-${index}.png`,
+				`/game/roads/fringe-${index}.png`,
 			)
 		}
 		for (let index = 1; index <= 3; index++) {
 			this.load.image(
 				`road-pebbles-${index}`,
-				`/game/path/road-pebbles-${index}.png`,
+				`/game/roads/pebbles-${index}.png`,
 			)
 		}
 		this.load.image('forest-atlas', '/game/forest/atlas.png')
 		this.load.json('forest-frames', '/game/forest/atlas.json')
+
+		// Пак земли: из него собирается ковёр поля, как и в игре.
+		// Полотна дорог редактор не знает — он рисует их кистью.
+		loadPackTextures(this.load)
 	}
 
 	create() {

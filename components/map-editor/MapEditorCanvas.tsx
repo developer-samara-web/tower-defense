@@ -80,6 +80,10 @@ export default function MapEditorCanvas({
 					transparent: true,
 					antialias: true,
 					roundPixels: true,
+					// Тайлы пака приходят 256 px, а рисуются по 32 px:
+					// без мипмапов кромка дороги в траву рвётся в пунктир,
+					// как и в самой игре.
+					mipmapFilter: 'LINEAR_MIPMAP_LINEAR',
 				},
 			})
 		}

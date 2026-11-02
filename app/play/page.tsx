@@ -14,7 +14,7 @@ export default function PlayPage() {
 
 function PlayLoading() {
 	return (
-		<main className="flex h-[100dvh] w-full items-center justify-center bg-[url(/game/background.png)] bg-cover bg-center font-mono">
+		<main className="flex h-[100dvh] w-full items-center justify-center bg-[url(/ui/background.png)] bg-cover bg-center font-mono">
 			<p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-300">
 				Загрузка…
 			</p>
