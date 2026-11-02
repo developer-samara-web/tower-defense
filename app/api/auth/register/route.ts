@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 
 import { badRequest, jsonError, readJsonBody, serverError } from '@/lib/api-auth'
+import { signToken } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import User from '@/models/User'
 
@@ -43,9 +44,18 @@ export async function POST(req: Request) {
 		}
 
 		const hash = await bcrypt.hash(password, 10)
-		await User.create({ login, email, password: hash, record: 0 })
+		const user = await User.create({ login, email, password: hash, record: 0 })
 
-		return Response.json({ ok: true })
+		// Регистрация сразу выдаёт токен: новичка ведём в обучение, а не
+		// на второй экран с теми же логином и паролем.
+		const token = signToken({
+			userId: user._id.toString(),
+			login: user.login,
+			email: user.email,
+			record: user.record,
+		})
+
+		return Response.json({ ok: true, token })
 	} catch (error) {
 		return serverError(error)
 	}

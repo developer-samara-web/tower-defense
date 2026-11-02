@@ -25,10 +25,6 @@ export function useAuthForm() {
         } else {
           const data = await handleRegister(loginVal, email, password)
           if (data.error) setError(data.error || 'Ошибка регистрации')
-          else {
-            setNotice('Аккаунт создан — войдите')
-            setMode('login')
-          }
           return data
         }
       } catch {

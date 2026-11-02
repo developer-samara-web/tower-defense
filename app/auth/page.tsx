@@ -14,8 +14,13 @@ export default function AuthPage() {
   const [showLanding, setShowLanding] = useState(!token)
 
   const handleSubmit = async (e?: React.FormEvent) => {
+    // Режим читаем до отправки: хук может сменить его в процессе.
+    const mode = authForm.mode
     const data = await authForm.handleSubmit(e)
-    if (data?.token) router.push('/menu')
+    if (!data?.token) return
+    // Новому герою сначала обучение: оно фиксированное, ничего не пишет
+    // и не пускает игрока в рейтинг без подготовки.
+    router.push(mode === 'register' ? '/game?tutorial=1' : '/menu')
   }
 
   if (showLanding && !token) {

@@ -50,7 +50,14 @@ export function useAuth() {
   }, [])
 
   const handleRegister = useCallback(async (loginVal: string, email: string, password: string) => {
-    return await register({ login: loginVal, email, password })
+    const data = await register({ login: loginVal, email, password })
+    // Сервер отдаёт тот же токен, что и вход: сохраняем его, а профиль
+    // эффект подтянет сам.
+    if (data?.token) {
+      localStorage.setItem('td_token', data.token)
+      setToken(data.token)
+    }
+    return data
   }, [])
 
   const logout = useCallback(() => {
