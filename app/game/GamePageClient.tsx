@@ -10,7 +10,10 @@ import GameHeader from '@/components/game/GameHeader'
 import GameHUD from '@/components/game/GameHUD'
 import GameOverlays from '@/components/game/GameOverlays'
 import ProfilePanel from '@/components/game/ProfilePanel'
+import TutorialHints from '@/components/game/TutorialHints'
 import WaveInfoPanel from '@/components/game/WaveInfoPanel'
+import AccessScreen from '@/components/ui/AccessScreen'
+import { NOT_AUTHORIZED } from '@/lib/access-messages'
 import { wavePreview } from '@/features/game/engine/wave-preview'
 import { useGameUI } from '@/hooks/useGameUI'
 import { useGame } from '@/hooks/useGame'
@@ -22,24 +25,29 @@ export default function GamePageClient() {
   const seedParam = searchParams.get('seed')?.trim() ?? ''
   const initialSeed = seedParam ? seedParam.slice(0, 128) : undefined
   const mapParam = searchParams.get('map')?.trim() ?? ''
+  // Обучение — фиксированная карта из кода с подсказками и пятью волнами.
+  // Оно не грузится с сервера, не сохраняется и не попадает в рекорды.
+  const tutorial = searchParams.get('tutorial') === '1'
   const {
     game, user, checkingSession, resuming, upgradeCards, topScores, mapTopRows, mapBoard, hasMapBoard,
     mapSeed, speed, paused,
-    mapDraft, mapLoading, mapError,
+    mapDraft, mapLoading, mapError, waveLimit,
+    needsLogin, accessError,
     restartGame, resumeGame, startNew, leaveGame, refreshScores,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     rerollUpgrades,
     toggleAutoUpgrade, cycleSpeed, togglePause,
     waveButtonDisabled,
-  } = useGame(initialSeed, mapParam || undefined)
+  } = useGame(initialSeed, mapParam || undefined, tutorial)
 
   // Сцену на пользовательской карте создаём только после загрузки черновика.
   // Карта без черновика (старая библиотека по сиду) готова сразу: поле строит
   // движок, но id карты всё равно привязывает забег к её топу.
+  // У обучения черновик лежит в коде, поэтому оно готово с первого кадра.
   const sceneReady =
     !checkingSession &&
     !resuming &&
-    (!mapParam || (!mapLoading && !mapError))
+    (tutorial || (!mapParam || (!mapLoading && !mapError)))
 
   // Кнопка рестарта сверху спрашивает подтверждение: партия сбрасывается
   // без возможности вернуться к прежнему состоянию.
@@ -74,6 +82,21 @@ export default function GamePageClient() {
     [mapDraft, previewWave],
   )
 
+  // Без аккаунта забег некому сохранять и некому засчитать, поэтому сцену
+  // не поднимаем вовсе. Обучение работает и без входа: оно ничего не пишет.
+  if (needsLogin || accessError) {
+    return (
+      <AccessScreen
+        title={accessError ? 'Игра недоступна' : 'Нужен вход в аккаунт'}
+        message={accessError ?? NOT_AUTHORIZED}
+        actions={[
+          { label: 'Войти', onClick: () => router.push('/auth') },
+          { label: 'Обучение', onClick: () => router.push('/game?tutorial=1') },
+        ]}
+      />
+    )
+  }
+
   return (
     <main className="h-[100dvh] w-full overflow-hidden bg-[#4a7f2a] text-[#e2c8a0] font-mono selection:bg-amber-900 selection:text-amber-100 relative flex flex-col">
       <GameHeader
@@ -107,6 +130,7 @@ export default function GamePageClient() {
             key={`${mapParam}:${mapSeed}`}
             mapSeed={mapSeed}
             customDraft={mapDraft}
+            waveLimit={waveLimit}
           />
         )}
         {!sceneReady && !mapError && (
@@ -127,6 +151,16 @@ export default function GamePageClient() {
           </div>
         )}
       </section>
+
+      {/* Подсказки обучения: поверх поля, но под оверлеями поражения и карт. */}
+      {tutorial && sceneReady && (
+        <TutorialHints
+          game={game}
+          onExit={backToMenu}
+          onRandomGame={() => router.push('/game')}
+          onRestart={restartGame}
+        />
+      )}
 
       <GameOverlays
         gameOver={game.gameOver}
@@ -170,6 +204,7 @@ export default function GamePageClient() {
         waveActive={game.waveActive}
         gameOver={game.gameOver}
         selectedTower={game.selectedTower}
+        queuedBuilds={game.buildQueue.length}
         status={game.status}
         level={game.level}
         xp={game.xp}

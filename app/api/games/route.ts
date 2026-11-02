@@ -1,24 +1,22 @@
 import { Types } from 'mongoose'
 
-import { connectDB } from '@/lib/db'
-import { verifyToken } from '@/lib/auth'
 import { isRatedMap } from '@/lib/map-rating'
 import { recordMapScore } from '@/lib/map-score'
 import { GameResult } from '@/models/GameResult'
+import {
+	badRequest,
+	readJsonBody,
+	readObjectId,
+	withUser,
+} from '@/lib/api-auth'
 
 const DEFAULT_LIMIT = 10
 const MAX_LIMIT = 30
 const MAX_COUNT = 1_000_000_000
 
 export async function GET(req: Request) {
-	await connectDB()
-
-	const auth = req.headers.get('authorization') || ''
-	const token = auth.replace('Bearer ', '')
-	const { searchParams } = new URL(req.url)
-
-	try {
-		const payload = verifyToken(token)
+	return withUser(req, async ({ userId }) => {
+		const { searchParams } = new URL(req.url)
 		// Числа в запросе нет — Number(null) даёт 0, поэтому проверяем отдельно.
 		const requested = Number(searchParams.get('limit'))
 		const limit = searchParams.get('limit') && Number.isFinite(requested)
@@ -26,11 +24,12 @@ export async function GET(req: Request) {
 			: DEFAULT_LIMIT
 
 		const cursor = searchParams.get('cursor')
-		if (cursor && !Types.ObjectId.isValid(cursor)) {
-			return Response.json({ error: 'Некорректный курсор' }, { status: 400 })
+		if (cursor && !readObjectId(cursor)) {
+			return badRequest('Некорректный курсор')
 		}
 
-		const filter: Record<string, unknown> = { userId: payload.userId }
+		// История всегда своя: id игрока берётся из токена, а не из запроса.
+		const filter: Record<string, unknown> = { userId }
 		if (cursor) filter._id = { $lt: new Types.ObjectId(cursor) }
 
 		// Берём на одну запись больше, чтобы понять, есть ли следующая страница.
@@ -46,39 +45,32 @@ export async function GET(req: Request) {
 			hasMore,
 			nextCursor: hasMore ? page[page.length - 1]._id.toString() : null,
 		})
-	} catch {
-		return Response.json({ error: 'Authentication failed' }, { status: 401 })
-	}
+	})
 }
 
 export async function POST(req: Request) {
-	await connectDB()
+	return withUser(req, async ({ userId }) => {
+		const body = await readJsonBody(req)
+		if (!body) return badRequest()
 
-	const auth = req.headers.get('authorization') || ''
-	const token = auth.replace('Bearer ', '')
-
-	try {
-		const payload = verifyToken(token)
-		const body = await req.json()
-
-		const wave = toCount(body?.wave)
-		const gold = toCount(body?.gold)
+		const wave = toCount(body.wave)
+		const gold = toCount(body.gold)
 		if (wave === null || gold === null) {
-			return Response.json({ error: 'Некорректный результат' }, { status: 400 })
+			return badRequest('Некорректный результат')
 		}
 
-		const mapId = Types.ObjectId.isValid(body?.mapId) ? String(body.mapId) : null
+		const mapId = readObjectId(String(body.mapId ?? ''))
 		const game = await GameResult.create({
-			userId: payload.userId,
+			userId,
 			wave,
 			gold,
 			mapId,
-			rated: await isRatedMap(body?.mapId),
-			level: Math.max(1, toCount(body?.level) ?? 1),
-			monstersKilled: toCount(body?.monstersKilled) ?? 0,
-			buildingsBuilt: toCount(body?.buildingsBuilt) ?? 0,
-			moneySpent: toCount(body?.moneySpent) ?? 0,
-			damageDealt: toCount(body?.damageDealt) ?? 0,
+			rated: await isRatedMap(mapId),
+			level: Math.max(1, toCount(body.level) ?? 1),
+			monstersKilled: toCount(body.monstersKilled) ?? 0,
+			buildingsBuilt: toCount(body.buildingsBuilt) ?? 0,
+			moneySpent: toCount(body.moneySpent) ?? 0,
+			damageDealt: toCount(body.damageDealt) ?? 0,
 		})
 
 		// Очки топа карты начисляет сервер: звёзды сложности и место в таблице
@@ -86,19 +78,17 @@ export async function POST(req: Request) {
 		// целый замок означает, что оборона выдержала полностью.
 		const mapScore = mapId
 			? await recordMapScore({
-					userId: payload.userId,
+					userId,
 					mapId,
 					wave,
 					gold,
-					lives: toCount(body?.lives) ?? 0,
-					maxLives: toCount(body?.maxLives) ?? 0,
+					lives: toCount(body.lives) ?? 0,
+					maxLives: toCount(body.maxLives) ?? 0,
 				})
 			: null
 
 		return Response.json({ game: toGameRecord(game), mapScore }, { status: 201 })
-	} catch {
-		return Response.json({ error: 'Authentication failed' }, { status: 401 })
-	}
+	})
 }
 
 function toGameRecord(game: {

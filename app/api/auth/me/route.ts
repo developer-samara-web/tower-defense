@@ -1,7 +1,6 @@
 import { Types } from 'mongoose'
 
-import { connectDB } from '@/lib/db'
-import { verifyToken } from '@/lib/auth'
+import { badRequest, notFound, readJsonBody, withUser } from '@/lib/api-auth'
 import { DEFAULT_AVATAR, DEFAULT_FRAME, isAvatarId, isFrameId } from '@/lib/account/avatar-options'
 import { NO_TITLE, isTitleId } from '@/lib/account/title-options'
 import { ratingSummary } from '@/lib/map-score'
@@ -22,83 +21,55 @@ type StoredUser = {
 }
 
 export async function GET(req: Request) {
-	await connectDB()
-
-	const auth = req.headers.get('authorization') || ''
-	const token = auth.replace('Bearer ', '')
-
-	if (!token) {
-		return Response.json({ error: 'Нет доступа' }, { status: 401 })
-	}
-
-	try {
-		const payload = verifyToken(token)
-
-		const user = await User.findById(payload.userId).select('-password')
-		if (!user) {
-			return Response.json({ error: 'Пользователь не найден' }, { status: 404 })
-		}
+	return withUser(req, async ({ userId }) => {
+		const user = await User.findById(userId).select('-password')
+		if (!user) return notFound('Пользователь не найден')
 
 		return Response.json({ user: await serializeUser(user) })
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+	})
 }
 
 // Аватар и рамку можно менять из меню. Список допустимых id
 // лежит в lib/account/avatar-options.ts, чтобы клиент и сервер
 // не разошлись в названиях.
 export async function PATCH(req: Request) {
-	await connectDB()
-
-	const auth = req.headers.get('authorization') || ''
-	const token = auth.replace('Bearer ', '')
-
-	if (!token) {
-		return Response.json({ error: 'Нет доступа' }, { status: 401 })
-	}
-
-	try {
-		const payload = verifyToken(token)
-		const body = await req.json()
+	return withUser(req, async ({ userId }) => {
+		const body = await readJsonBody(req)
+		if (!body) return badRequest()
 		const update: Record<string, string> = {}
 
-		if (body?.avatar !== undefined) {
+		if (body.avatar !== undefined) {
 			if (!isAvatarId(body.avatar)) {
-				return Response.json({ error: 'Неизвестный аватар' }, { status: 400 })
+				return badRequest('Неизвестный аватар')
 			}
 			update.avatar = body.avatar
 		}
 
-		if (body?.avatarFrame !== undefined) {
+		if (body.avatarFrame !== undefined) {
 			if (!isFrameId(body.avatarFrame)) {
-				return Response.json({ error: 'Неизвестная рамка' }, { status: 400 })
+				return badRequest('Неизвестная рамка')
 			}
 			update.avatarFrame = body.avatarFrame
 		}
 
-		if (body?.title !== undefined) {
+		if (body.title !== undefined) {
 			if (!isTitleId(body.title)) {
-				return Response.json({ error: 'Неизвестный титул' }, { status: 400 })
+				return badRequest('Неизвестный титул')
 			}
 			update.title = body.title
 		}
 
 		if (Object.keys(update).length === 0) {
-			return Response.json({ error: 'Нет изменений' }, { status: 400 })
+			return badRequest('Нет изменений')
 		}
 
-		const user = await User.findByIdAndUpdate(payload.userId, update, {
+		const user = await User.findByIdAndUpdate(userId, update, {
 			returnDocument: 'after',
 		}).select('-password')
-		if (!user) {
-			return Response.json({ error: 'Пользователь не найден' }, { status: 404 })
-		}
+		if (!user) return notFound('Пользователь не найден')
 
 		return Response.json({ user: await serializeUser(user) })
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+	})
 }
 
 async function serializeUser(user: StoredUser) {

@@ -1,8 +1,5 @@
-import { Types } from 'mongoose'
-
 import { validateDraft } from '@/features/game/engine/map/custom-map'
-import { verifyToken } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
+import { badRequest, notFound, withUser } from '@/lib/api-auth'
 import { readDraft, readMapStatus, toMapSummary } from '@/lib/map-summary'
 import { GameMap } from '@/models/GameMap'
 
@@ -11,29 +8,22 @@ type RouteParams = { params: Promise<{ id: string }> }
 // Автор отправляет карту на модерацию. До публикации её видит
 // только владелец и администратор.
 export async function POST(req: Request, { params }: RouteParams) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const { id } = await params
-		if (!Types.ObjectId.isValid(id)) {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
-
+		// Ищем карту сразу вместе с автором: чужая карта для клиента
+		// неотличима от несуществующей.
 		const map = await GameMap.findOne({ _id: id, userId: payload.userId })
-		if (!map) return Response.json({ error: 'Карта не найдена' }, { status: 404 })
+		if (!map) return notFound('Карта не найдена или нет доступа к ней')
 
 		if (readMapStatus(map.moderation) === 'pending') {
-			return Response.json({ error: 'Карта уже на модерации' }, { status: 400 })
+			return badRequest('Карта уже на модерации')
 		}
 
 		const draft = readDraft(map.data)
-		if (!draft) {
-			return Response.json({ error: 'У карты нет данных редактора' }, { status: 400 })
-		}
+		if (!draft) return badRequest('У карты нет данных редактора')
 
 		const problem = validateDraft(draft)
-		if (problem) return Response.json({ error: problem }, { status: 400 })
+		if (problem) return badRequest(problem)
 
 		map.moderation = 'pending'
 		map.rated = false
@@ -47,11 +37,5 @@ export async function POST(req: Request, { params }: RouteParams) {
 				authorLogin: payload.login ?? null,
 			}),
 		})
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
-}
-
-function getToken(req: Request) {
-	return (req.headers.get('authorization') || '').replace('Bearer ', '')
+	})
 }

@@ -1,5 +1,6 @@
 import type { GameRecordInput, GamesPage } from '@/features/account/types'
 import type { MapRunScore } from '@/types'
+import { readOk } from './api-error'
 
 // Сервер возвращает очки топа карты: по ним интерфейс показывает место
 // игрока сразу после финиша, без второго запроса.
@@ -13,10 +14,11 @@ export async function recordGame(
 		body: JSON.stringify(game),
 	})
 
-	if (!res.ok) throw new Error('Не удалось сохранить результат игры')
-
-	const data = await res.json().catch(() => null)
-	return (data?.mapScore as MapRunScore | undefined) ?? null
+	const data = await readOk<{ mapScore?: MapRunScore }>(
+		res,
+		'Не удалось сохранить результат игры',
+	)
+	return data.mapScore ?? null
 }
 
 export async function fetchGames(
@@ -30,6 +32,5 @@ export async function fetchGames(
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (!res.ok) throw new Error('Не удалось загрузить историю игр')
-	return res.json()
+	return readOk<GamesPage>(res, 'Не удалось загрузить историю игр')
 }

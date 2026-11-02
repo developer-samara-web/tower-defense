@@ -1,5 +1,6 @@
 import type { MapDetail, MapLeaderboard, MapSummary } from '@/types'
 import type { MapDraft } from '@/features/game/engine/map/custom-map'
+import { readOk } from './api-error'
 
 // Разделы библиотеки карт. «pending» доступен только администратору.
 export type MapTab = 'rated' | 'unrated' | 'mine' | 'pending'
@@ -12,9 +13,7 @@ export async function fetchMaps(
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (!res.ok) throw new Error('Не удалось загрузить карты')
-
-	const data = await res.json()
+	const data = await readOk<{ maps?: MapSummary[] }>(res, 'Не удалось загрузить карты')
 	return Array.isArray(data.maps) ? data.maps : []
 }
 
@@ -23,10 +22,7 @@ export async function fetchMap(token: string, id: string): Promise<MapDetail> {
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (res.status === 404) throw new Error('Карта не найдена')
-	if (!res.ok) throw new Error('Не удалось загрузить карту')
-
-	const data = await res.json()
+	const data = await readOk<{ map?: MapDetail }>(res, 'Не удалось загрузить карту')
 	if (!data.map) throw new Error('Не удалось загрузить карту')
 	return data.map
 }
@@ -43,8 +39,7 @@ export async function fetchMapBoard(
 	})
 
 	if (res.status === 404) return null
-	if (!res.ok) throw new Error('Не удалось загрузить топ карты')
-	return res.json()
+	return readOk<MapLeaderboard>(res, 'Не удалось загрузить топ карты')
 }
 
 export type SaveMapInput = {
@@ -67,14 +62,7 @@ export async function saveMap(
 		body: JSON.stringify(input),
 	})
 
-	if (!res.ok) {
-		const data = await res.json().catch(() => null)
-		throw new Error(
-			typeof data?.error === 'string' ? data.error : 'Не удалось сохранить карту',
-		)
-	}
-
-	const data = await res.json()
+	const data = await readOk<{ map?: MapDetail }>(res, 'Не удалось сохранить карту')
 	if (!data.map) throw new Error('Не удалось сохранить карту')
 	return data.map
 }
@@ -86,9 +74,7 @@ export async function createMap(token: string): Promise<MapSummary> {
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (!res.ok) throw new Error('Не удалось создать карту')
-
-	const data = await res.json()
+	const data = await readOk<{ map?: MapSummary }>(res, 'Не удалось создать карту')
 	if (!data.map) throw new Error('Не удалось создать карту')
 	return data.map
 }
@@ -100,14 +86,7 @@ export async function submitMap(token: string, id: string): Promise<MapSummary> 
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (!res.ok) {
-		const data = await res.json().catch(() => null)
-		throw new Error(
-			typeof data?.error === 'string' ? data.error : 'Не удалось отправить карту',
-		)
-	}
-
-	const data = await res.json()
+	const data = await readOk<{ map?: MapSummary }>(res, 'Не удалось отправить карту')
 	if (!data.map) throw new Error('Не удалось отправить карту')
 	return data.map
 }
@@ -133,14 +112,7 @@ export async function moderateMap(
 		body: JSON.stringify(input),
 	})
 
-	if (!res.ok) {
-		const data = await res.json().catch(() => null)
-		throw new Error(
-			typeof data?.error === 'string' ? data.error : 'Не удалось обновить карту',
-		)
-	}
-
-	const data = await res.json()
+	const data = await readOk<{ map?: MapSummary }>(res, 'Не удалось обновить карту')
 	if (!data.map) throw new Error('Не удалось обновить карту')
 	return data.map
 }
@@ -151,10 +123,5 @@ export async function deleteMap(token: string, id: string): Promise<void> {
 		headers: { Authorization: 'Bearer ' + token },
 	})
 
-	if (!res.ok) {
-		const data = await res.json().catch(() => null)
-		throw new Error(
-			typeof data?.error === 'string' ? data.error : 'Не удалось удалить карту',
-		)
-	}
+	await readOk<unknown>(res, 'Не удалось удалить карту')
 }

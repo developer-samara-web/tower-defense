@@ -3,7 +3,7 @@ import type { PlayerBestMaps, ScoreEntry } from '@/types'
 const SCORE_KEY = 'tower-defense:scores'
 const MAX = 8
 
-export function readLocalScores(): ScoreEntry[] {
+function readLocalScores(): ScoreEntry[] {
   try {
     const s = localStorage.getItem(SCORE_KEY)
     if (s) {
@@ -12,11 +12,6 @@ export function readLocalScores(): ScoreEntry[] {
     }
   } catch { return [] }
   return []
-}
-
-export function saveLocalScore(wave: number, gold: number) {
-  const list = [{ id: crypto.randomUUID(), wave, gold, createdAt: new Date().toISOString() }, ...readLocalScores()].sort((a, b) => b.wave - a.wave || b.gold - a.gold).slice(0, MAX)
-  try { localStorage.setItem(SCORE_KEY, JSON.stringify(list)) } catch { }
 }
 
 export async function fetchTopScores(limit = 8) {

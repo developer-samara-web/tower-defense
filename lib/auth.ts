@@ -23,6 +23,8 @@ export function signToken(payload: AuthPayload) {
 	return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' })
 }
 
+// Алгоритм фиксируем списком: иначе токен, подписанный чужим методом
+// (например, none или подменённым ключом), прошёл бы проверку.
 export function verifyToken(token: string) {
-	return jwt.verify(token, getJwtSecret()) as AuthPayload
+	return jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as AuthPayload
 }

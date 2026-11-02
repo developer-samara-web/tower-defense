@@ -32,6 +32,7 @@ import {
 	type MapWaves,
 } from '@/features/game/engine/map/custom-map'
 import { mapSeedToNumber } from '@/features/game/engine/map/game-map'
+import { NOT_AUTHORIZED } from '@/lib/access-messages'
 import { createMap, fetchMap, saveMap } from '@/lib/services/map-service'
 
 type Props = {
@@ -193,7 +194,7 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 		const load = async () => {
 			if (!token) {
 				setLoading(false)
-				setError('Войдите в аккаунт, чтобы создавать карты')
+				setError(NOT_AUTHORIZED)
 				return
 			}
 
@@ -622,7 +623,7 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 
 	if (loading || !draft) {
 		return (
-			<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/game/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0]">
+			<main className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[url(/ui/background.png)] bg-cover bg-center px-4 font-mono text-[#e2c8a0]">
 				<div className="absolute inset-0 bg-[#05080a]/85" />
 				<div className={`relative w-full max-w-sm p-5 text-center ${PANEL}`}>
 					<p className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">

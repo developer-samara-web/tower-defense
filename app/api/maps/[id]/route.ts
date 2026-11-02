@@ -1,10 +1,7 @@
-import { Types } from 'mongoose'
-
 import { normalizeMapDraft } from '@/features/game/engine/map/custom-map'
-import { verifyToken } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
+import { badRequest, forbidden, notFound, readJsonBody, readObjectId, withUser } from '@/lib/api-auth'
 import { dropMapBoard } from '@/lib/map-score'
-import { readMapStatus, toMapSummary } from '@/lib/map-summary'
+import { readMapStatus, toMapSummary, type StoredMap } from '@/lib/map-summary'
 import { GameMap } from '@/models/GameMap'
 import User from '@/models/User'
 
@@ -13,77 +10,88 @@ const DIFFICULTIES = ['Лёгкая', 'Средняя', 'Трудная', 'Эк�
 const REVIEW_STATUSES = ['approved', 'rejected', 'pending'] as const
 
 type RouteParams = { params: Promise<{ id: string }> }
+// Схема модели не типизирована, поэтому документ описан локально: роуту
+// нужны поля карты и методы сохранения/удаления.
+type MapDocument = StoredMap & {
+	cols: number
+	rows: number
+	moderation: string
+	rated: boolean
+	reviewedAt?: Date | null
+	save(): Promise<unknown>
+	deleteOne(): Promise<unknown>
+}
+
+const findMap = (id: string) => GameMap.findById(id) as Promise<MapDocument | null>
+const findMyMap = (id: string, userId: string) =>
+	GameMap.findOne({ _id: id, userId }) as Promise<MapDocument | null>
+
+// Карта отдаётся только тем, кому положено: автору — любая, остальным —
+// опубликованная. Черновик соседа видеть нельзя.
+async function loadVisibleMap(id: string, viewerId: string) {
+	if (!readObjectId(id)) return null
+	const map = await findMap(id)
+	if (!map) return null
+
+	const mine = map.userId.toString() === viewerId
+	if (!mine && readMapStatus(map.moderation) !== 'approved') return null
+	return map
+}
+
+async function respond(map: MapDocument, viewerId: string) {
+	const author = await User.findById(map.userId).select('login')
+	return Response.json({
+		map: {
+			...toMapSummary(map, {
+				viewerId,
+				authorLogin: author?.login ?? null,
+			}),
+			data: normalizeMapDraft(map.data),
+		},
+	})
+}
 
 export async function GET(req: Request, { params }: RouteParams) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const { id } = await params
-		if (!Types.ObjectId.isValid(id)) {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
+		const map = await loadVisibleMap(id, payload.userId)
+		if (!map) return notFound('Карта не найдена')
 
-		const map = await GameMap.findById(id)
-		if (!map) return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-
-		const mine = map.userId.toString() === payload.userId
-		// Чужую карту отдаём только после модерации: черновик автора
-		// не должен быть виден другим игрокам.
-		if (!mine && readMapStatus(map.moderation) !== 'approved') {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
-
-		const author = await User.findById(map.userId).select('login')
-
-		return Response.json({
-			map: {
-				...toMapSummary(map, {
-					viewerId: payload.userId,
-					authorLogin: author?.login ?? null,
-				}),
-				data: normalizeMapDraft(map.data),
-			},
-		})
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+		return respond(map, payload.userId)
+	})
 }
 
 // Сохраняет черновик целиком: редактор присылает актуальные
 // клетки воды и леса, поэтому частичных обновлений тут нет.
 export async function PUT(req: Request, { params }: RouteParams) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const { id } = await params
-		if (!Types.ObjectId.isValid(id)) {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
+		// Правит карту только её автор: чужой id вернёт 404, а не подсказку,
+		// что такая карта существует.
+		if (!readObjectId(id)) return notFound('Карта не найдена')
+		const map = await findMyMap(id, payload.userId)
+		if (!map) return notFound('Карта не найдена или нет доступа к ней')
 
-		const map = await GameMap.findOne({ _id: id, userId: payload.userId })
-		if (!map) return Response.json({ error: 'Карта не найдена' }, { status: 404 })
+		const body = await readJsonBody(req)
+		if (!body) return badRequest()
 
-		const body = await req.json()
-
-		if (typeof body?.name === 'string') {
+		if (typeof body.name === 'string') {
 			const name = body.name.trim().slice(0, MAX_NAME_LENGTH)
-			if (!name) return Response.json({ error: 'Введите название карты' }, { status: 400 })
+			if (!name) return badRequest('Введите название карты')
 			map.name = name
 		}
 
-		if (typeof body?.difficulty === 'string') {
+		if (typeof body.difficulty === 'string') {
 			if (!DIFFICULTIES.includes(body.difficulty)) {
-				return Response.json({ error: 'Неизвестная сложность' }, { status: 400 })
+				return badRequest('Неизвестная сложность')
 			}
 			map.difficulty = body.difficulty
 		}
 
-		if (body?.data !== undefined) {
+		if (body.data !== undefined) {
 			const data = normalizeMapDraft(body.data)
 			if (!data) {
-				return Response.json({ error: 'Некорректные данные карты' }, { status: 400 })
+				return badRequest('Некорректные данные карты')
 			}
 			map.data = data
 			// Размер поля хранится и в черновике, и в записи: списки карт
@@ -100,109 +108,66 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
 		await map.save()
 
-		const author = await User.findById(map.userId).select('login')
-		return Response.json({
-			map: {
-				...toMapSummary(map, {
-					viewerId: payload.userId,
-					authorLogin: author?.login ?? null,
-				}),
-				data: normalizeMapDraft(map.data),
-			},
-		})
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+		return respond(map, payload.userId)
+	})
 }
 
 // Модерация и смена типа карты — только для админа.
 export async function PATCH(req: Request, { params }: RouteParams) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const viewer = await User.findById(payload.userId).select('role')
 		if (!viewer || viewer.role !== 'admin') {
-			return Response.json({ error: 'Нет доступа' }, { status: 403 })
+			return forbidden('Нет доступа к модерации')
 		}
 
 		const { id } = await params
-		if (!Types.ObjectId.isValid(id)) {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
+		if (!readObjectId(id)) return notFound('Карта не найдена')
 
-		const map = await GameMap.findById(id)
-		if (!map) return Response.json({ error: 'Карта не найдена' }, { status: 404 })
+		const map = await findMap(id)
+		if (!map) return notFound('Карта не найдена')
 
-		const body = await req.json()
-		const status = body?.moderation
-		const rated = body?.rated
+		const body = await readJsonBody(req)
+		if (!body) return badRequest()
 
-		if (status !== undefined) {
-			if (!REVIEW_STATUSES.includes(status)) {
-				return Response.json({ error: 'Неизвестный статус' }, { status: 400 })
-			}
+		if (body.moderation !== undefined) {
+			const status = REVIEW_STATUSES.find((value) => value === body.moderation)
+			if (!status) return badRequest('Неизвестный статус')
 			map.moderation = status
 			if (status !== 'approved') map.rated = false
 		}
 
-		if (rated !== undefined) {
-			if (typeof rated !== 'boolean') {
-				return Response.json({ error: 'Некорректный рейтинг' }, { status: 400 })
+		if (body.rated !== undefined) {
+			if (typeof body.rated !== 'boolean') {
+				return badRequest('Некорректный рейтинг')
 			}
 			if (readMapStatus(map.moderation) !== 'approved') {
-				return Response.json(
-					{ error: 'Сначала опубликуйте карту' },
-					{ status: 400 },
-				)
+				return forbidden('Сначала опубликуйте карту')
 			}
-			map.rated = rated
+			map.rated = body.rated
 		}
 
 		map.reviewedAt = new Date()
 		await map.save()
 
-		const author = await User.findById(map.userId).select('login')
-		return Response.json({
-			map: {
-				...toMapSummary(map, {
-					viewerId: payload.userId,
-					authorLogin: author?.login ?? null,
-				}),
-				data: normalizeMapDraft(map.data),
-			},
-		})
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+		return respond(map, payload.userId)
+	})
 }
 
 export async function DELETE(req: Request, { params }: RouteParams) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const { id } = await params
-		if (!Types.ObjectId.isValid(id)) {
-			return Response.json({ error: 'Карта не найдена' }, { status: 404 })
-		}
+		if (!readObjectId(id)) return notFound('Карта не найдена')
 
 		const map = await GameMap.findById(id)
-		if (!map) return Response.json({ error: 'Карта не найдена' }, { status: 404 })
+		if (!map) return notFound('Карта не найдена')
 
 		const viewer = await User.findById(payload.userId).select('role')
 		if (map.userId.toString() !== payload.userId && viewer?.role !== 'admin') {
-			return Response.json({ error: 'Нет доступа' }, { status: 403 })
+			return forbidden('Нет доступа к этой карте')
 		}
 
 		await map.deleteOne()
 		await dropMapBoard(id)
 		return Response.json({ ok: true })
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
-}
-
-function getToken(req: Request) {
-	return (req.headers.get('authorization') || '').replace('Bearer ', '')
+	})
 }

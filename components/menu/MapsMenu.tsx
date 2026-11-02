@@ -13,6 +13,7 @@ import {
 	type MapPreview,
 } from '@/features/game/engine/map/map-preview'
 import type { PlayerProfile } from '@/features/account/types'
+import { NOT_AUTHORIZED } from '@/lib/access-messages'
 import {
 	createMap,
 	deleteMap,
@@ -539,7 +540,7 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 					: 'Сохранённых карт пока нет'
 
 	return (
-		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/game/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
+		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/ui/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
 			<div className="fixed inset-0 bg-[#05080a]/85" />
 
 			<div className="relative mx-auto w-full max-w-3xl pb-6 sm:max-w-5xl xl:max-w-7xl">
@@ -607,7 +608,7 @@ export default function MapsMenu({ token, user, onBack, onPlay, onEdit, onOpenMa
 							rows
 						) : !token ? (
 							<p className="px-3 py-6 text-center text-[9px] font-bold text-[#5c3a1a]">
-								Войдите в аккаунт, чтобы видеть карты
+								{NOT_AUTHORIZED}
 							</p>
 						) : error ? (
 							<div className="px-3 py-6 text-center">

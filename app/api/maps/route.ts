@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { DEFAULT_COLS, DEFAULT_ROWS } from '@/features/game/config/game.config'
 import { createEmptyMapDraft } from '@/features/game/engine/map/custom-map'
-import { verifyToken } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
+import { forbidden, notFound, withUser } from '@/lib/api-auth'
 import { toMapSummary } from '@/lib/map-summary'
 import { GameMap } from '@/models/GameMap'
 import User from '@/models/User'
@@ -29,18 +28,16 @@ function seedColor(seed: string): string {
 }
 
 export async function GET(req: Request) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const viewer = await User.findById(payload.userId).select('login role')
 		if (!viewer) {
-			return Response.json({ error: 'Пользователь не найден' }, { status: 404 })
+			return notFound('Пользователь не найден')
 		}
 
 		const tab = readTab(new URL(req.url).searchParams.get('tab'))
+		// Развал модерации видят только модераторы.
 		if (tab === 'pending' && viewer.role !== 'admin') {
-			return Response.json({ error: 'Нет доступа' }, { status: 403 })
+			return forbidden('Нет доступа к модерации')
 		}
 
 		const filter =
@@ -63,18 +60,13 @@ export async function GET(req: Request) {
 				}),
 			),
 		})
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+	})
 }
 
 // Новая карта создаётся пустым черновиком: замок, казармы, реки
 // и лес игрок расставляет в редакторе.
 export async function POST(req: Request) {
-	await connectDB()
-
-	try {
-		const payload = verifyToken(getToken(req))
+	return withUser(req, async (payload) => {
 		const count = await GameMap.countDocuments({ userId: payload.userId })
 		const seed = randomUUID()
 		const map = await GameMap.create({
@@ -97,9 +89,7 @@ export async function POST(req: Request) {
 			},
 			{ status: 201 },
 		)
-	} catch {
-		return Response.json({ error: 'Неверный токен' }, { status: 401 })
-	}
+	})
 }
 
 // Логины авторов подтягиваем отдельным запросом: populate плохо
@@ -110,8 +100,4 @@ async function loadAuthors(maps: Array<{ userId: { toString(): string } }>) {
 
 	const authors = await User.find({ _id: { $in: ids } }).select('login')
 	return new Map(authors.map((author) => [author._id.toString(), author.login as string]))
-}
-
-function getToken(req: Request) {
-	return (req.headers.get('authorization') || '').replace('Bearer ', '')
 }
