@@ -25,7 +25,7 @@ test('builds the same map for the same seed', () => {
 	assert.notDeepEqual(createGameMap('resume-me').roads, createGameMap('other').roads)
 })
 
-test('makes four roads from the edges to the castle gates', () => {
+test('makes four roads from the barracks to the castle gates', () => {
 	const map = createGameMap(42)
 	const [cx, cy] = centerCell()
 
@@ -36,9 +36,23 @@ test('makes four roads from the edges to the castle gates', () => {
 		const end = road[road.length - 1]
 		assert.ok(start && end)
 
-		const startsOutside =
-			start[0] < 0 || start[0] > COLS || start[1] < 0 || start[1] > ROWS
-		assert.equal(startsOutside, true)
+		// Ни одна точка дороги не уходит за границу поля: раньше начало
+		// торчало наружу, и монстр рождался в пустоте за краем карты.
+		for (const [x, y] of road) {
+			assert.ok(
+				x >= 0 && x < COLS && y >= 0 && y < ROWS,
+				`road cell ${x},${y} is outside the board`,
+			)
+		}
+
+		// Казарма стоит у самого края, иначе дорога теряет длину.
+		const margin = Math.min(
+			start[0],
+			start[1],
+			COLS - 1 - start[0],
+			ROWS - 1 - start[1],
+		)
+		assert.ok(margin <= 5, `road starts too deep into the field: ${start}`)
 
 		const endsAtGate =
 			(end[0] === cx && Math.abs(end[1] - cy) === 2) ||

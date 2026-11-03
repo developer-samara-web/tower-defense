@@ -1091,18 +1091,9 @@ function drawPath(
 	const approach = castleApproachCells(map.castle)
 
 	for (const originalPoints of map.roadPoints) {
-		// Дороги, которые начинаются на поле (от казармы или нарисованные),
-		// не обрезаем: inset нужен только дорогам, входящим с края карты.
-		const first = originalPoints[0]
-		const startsOnBoard =
-			first !== undefined &&
-			isBoardCell(
-				Math.floor(first.x / CELL_SIZE),
-				Math.floor(first.y / CELL_SIZE),
-			)
-		const points = startsOnBoard
-			? originalPoints.slice()
-			: getInsetRoadPoints(originalPoints)
+		// Начало дороги — клетки ворот казармы, поэтому торцы дорог не правим:
+		// и сид-карта, и нарисованная сеть стартуют на поле.
+		const points = originalPoints.slice()
 
 		if (points.length < 2) continue
 
@@ -1706,7 +1697,8 @@ const GATE_VISUAL_OFFSET_Y: Record<string, number> = {
 // Точка выхода монстров привязана к тому же сдвигу.
 export const SPAWNER_VISUAL_OFFSET_Y = CELL_SIZE * 0.7
 
-// Пиксельные ворота у входа на каждую дорогу и крепость в центре.
+// Пиксельные казармы у входа на каждую дорогу и крепость в центре.
+// Здание стоит ровно на первом waypoint дороги: оттуда же выходит монстр.
 // У пользовательской карты вместо ворот стоят казармы, а замок —
 // там, куда его поставили в редакторе.
 function drawPathEndpoints(scene: Phaser.Scene, map: GameMap) {
@@ -1725,9 +1717,9 @@ function drawPathEndpoints(scene: Phaser.Scene, map: GameMap) {
 		'gate-top',
 	]
 
-	map.roadPoints.forEach((originalPoints, index) => {
-		const points = getInsetRoadPoints(originalPoints)
+	map.roadPoints.forEach((points, index) => {
 		const start = points[0]
+		if (!start) return
 		const texture = gateTextures[index]
 		const offsetY = GATE_VISUAL_OFFSET_Y[texture] ?? 0
 
@@ -1777,23 +1769,5 @@ export function drawSpawnerAt(scene: Phaser.Scene, cellX: number, cellY: number)
 		.image(center.x, center.y - SPAWNER_VISUAL_OFFSET_Y, key)
 		.setDisplaySize(width, width * ratio)
 		.setDepth(2)
-}
-
-function getInsetRoadPoints(
-	points: { x: number; y: number }[],
-) {
-	const [start, next, ...rest] = points
-
-	const dx = Math.sign(next.x - start.x)
-	const dy = Math.sign(next.y - start.y)
-
-	return [
-		{
-			x: start.x + dx * (CELL_SIZE * 5),
-			y: start.y + dy * (CELL_SIZE * 5),
-		},
-		next,
-		...rest,
-	]
 }
 

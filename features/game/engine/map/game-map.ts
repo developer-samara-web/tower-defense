@@ -73,7 +73,8 @@ export type GameMap = {
 	// Клетки, занятые лесом: тоже не застраиваются.
 	forestCells: string[]
 	castle: MapCastle
-	// Пусто у карт, сгенерированных по сиду: там враги выходят с краёв.
+	// Пусто у карт, сгенерированных по сиду: там казармой служит здание
+	// на начале каждой дороги, а план волны остаётся общим для всех дорог.
 	spawners: MapSpawner[]
 	// Настройки волн пользовательской карты.
 	waves?: MapWaves
@@ -198,14 +199,16 @@ function normalize(road: Road): Road {
 	return result
 }
 
-// Строит 4 длинные извилистые дороги, которые входят в замок
-// с четырёх сторон. Каждая дорога живёт в своей четверти карты,
-// поэтому дороги гарантированно не пересекаются и не слипаются.
+// Строит 4 длинные извилистые дороги: каждая начинается у казармы
+// близ края поля и входит в замок со своей стороны. Дороги живут в своих
+// четвертях карты, поэтому гарантированно не пересекаются и не слипаются.
 function buildRoads(random: () => number): Road[] {
 	const [cx, cy] = centerCell()
 
-	// Дорога выходит за пределы поля на одну клетку.
-	const edge = 1
+	// Казарма стоит в четырёх клетках от края поля. Первый waypoint дороги —
+	// её ворота: раньше дорога уходила за границу, и монстр рождался в пустоте,
+	// а потом шёл сквозь нарисованное здание.
+	const barracks = 4
 
 	// Ворота стоят в двух клетках от центра — сразу за стенами замка.
 	const gate = 2
@@ -219,7 +222,7 @@ function buildRoads(random: () => number): Road[] {
 	const northY2 = randomInt(random, Math.floor(cy / 2) + turnGap, cy - 4)
 	const northX2 = randomIntAwayFrom(random, 4, cx - 2, northX, turnGap)
 	const north: Road = normalize([
-		[northX, -edge],
+		[northX, barracks],
 		[northX, northY1],
 		[northX2, northY1],
 		[northX2, northY2],
@@ -233,7 +236,7 @@ function buildRoads(random: () => number): Road[] {
 	const eastX2 = randomInt(random, cx + 4, eastX1 - turnGap)
 	const eastY2 = randomIntAwayFrom(random, 4, cy - 4, eastY, turnGap)
 	const east: Road = normalize([
-		[COLS + edge, eastY],
+		[COLS - 1 - barracks, eastY],
 		[eastX1, eastY],
 		[eastX1, eastY2],
 		[eastX2, eastY2],
@@ -251,7 +254,7 @@ function buildRoads(random: () => number): Road[] {
 	const southY2 = randomInt(random, cy + 4, southY1 - turnGap)
 	const southX2 = randomIntAwayFrom(random, cx + 2, COLS - 4, southX, turnGap)
 	const south: Road = normalize([
-		[southX, ROWS + edge],
+		[southX, ROWS - 1 - barracks],
 		[southX, southY1],
 		[southX2, southY1],
 		[southX2, southY2],
@@ -265,7 +268,7 @@ function buildRoads(random: () => number): Road[] {
 	const westX2 = randomInt(random, westX1 + turnGap, cx - 4)
 	const westY2 = randomIntAwayFrom(random, cy + 4, ROWS - 4, westY, turnGap)
 	const west: Road = normalize([
-		[-edge, westY],
+		[barracks, westY],
 		[westX1, westY],
 		[westX1, westY2],
 		[westX2, westY2],
