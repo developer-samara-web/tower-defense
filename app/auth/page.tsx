@@ -2,16 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import AuthScreen from '@/components/menu/AuthScreen'
-import LandingScreen from '@/components/menu/LandingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import { useAuthForm } from '@/hooks/useAuthForm'
-import { useState } from 'react'
 
 export default function AuthPage() {
   const router = useRouter()
   const { token } = useAuth()
   const authForm = useAuthForm()
-  const [showLanding, setShowLanding] = useState(!token)
 
   const handleSubmit = async (e?: React.FormEvent) => {
     // Режим читаем до отправки: хук может сменить его в процессе.
@@ -21,10 +18,6 @@ export default function AuthPage() {
     // Новому герою сначала обучение: оно фиксированное, ничего не пишет
     // и не пускает игрока в рейтинг без подготовки.
     router.push(mode === 'register' ? '/game?tutorial=1' : '/menu')
-  }
-
-  if (showLanding && !token) {
-    return <LandingScreen onStart={() => setShowLanding(false)} />
   }
 
   return (
@@ -41,7 +34,7 @@ export default function AuthPage() {
       onEmailChange={authForm.setEmail}
       onPasswordChange={authForm.setPassword}
       onSubmit={handleSubmit}
-      onBack={() => setShowLanding(true)}
+      onBack={() => router.push(token ? '/menu' : '/')}
     />
   )
 }

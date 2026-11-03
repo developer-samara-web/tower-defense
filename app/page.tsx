@@ -1,19 +1,13 @@
-'use client'
+import type { Metadata } from 'next'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import LandingPage from '@/components/landing/LandingPage'
+
+export const metadata: Metadata = {
+	title: 'Врата Замка — браузерная tower defense',
+	description:
+		'Строй башни трёх стихий, держи волны врагов и защити замок. Прокачка, карты улучшений, приключения, библиотека карт, редактор и общий рейтинг — бесплатно в браузере.',
+}
 
 export default function HomePage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('td_token') : null
-    if (token) {
-      router.replace('/menu')
-    } else {
-      router.replace('/auth')
-    }
-  }, [router])
-
-  return null
+	return <LandingPage />
 }
