@@ -15,8 +15,8 @@ export function useProfile() {
     user: user as PlayerProfile | null,
     scores,
     token,
-    // Страница ждёт проверки токена, иначе гость увидит экран входа на
-    // долю секунды раньше, чем успеет вернуться владелец сессии.
+    // Проверка сессии завершена? Пока нет, страница показывает прелоадер:
+    // владелец токена не должен видеть экран входа, пока /api/auth/me в пути.
     checked,
     updateUser: (profile: PlayerProfile) => setUser(profile),
   }

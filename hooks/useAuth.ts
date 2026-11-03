@@ -8,7 +8,12 @@ export function useAuth() {
     () => (typeof window !== 'undefined' ? localStorage.getItem('td_token') : null)
   )
   const [user, setUser] = useState<UserProfile | null>(null)
-  const [checked, setChecked] = useState(!!token)
+  // «Проверка сессии закончена», а не «токен есть». Стартует с false и на
+  // сервере, и на клиенте: токен лежит в localStorage, которого нет при SSR,
+  // поэтому первая клиентская отрисовка обязана совпасть с серверной.
+  // Раньше флаг ставился по наличию токена, и владелец сессии успевал увидеть
+  // заглушку «Нужен вход в аккаунт», пока /api/auth/me ещё в пути.
+  const [checked, setChecked] = useState(false)
 
   useEffect(() => {
     const stored = token || (typeof window !== 'undefined' ? localStorage.getItem('td_token') : null)
@@ -17,6 +22,9 @@ export function useAuth() {
       setChecked(true)
       return
     }
+    // Токен мог появиться только что (вход или регистрация): профиль ещё
+    // не подтверждён, поэтому страница снова ждёт ответ сервера.
+    setChecked(false)
     setToken(stored)
     me(stored)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

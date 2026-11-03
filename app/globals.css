@@ -32,3 +32,18 @@ body {
 .game-viewport canvas {
 	touch-action: none;
 }
+
+/* Бегущая полоса прелоадера доступа: такой утилиты Tailwind нет, анимация
+   объявлена вручную. */
+@keyframes td-loading-run {
+	0% {
+		transform: translateX(-100%);
+	}
+	100% {
+		transform: translateX(300%);
+	}
+}
+
+.td-loading-bar {
+	animation: td-loading-run 1.4s linear infinite;
+}
