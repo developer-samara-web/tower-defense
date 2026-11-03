@@ -1,6 +1,7 @@
 'use client'
 
 import CloseButton from '@/components/ui/CloseButton'
+import KeyChip from '@/components/ui/KeyChip'
 import { MAX_TOWER_LEVEL, TOWER_TYPES } from '@/features/game/config/game.config'
 import type { TowerSelectionSummary } from '@/features/game/domain/game-rules'
 
@@ -121,7 +122,10 @@ export default function TowerGroupPanel({
 							: 'border-[#8b651f] bg-[#4a3408] text-amber-200 hover:border-yellow-400 hover:bg-[#5c4210] hover:text-yellow-100'
 					}`}
 				>
-					<span className="whitespace-nowrap">{maxed ? 'МАКС. УРОВЕНЬ' : `УЛУЧШИТЬ ${upgradeable}`}</span>
+					<span className="flex min-w-0 items-center gap-1.5">
+						{!maxed && <KeyChip label="U" />}
+						<span className="whitespace-nowrap">{maxed ? 'МАКС. УРОВЕНЬ' : `УЛУЧШИТЬ ${upgradeable}`}</span>
+					</span>
 					{!maxed && <span className="whitespace-nowrap tabular-nums">{upgradeCost} 🪙</span>}
 				</button>
 

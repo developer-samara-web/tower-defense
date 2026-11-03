@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import type { ReactNode } from 'react'
-import { TOWER_ORDER, TOWER_TYPES, type TowerType } from '@/features/game/config/game.config'
+import { TOWER_ORDER, TOWER_TYPES, towerHotkey, type TowerType } from '@/features/game/config/game.config'
 import { towerStats, type TowerBuffs } from '@/features/game/domain/game-rules'
 
 type Props = {
@@ -35,8 +35,13 @@ type Props = {
 
 const towerDefs = TOWER_ORDER.map((id) => {
   const tower = TOWER_TYPES[id]
-  return { id, name: tower.name, cost: tower.cost, image: tower.image }
+  return { id, name: tower.name, cost: tower.cost, image: tower.image, hotkey: towerHotkey(id) }
 })
+
+// Накладка клавиши в углу кнопки. Одна и та же метка на башнях, карточках
+// улучшения и кнопке роста: игрок читает их как единое управление.
+const KEY_BADGE =
+  'pointer-events-none absolute left-[3px] top-[3px] border border-[#6b4c1f] bg-[#0f0a05]/85 px-[3px] text-[7px] font-black leading-[9px] tracking-[0.08em] text-amber-300 sm:text-[8px] sm:leading-[11px]'
 
 // Квадратные кнопки колонки: плоский стиль нижней панели, а не глянец
 // из шапки. Размер подобран так, чтобы колонка была ровно в высоту панели:
@@ -128,10 +133,13 @@ export default function GameHUD({
                       key={tower.id}
                       type="button"
                       onClick={() => onSelectTower(tower.id)}
-                      aria-label={`${tower.name}, цена ${tower.cost} золота`}
+                      aria-label={`${tower.name}, цена ${tower.cost} золота, клавиша ${tower.hotkey}`}
                       aria-pressed={isSelected}
                       className={`group relative flex h-[38px] sm:h-[48px] w-full flex-col items-center justify-center border-2 transition-colors cursor-pointer ${isSelected ? 'border-yellow-400 bg-[#493713] shadow-[0_0_8px_#eab30866]' : 'border-[#5c3a1a] bg-[#21170d] hover:border-[#a67c36] hover:bg-[#352411]'}`}
                     >
+                      {tower.hotkey ? (
+                        <span className={KEY_BADGE} aria-hidden="true">{tower.hotkey}</span>
+                      ) : null}
                       <Image src={tower.image} alt={tower.name} width={30} height={30} className="h-[22px] w-[22px] sm:h-[30px] sm:w-[30px] object-contain [image-rendering:pixelated]" />
                       <span className={`mt-0.5 max-w-full truncate px-1 text-[8px] sm:text-[10px] font-bold leading-none ${isSelected ? 'text-yellow-200' : 'text-[#d6c4a3]'}`}>{tower.name}</span>
                       <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-[196px] -translate-x-1/2 translate-y-1 border-2 border-[#3a2a1a] bg-[#0f0a05]/95 px-2.5 py-2 text-left opacity-0 shadow-[0_8px_20px_rgba(0,0,0,0.85)] backdrop-blur-sm transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
@@ -150,6 +158,9 @@ export default function GameHUD({
                           {/* Подсказка про очередь: правая кнопка скрыта в интерфейсе,
                               о ней нужно сказать явно. */}
                           <span className="mt-1 block border-t border-[#3a2a1a] pt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
+                            {tower.hotkey} — выбрать, ЛКМ по клетке — построить
+                          </span>
+                          <span className="block text-[8px] font-bold uppercase tracking-[0.1em] text-[#8a7340]">
                             Правый клик — поставить в очередь стройки
                           </span>
                         </span>

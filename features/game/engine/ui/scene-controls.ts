@@ -1,6 +1,6 @@
 import type Phaser from 'phaser'
 
-import { TOWER_ORDER, type TowerType } from '../../config/game.config'
+import { TOWER_HOTKEYS, TOWER_ORDER, type TowerType } from '../../config/game.config'
 import type { SelectionBox } from '../../types/game.types'
 
 // Действия, которые сцена предоставляет управлению Phaser.
@@ -155,11 +155,12 @@ export function bindSceneControls(scene: Phaser.Scene, handlers: SceneHandlers) 
 	// Пробел запускает первую волну, дальше волны идут сами.
 	keyboard?.on('keydown-SPACE', handlers.onStartWave)
 
-	// Клавиши 1–3 выбирают башню в том же порядке, что и панель
-	// стройки (от дешёвой к дорогой), клавиша 4 снимает выбор.
-	const TYPE_KEYS = ['keydown-ONE', 'keydown-TWO', 'keydown-THREE', 'keydown-FOUR']
-	TYPE_KEYS.forEach((key, index) => {
-		keyboard?.on(key, () => handlers.onSelectType(TOWER_ORDER[index] ?? null))
+	// Клавиши Q/W/E выбирают башню в том же порядке, что и панель
+	// стройки (от дешёвой к дорогой); повторная клавиша снимает выбор.
+	// Цифры здесь не работают: бой на паузе, и они отданы карточкам
+	// улучшения, которые читает React-интерфейс.
+	TOWER_HOTKEYS.forEach((key, index) => {
+		keyboard?.on(`keydown-${key}`, () => handlers.onSelectType(TOWER_ORDER[index] ?? null))
 	})
 	keyboard?.on('keydown-ESC', () => handlers.onSelectType(null))
 

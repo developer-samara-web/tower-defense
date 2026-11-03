@@ -31,6 +31,9 @@ type CameraOptions = {
 	// Блокирует прокрутку от края: пока игрок тянет рамку выделения,
 	// камера должна стоять, иначе прямоугольник съедет относительно башен.
 	blockEdgePan?: () => boolean
+	// В бою W отдана выбору башни, поэтому там камера едет только стрелками.
+	// По умолчанию WASD остаётся: в редакторе клавиш башен нет.
+	wasdPan?: boolean
 }
 
 // Минимальный зум, при котором камера ещё не показывает пустоту
@@ -58,12 +61,17 @@ export function bindCameraControls(
 	// Курсоры и WASD опрашиваем каждый кадр, а не по событиям клавиш:
 	// так движение остаётся плавным, пока клавиша зажата.
 	const cursors = keyboard?.createCursorKeys()
-	const wasd = keyboard?.addKeys('W,A,S,D') as
-		| Record<string, Phaser.Input.Keyboard.Key>
-		| undefined
+	const useWasd = options.wasdPan !== false
+	const wasd = useWasd
+		? keyboard?.addKeys('W,A,S,D') as
+			| Record<string, Phaser.Input.Keyboard.Key>
+			| undefined
+		: undefined
 
-	// Стрелки не должны прокручивать страницу под игрой.
-	keyboard?.addCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
+	// Стрелки и WASD не должны прокручивать страницу под игрой.
+	const CAPTURED_KEYS = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+	if (useWasd) CAPTURED_KEYS.unshift('W', 'A', 'S', 'D')
+	keyboard?.addCapture(CAPTURED_KEYS)
 
 	let dragging = false
 	let dragStartX = 0
@@ -305,7 +313,7 @@ export function bindCameraControls(
 		scene.input.off('wheel', onWheel)
 		scene.scale.off('resize', onResize)
 		window.removeEventListener('td:camera-focus', onFocusPoint)
-		keyboard?.removeCapture(['W', 'A', 'S', 'D', 'UP', 'DOWN', 'LEFT', 'RIGHT'])
+		keyboard?.removeCapture(CAPTURED_KEYS)
 	}
 
 	return { update, reset, destroy }

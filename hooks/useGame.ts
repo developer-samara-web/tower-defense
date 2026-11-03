@@ -645,6 +645,30 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     setUpgradeCards(generateUpgradeCards(UPGRADE_CHOICES, { wave: snapshot.wave }))
   }, [])
 
+  // Клавиши 1–3 выбирают карту улучшения. Оверлей открывает выбор поверх
+  // боя, сцена стоит на паузе и свои клавиши не читает, поэтому слушатель
+  // живёт в React — там же, где и сам набор карт.
+  useEffect(() => {
+    if (upgradeCards.length === 0) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+
+      const target = event.target
+      // В полях ввода цифры нужны тексту, а не картам.
+      if (target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return
+
+      const card = upgradeCards[Number(event.key) - 1]
+      if (!card) return
+
+      event.preventDefault()
+      pickUpgrade(card)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [upgradeCards, pickUpgrade])
+
   return {
     game, setGame, user,
     scores, topScores,

@@ -207,6 +207,19 @@ export const MAX_PENDING_UPGRADES = balance(
 	5,
 )
 
+// Перки уровня: прокачка башни даёт не только рост статов. Со 2-го уровня
+// залп задевает две цели, с максимального — три; лёд на 3–4 уровнях усиливает
+// замедление, огонь на 3–4 поджигает по доле здоровья. Веху «три цели»
+// привязываем к MAX_TOWER_LEVEL, чтобы баланс из .env не оставил башню
+// без последней награды.
+export const ENEMY_SLOW_MULTIPLIER = 0.5
+export const TOWER_MULTI_TARGET_LEVEL = 2
+export const TOWER_TRIPLE_TARGET_LEVEL = MAX_TOWER_LEVEL
+export const ICE_SLOW_BONUS_MIN_LEVEL = 3
+export const ICE_SLOW_BONUS_PER_LEVEL = 0.1
+export const FIRE_BURN_MIN_LEVEL = 3
+export const FIRE_BURN_HP_PERCENT = 0.1
+
 export type TowerType = 'ice' | 'fire' | 'earth'
 export type EnemyType = 'scout' | 'brute' | 'sprinter' | 'boss'
 
@@ -250,11 +263,21 @@ export const TOWER_TYPES: Record<TowerType, TowerStats> = {
 	},
 }
 
-// Панель стройки и клавиши 1–3 идут от дешёвой башни к дорогой,
+// Панель стройки и клавиши башен идут от дешёвой башни к дорогой,
 // поэтому самый доступный «Земля» всегда первый.
 export const TOWER_ORDER: TowerType[] = (
 	Object.entries(TOWER_TYPES) as [TowerType, TowerStats][]
 ).sort(([, a], [, b]) => a.cost - b.cost).map(([id]) => id)
+
+// Башни выбираются буквами, а не цифрами: 1–3 отданы карточкам улучшения,
+// которые появляются поверх боя. Под W камера в бою уже не ездит — иначе
+// прокрутка вверх молча меняла бы тип башни под следующим кликом.
+export const TOWER_HOTKEYS = ['Q', 'W', 'E'] as const
+
+// Клавиша башни для подсказки на кнопке: пусто, если башен больше, чем клавиш.
+export function towerHotkey(type: TowerType): string {
+	return TOWER_HOTKEYS[TOWER_ORDER.indexOf(type)] ?? ''
+}
 
 export type EnemyStats = {
 	name: string
