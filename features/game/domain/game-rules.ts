@@ -9,10 +9,15 @@ import {
 	ENEMY_GROUP_SIZE_MAX,
 	ENEMY_GROUP_SIZE_WAVES_PER_STEP,
 	ENEMY_GROUP_SPAWN_INTERVAL,
+	ENEMY_SLOW_MULTIPLIER,
 	ENEMY_SPAWN_INTERVAL,
 	ENEMY_SPAWN_INTERVAL_MIN,
 	ENEMY_SPAWN_INTERVAL_STEP,
 	ENEMY_TYPES,
+	FIRE_BURN_HP_PERCENT,
+	FIRE_BURN_MIN_LEVEL,
+	ICE_SLOW_BONUS_MIN_LEVEL,
+	ICE_SLOW_BONUS_PER_LEVEL,
 	INITIAL_GOLD,
 	INITIAL_LIVES,
 	LEVEL_XP_BASE,
@@ -23,8 +28,10 @@ import {
 	ROWS,
 	TOWER_ATTACK_SPEED_GROWTH,
 	TOWER_DAMAGE_GROWTH,
+	TOWER_MULTI_TARGET_LEVEL,
 	TOWER_RANGE_GROWTH,
 	TOWER_SELL_REFUND,
+	TOWER_TRIPLE_TARGET_LEVEL,
 	TOWER_TYPES,
 	TOWER_UPGRADE_COST_FACTOR,
 	WAVE_COMPLETION_BASE_REWARD,
@@ -364,6 +371,53 @@ export function isInsideBoardPoint(x: number, y: number) {
 	return x >= 0 && x <= COLS * CELL_SIZE && y >= 0 && y <= ROWS * CELL_SIZE
 }
 
+// Перки уровня башни: считаются только из уровня, а не из карточек, поэтому
+// награда остаётся с башней навсегда. `level` здесь уже ограничен сверху
+// MAX_TOWER_LEVEL внутри towerStats.
+function towerTargets(level: number) {
+	if (level >= TOWER_TRIPLE_TARGET_LEVEL) return 3
+	if (level >= TOWER_MULTI_TARGET_LEVEL) return 2
+	return 1
+}
+
+// Сила замедления льда: множитель скорости врага. Базовое −50%, плюс по 10%
+// за 3-й и 4-й уровни. Бонус не убывает на 5-м: там наградой становится
+// третья цель, а не откат замедления назад.
+function towerSlowFactor(type: TowerType, level: number) {
+	if (type !== 'ice') return 1
+	const cap = TOWER_TRIPLE_TARGET_LEVEL - 1
+	const steps = Math.min(level, cap) - (ICE_SLOW_BONUS_MIN_LEVEL - 1)
+	return Math.max(0.1, ENEMY_SLOW_MULTIPLIER - Math.max(0, steps) * ICE_SLOW_BONUS_PER_LEVEL)
+}
+
+// Поджог от уровня: доля максимального здоровья врага в секунду. Держится
+// и на 5-м уровне — по той же причине, что и замедление льда.
+function towerBurnPercent(type: TowerType, level: number) {
+	if (type !== 'fire') return 0
+	return level >= FIRE_BURN_MIN_LEVEL ? FIRE_BURN_HP_PERCENT : 0
+}
+
+// Что игрок получает именно на этом уровне — для статуса после улучшения.
+// Сравниваем перки двух соседних уровней: объявляется только то, что реально
+// изменилось, поэтому «Земля» на 3-м уровне молчит, а 5-й отдаёт приоритет
+// новой цели, а не сохранившемуся замедлению.
+export function towerLevelPerk(type: TowerType, level: number): string | null {
+	if (level <= 1) return null
+
+	const prev = towerStats(type, level - 1)
+	const now = towerStats(type, level)
+
+	if (now.targets > prev.targets) return `Залп по ${now.targets} целям`
+	if (now.slowFactor < prev.slowFactor) {
+		return `Замедление усилено до −${Math.round((1 - now.slowFactor) * 100)}%`
+	}
+	if (now.burnPercent > prev.burnPercent) {
+		return `Поджог ${Math.round(now.burnPercent * 100)}% здоровья в секунду`
+	}
+
+	return null
+}
+
 export function towerStats(type: TowerType, level: number, buffs?: TowerBuffs) {
 	const base = TOWER_TYPES[type]
 	const steps = Math.max(0, Math.min(level, MAX_TOWER_LEVEL) - 1)
@@ -382,6 +436,10 @@ export function towerStats(type: TowerType, level: number, buffs?: TowerBuffs) {
 		burnDuration: buff.burnDuration,
 		chain: buff.chain,
 		execute: buff.execute,
+		// Перки уровня.
+		targets: towerTargets(steps + 1),
+		slowFactor: towerSlowFactor(type, steps + 1),
+		burnPercent: towerBurnPercent(type, steps + 1),
 	}
 }
 
@@ -432,6 +490,10 @@ export type TowerSelectionSummary = {
 		burn: number
 		chain: number
 		execute: number
+		// Перки уровня: тоже часть сводки, иначе панель башни их скрывает.
+		targets: number
+		slowFactor: number
+		burnPercent: number
 	} | null
 }
 
@@ -521,6 +583,9 @@ function pickStats(stats: ReturnType<typeof towerStats>) {
 		burn: stats.burn,
 		chain: stats.chain,
 		execute: stats.execute,
+		targets: stats.targets,
+		slowFactor: stats.slowFactor,
+		burnPercent: stats.burnPercent,
 	}
 }
 

@@ -28,6 +28,9 @@ export type EnemySystem = {
 	update: (delta: number) => void
 	damage: (enemy: Enemy, damage: number) => void
 	applyBurn: (enemy: Enemy, damagePerSecond: number, duration: number) => void
+	// Замедление: сила (множитель скорости) и длительность приходят от башни,
+	// поэтому враг хранит обе величины.
+	applySlow: (enemy: Enemy, factor: number, duration: number) => void
 	restore: (enemies: readonly SessionEnemy[]) => void
 	clearBlood: () => void
 	clear: () => void
@@ -165,6 +168,7 @@ export function createEnemySystem(
 			x: spawnPoint.x,
 			y: spawnPoint.y,
 			slowTimer: 0,
+			slowFactor: 1,
 			hp: stats.hp,
 			maxHp: stats.hp,
 			speed: stats.speed,
@@ -277,10 +281,14 @@ export function createEnemySystem(
 			// Замедление действует ограниченное время.
 			if (enemy.slowTimer > 0) {
 				enemy.slowTimer = Math.max(0, enemy.slowTimer - delta)
+				// Таймер истёк — снимаем силу, чтобы следующий залп льда
+				// начал с чистого листа, а не с остатка старого замедления.
+				if (enemy.slowTimer === 0) enemy.slowFactor = 1
 			}
 
-			// Если замедление активно, скорость врага уменьшается вдвое.
-			const speedMultiplier = enemy.slowTimer > 0 ? 0.5 : 1
+			// Сила замедления лежит на враге: ледяные башни разных уровней
+			// тормозят цель по-разному.
+			const speedMultiplier = enemy.slowTimer > 0 ? enemy.slowFactor : 1
 
 			// Рассчитываем расстояние, которое враг пройдёт за текущий кадр.
 			const step = enemy.speed * speedMultiplier * distancePerFrame
@@ -361,6 +369,17 @@ export function createEnemySystem(
 		enemy.body.setTint(0xff7b3a)
 	}
 
+	// Замедление: оставляем самое сильное (минимальный множитель) и самое
+	// долгое. Пока таймер обнуляется в update(), factor гарантированно равен 1,
+	// поэтому «min» не наследует остаток от уже слетевшего замедления.
+	function applySlow(enemy: Enemy, factor: number, duration: number) {
+		const { state } = ctx
+		if (!state.enemies.includes(enemy)) return
+
+		enemy.slowFactor = Math.min(enemy.slowFactor, factor)
+		enemy.slowTimer = Math.max(enemy.slowTimer, duration)
+	}
+
 	// Возвращает на поле врагов, которые были живы на момент сохранения.
 	function restore(entries: readonly SessionEnemy[]) {
 		const { scene, state } = ctx
@@ -397,6 +416,7 @@ export function createEnemySystem(
 				routeIndex: saved.routeIndex,
 				route,
 				slowTimer: saved.slowTimer,
+				slowFactor: saved.slowTimer > 0 ? saved.slowFactor : 1,
 				burnDamage: saved.burnDamage,
 				burnTimer: saved.burnTimer,
 				body,
@@ -434,6 +454,7 @@ export function createEnemySystem(
 		update,
 		damage,
 		applyBurn,
+		applySlow,
 		restore,
 		clearBlood,
 		clear,

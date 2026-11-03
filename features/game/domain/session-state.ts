@@ -37,6 +37,9 @@ export type SessionEnemy = {
 	pathIndex: number
 	routeIndex: number
 	slowTimer: number
+	// Множитель скорости замедленного врага: без него восстановление
+	// превратило бы замедление 5-го уровня льда обратно в базовое.
+	slowFactor: number
 	burnDamage: number
 	burnTimer: number
 }
@@ -163,6 +166,9 @@ export function readSessionEnemy(raw: unknown): SessionEnemy | null {
 		pathIndex,
 		routeIndex,
 		slowTimer: nonNegative(enemy.slowTimer, 0),
+		// Сила замедления — множитель: клипем его, иначе подделанное
+		// сохранение остановит врага или разгонит его.
+		slowFactor: Math.min(1, Math.max(0.05, nonNegative(enemy.slowFactor, 1))),
 		burnDamage: nonNegative(enemy.burnDamage, 0),
 		burnTimer: nonNegative(enemy.burnTimer, 0),
 	}

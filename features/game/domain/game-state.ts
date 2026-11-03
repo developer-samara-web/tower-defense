@@ -218,6 +218,7 @@ export function buildSnapshot(
 			pathIndex: enemy.pathIndex,
 			routeIndex: enemy.routeIndex,
 			slowTimer: enemy.slowTimer,
+			slowFactor: enemy.slowFactor,
 			burnDamage: enemy.burnDamage,
 			burnTimer: enemy.burnTimer,
 		})),

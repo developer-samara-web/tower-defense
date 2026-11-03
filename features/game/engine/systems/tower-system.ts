@@ -20,6 +20,7 @@ import {
 	summarizeTowerSelection,
 	towerFootprintCells,
 	towerFootprintKeys,
+	towerLevelPerk,
 	towerSellValue,
 	towerStats,
 	towerUpgradeCost,
@@ -39,6 +40,7 @@ import {
 	fireProjectile,
 	resizeTowerView,
 	showHitFlash,
+	showTowerLevelUp,
 	towerTexture,
 } from '../rendering/tower-view'
 import type { EnemySystem } from './enemy-system'
@@ -52,6 +54,9 @@ export type TowerSystem = {
 	refreshQueue: () => void
 	select: (tower: Tower) => void
 	deselect: () => void
+	// Перерисовывает рамки и зоны поражения выделения: карточка улучшения
+	// меняет радиус уже выбранной башни, а клик по ней не повторяется.
+	refreshSelectionVisuals: () => void
 	// Рамка выделения: рисуем во время протяжки, применяем по её отпусканию.
 	showSelectionBox: (box: SelectionBox | null) => void
 	selectInBox: (box: SelectionBox, additive: boolean) => void
@@ -221,7 +226,13 @@ export function createTowerSystem(
 			.setVisible(true)
 			.setAlpha(buildCheck.allowed ? 0.6 : 0.35)
 
-		drawBuildPreview(ghostCell, x, y, buildCheck.allowed)
+		drawBuildPreview(
+			ghostCell,
+			x,
+			y,
+			buildCheck.allowed,
+			towerStats(type, 1, state.buffs).range,
+		)
 	}
 
 	// Запоминает позицию курсора и обновляет проекцию.
@@ -239,9 +250,11 @@ export function createTowerSystem(
 	}
 
 	// Перерисовывает рамки выделения: слой создаём один и переиспользуем.
+	// Зоны поражения входят в ту же перерисовку — радиус зависит от уровня
+	// башни и карточек, поэтому круг живёт ровно столько, сколько рамка.
 	function redrawSelection() {
 		if (!selectionFrame) selectionFrame = ctx.scene.add.graphics().setDepth(8)
-		drawSelectionHighlight(selectionFrame, ctx.state.selectedTowers)
+		drawSelectionHighlight(selectionFrame, ctx.state.selectedTowers, ctx.state.buffs)
 	}
 
 	// Подпись под выделением: одна башня — её уровень и цена улучшения,
@@ -497,8 +510,7 @@ export function createTowerSystem(
 			y: view.y,
 			cooldown: 0,
 			body: view.body,
-			icon: view.icon,
-			levelText: view.levelText,
+			rank: view.rank,
 		})
 
 		// Занимаем все четыре клетки площадки и списываем стоимость башни.
@@ -634,7 +646,7 @@ export function createTowerSystem(
 
 	// Списывает стоимость улучшения и поднимает уровень башни.
 	function applyUpgrade(tower: Tower, cost: number) {
-		const { state } = ctx
+		const { scene, state } = ctx
 
 		state.gold -= cost
 		state.stats.moneySpent += cost
@@ -645,7 +657,11 @@ export function createTowerSystem(
 
 		// Улучшение меняет облик башни: новый спрайт уровня и крупнее размер.
 		resizeTowerView(tower.body, tower.type, tower.level)
-		tower.levelText.setText(String(tower.level)).setVisible(true)
+		showTowerLevelUp(scene, tower)
+
+		// Уровень поднимает и радиус, поэтому зона выделенной башни
+		// перерисовывается сразу — автоулучшение растит её без клика.
+		if (state.selectedTowers.includes(tower)) redrawSelection()
 	}
 
 	// Самое дешёвое улучшение в выделении — для сообщения о нехватке золота.
@@ -694,11 +710,16 @@ export function createTowerSystem(
 			return
 		}
 
-		redrawSelection()
+		// Выделение перерисовывает applyUpgrade — оно обновляет и зону.
+		// Ручное улучшение всегда одно, поэтому объявляем и новый перк уровня:
+		// автоулучшение молчит, иначе оно затирало бы статус каждый кадр.
+		const perk = last ? towerLevelPerk(last.type, last.level) : null
 
 		setStatus(
 			last && upgraded === 1
-				? `«${TOWER_TYPES[last.type].name}» улучшена до уровня ${last.level}.`
+				? `«${TOWER_TYPES[last.type].name}» улучшена до уровня ${last.level}${
+						perk ? `: ${perk.toLowerCase()}.` : '.'
+					}`
 				: `Улучшено башен: ${upgraded} за ${spent} золота.`,
 		)
 		publish()
@@ -755,8 +776,7 @@ export function createTowerSystem(
 
 			// Убираем башню со сцены и из состояния.
 			tower.body.destroy()
-			tower.icon.destroy()
-			tower.levelText.destroy()
+			tower.rank.destroy()
 
 			const index = state.towers.indexOf(tower)
 			if (index >= 0) state.towers.splice(index, 1)
@@ -778,15 +798,13 @@ export function createTowerSystem(
 		publish()
 	}
 
-	// Ищет ближайшего врага в пределах радиуса атаки башни.
-	function findTarget(tower: Tower) {
+	// Ищет цели для залпа: ближайшие враги в радиусе атаки, ровно столько,
+	// сколько даёт текущий уровень башни.
+	function findTargets(tower: Tower, stats: TowerCombatStats) {
 		const { state } = ctx
 
-		// Пока цель не найдена.
-		let closest: Enemy | null = null
-
-		// Максимальное допустимое расстояние — радиус атаки башни.
-		let closestDistance = towerStats(tower.type, tower.level, state.buffs).range
+		const found: Enemy[] = []
+		const distances: number[] = []
 
 		// Проверяем всех врагов, которые уже вошли на игровое поле.
 		for (const enemy of state.enemies) {
@@ -800,14 +818,25 @@ export function createTowerSystem(
 				enemy.y,
 			)
 
-			// Если враг в радиусе и ближе предыдущей цели, запоминаем его.
-			if (distance <= closestDistance) {
-				closest = enemy
-				closestDistance = distance
+			// Вне радиуса атаки цель не берём.
+			if (distance > stats.range) continue
+
+			// Держим короткий список по возрастанию расстояния вставкой:
+			// целей максимум три, поэтому сортировать всю толпу незачем.
+			let index = distances.findIndex((held) => distance < held)
+			if (index === -1) index = found.length
+			if (index >= stats.targets) continue
+
+			found.splice(index, 0, enemy)
+			distances.splice(index, 0, distance)
+
+			if (found.length > stats.targets) {
+				found.pop()
+				distances.pop()
 			}
 		}
 
-		return closest
+		return found
 	}
 
 	// Наносит урон с учётом модификаторов: поджог и добивание.
@@ -819,6 +848,13 @@ export function createTowerSystem(
 
 		if (stats.burn > 0) {
 			enemies.applyBurn(enemy, stats.burn, stats.burnDuration)
+		}
+
+		// Поджог от уровня огненной башни: доля максимального здоровья в
+		// секунду, поэтому одинаково больно бьёт и разведчика, и босса.
+		// applyBurn оставляет сильнейший из двух, так что карточки он не перебивает.
+		if (stats.burnPercent > 0) {
+			enemies.applyBurn(enemy, enemy.maxHp * stats.burnPercent, stats.burnDuration)
 		}
 
 		if (stats.execute > 0 && enemy.hp / enemy.maxHp <= stats.execute) {
@@ -908,55 +944,63 @@ export function createTowerSystem(
 			// Получаем характеристики башни с учётом уровня и бонусов от карточек.
 			const stats = towerStats(tower.type, tower.level, state.buffs)
 
-			// Ищем подходящего врага в радиусе атаки.
-			const target = findTarget(tower)
+			// Ищем цели в радиусе атаки: сколько их берёт башня — решает уровень.
+			const targets = findTargets(tower, stats)
 
-			// Если цель не найдена, башня не атакует.
-			if (!target) continue
+			// Если врагов рядом нет, башня не атакует.
+			if (targets.length === 0) continue
 
-			// Запускаем перезарядку башни и создаём снаряд.
+			// Залп стоит башне одну перезарядку, сколько бы целей в него ни вошло.
 			tower.cooldown = stats.attackSpeed
-			fireProjectile(scene, tower, target, stats.color)
 
-			// Критический удар наносит повышенный урон.
-			const crit = stats.crit > 0 && Math.random() < stats.crit
-			const damage = Math.round(stats.damage * (crit ? stats.critPower : 1))
+			for (const target of targets) {
+				// Цель могла погибнуть от предыдущего снаряда этого же залпа.
+				if (!state.enemies.includes(target)) continue
 
-			// Огненная башня наносит урон всем врагам в радиусе взрыва вокруг цели.
-			if (tower.type === 'fire') {
-				for (const enemy of [...state.enemies]) {
-					const distance = Phaser.Math.Distance.Between(
-						target.x,
-						target.y,
-						enemy.x,
-						enemy.y,
-					)
+				// Создаём снаряд в сторону цели.
+				fireProjectile(scene, tower, target, stats.color)
 
-					if (distance <= FIRE_SPLASH_RADIUS) {
-						hitEnemy(enemy, damage, stats)
+				// Критический удар наносит повышенный урон.
+				const crit = stats.crit > 0 && Math.random() < stats.crit
+				const damage = Math.round(stats.damage * (crit ? stats.critPower : 1))
+
+				// Огненная башня наносит урон всем врагам в радиусе взрыва вокруг цели.
+				if (tower.type === 'fire') {
+					for (const enemy of [...state.enemies]) {
+						const distance = Phaser.Math.Distance.Between(
+							target.x,
+							target.y,
+							enemy.x,
+							enemy.y,
+						)
+
+						if (distance <= FIRE_SPLASH_RADIUS) {
+							hitEnemy(enemy, damage, stats)
+						}
+					}
+				} else {
+					// Остальные башни наносят урон только выбранной цели.
+					hitEnemy(target, damage, stats)
+
+					// Ледяная башня дополнительно замедляет выжившую цель
+					// с силой своего уровня.
+					if (tower.type === 'ice' && state.enemies.includes(target)) {
+						enemies.applySlow(target, stats.slowFactor, ICE_SLOW_DURATION)
 					}
 				}
-			} else {
-				// Остальные башни наносят урон только выбранной цели.
-				hitEnemy(target, damage, stats)
 
-				// Ледяная башня дополнительно замедляет выжившую цель.
-				if (tower.type === 'ice' && state.enemies.includes(target)) {
-					target.slowTimer = ICE_SLOW_DURATION
-				}
+				// Карточки цепной атаки задевают врагов рядом с целью.
+				chainHit(target, stats, damage)
+
+				// Создаём визуальную вспышку в точке попадания.
+				showHitFlash(
+					scene,
+					target.x,
+					target.y,
+					stats.color,
+					crit ? 24 : tower.type === 'fire' ? 22 : 15,
+				)
 			}
-
-			// Карточки цепной атаки задевают врагов рядом с целью.
-			chainHit(target, stats, damage)
-
-			// Создаём визуальную вспышку в точке попадания.
-			showHitFlash(
-				scene,
-				target.x,
-				target.y,
-				stats.color,
-				crit ? 24 : tower.type === 'fire' ? 22 : 15,
-			)
 		}
 	}
 
@@ -966,8 +1010,7 @@ export function createTowerSystem(
 
 		for (const tower of state.towers) {
 			tower.body.destroy()
-			tower.icon.destroy()
-			tower.levelText.destroy()
+			tower.rank.destroy()
 		}
 
 		state.towers.length = 0
@@ -998,6 +1041,7 @@ export function createTowerSystem(
 		refreshQueue: syncQueueViews,
 		select,
 		deselect,
+		refreshSelectionVisuals: redrawSelection,
 		showSelectionBox,
 		selectInBox,
 		isSelecting: () => boxing,

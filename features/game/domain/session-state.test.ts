@@ -27,6 +27,7 @@ const validEnemy: SessionEnemy = {
 	pathIndex: 2,
 	routeIndex: 1,
 	slowTimer: 500,
+	slowFactor: 0.4,
 	burnDamage: 0,
 	burnTimer: 0,
 }
@@ -101,7 +102,16 @@ test('keeps valid enemies and clamps their health to the maximum', () => {
 	assert.ok(enemy)
 	assert.equal(enemy.hp, validEnemy.maxHp)
 	assert.equal(enemy.slowTimer, validEnemy.slowTimer)
+	assert.equal(enemy.slowFactor, validEnemy.slowFactor)
 	assert.equal(enemy.xp, validEnemy.xp)
+})
+
+test('keeps slow strength inside a sane range', () => {
+	// Старое сохранения силы не содержит: враг выходит из него незамедлённым.
+	assert.equal(readSessionEnemy({ ...validEnemy, slowFactor: undefined })?.slowFactor, 1)
+	// Подделанная сила не должна ни обнулять скорость, ни разгонять врага.
+	assert.equal(readSessionEnemy({ ...validEnemy, slowFactor: 0 })?.slowFactor, 0.05)
+	assert.equal(readSessionEnemy({ ...validEnemy, slowFactor: 99 })?.slowFactor, 1)
 })
 
 test('gives old enemies without xp a safe default', () => {

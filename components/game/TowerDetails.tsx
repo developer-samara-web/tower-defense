@@ -1,6 +1,7 @@
 'use client'
 
 import CloseButton from '@/components/ui/CloseButton'
+import KeyChip from '@/components/ui/KeyChip'
 
 type TowerDetailsProps = {
 	name: string
@@ -13,6 +14,11 @@ type TowerDetailsProps = {
 	burn: number
 	chain: number
 	execute: number
+	// Перки уровня: сколько целей берёт залп, с какой силой лёд тормозит
+	// цель и какую долю здоровья в секунду выжигает огонь.
+	targets: number
+	slowFactor: number
+	burnPercent: number
 	upgradeCost: number | null
 	sellValue: number
 	gold: number
@@ -40,6 +46,9 @@ export default function TowerDetails({
 	burn,
 	chain,
 	execute,
+	targets,
+	slowFactor,
+	burnPercent,
 	upgradeCost,
 	sellValue,
 	gold,
@@ -54,12 +63,28 @@ export default function TowerDetails({
 
 	// Каждая характеристика — отдельная строка: значения с бонусами
 	// могут быть четырёхзначными и не должны обрезаться.
+	// Поджог приходит из двух мест: фиксированный урон из карточек и доля
+	// здоровья от уровня огненной башни. Игрок видит оба слагаемых в одной
+	// строке, иначе «12/с» и «10% HP/с» выглядели бы как две разные механики.
+	const burnText = [
+		burn > 0 ? `${burn}/с` : '',
+		burnPercent > 0 ? `${Math.round(burnPercent * 100)}% HP/с` : '',
+	]
+		.filter(Boolean)
+		.join(' · ')
+
 	const rows: StatRow[] = [
 		{ label: 'Урон', value: String(damage) },
 		{ label: 'Радиус', value: String(range) },
 		{ label: 'Перезарядка', value: `${(attackSpeed / 1000).toFixed(2)} с` },
+		targets > 1 && { label: 'Цели залпа', value: `${targets}`, tone: 'text-sky-300' },
+		slowFactor < 1 && {
+			label: 'Замедление',
+			value: `−${Math.round((1 - slowFactor) * 100)}%`,
+			tone: 'text-cyan-300',
+		},
+		burnText && { label: 'Поджог', value: burnText, tone: 'text-orange-300' },
 		crit > 0 && { label: 'Крит', value: `${Math.round(crit * 100)}%`, tone: 'text-yellow-300' },
-		burn > 0 && { label: 'Поджог', value: `${burn}/с`, tone: 'text-orange-300' },
 		chain > 0 && { label: 'Цепь', value: `+${chain}`, tone: 'text-sky-300' },
 		execute > 0 && { label: 'Добивание', value: `${Math.round(execute * 100)}%`, tone: 'text-rose-300' },
 	].filter((row): row is StatRow => Boolean(row))
@@ -90,13 +115,17 @@ export default function TowerDetails({
 					type="button"
 					onClick={onUpgrade}
 					disabled={!affordable}
+					title={maxed ? 'Башня достигла максимального уровня' : 'Улучшить выбранную башню, клавиша U'}
 					className={`flex h-10 min-w-0 flex-1 items-center justify-between gap-2 border-2 px-2 text-[10px] font-black uppercase tracking-[0.04em] transition-colors ${
 						affordable
 							? 'border-[#8b651f] bg-[#4a3408] text-amber-200 hover:border-yellow-400 hover:bg-[#5c4210] hover:text-yellow-100'
 							: 'cursor-not-allowed border-[#3c2a16] bg-[#21170d] text-[#8c785a]'
 					}`}
 				>
-					<span className="whitespace-nowrap">{maxed ? 'МАКС. УРОВЕНЬ' : 'УЛУЧШИТЬ'}</span>
+					<span className="flex min-w-0 items-center gap-1.5">
+						{!maxed && <KeyChip label="U" />}
+						<span className="whitespace-nowrap">{maxed ? 'МАКС. УРОВЕНЬ' : 'УЛУЧШИТЬ'}</span>
+					</span>
 					{!maxed && <span className="whitespace-nowrap tabular-nums">{upgradeCost} 🪙</span>}
 				</button>
 

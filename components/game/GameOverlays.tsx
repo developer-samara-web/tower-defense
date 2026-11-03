@@ -7,6 +7,7 @@ import {
   type UpgradeRarity,
 } from '@/features/game/domain/upgrade-cards'
 import CloseButton from '@/components/ui/CloseButton'
+import KeyChip from '@/components/ui/KeyChip'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerTitle from '@/components/ui/PlayerTitle'
 import { NO_TITLE } from '@/lib/account/title-options'
@@ -146,7 +147,7 @@ export default function GameOverlays({
             <div>
               <p className="mb-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#8a7340]">Камера</p>
               <ul className="space-y-1 text-[10px] font-bold leading-snug text-amber-100">
-                <li><span className="text-amber-400">WASD / стрелки</span> — движение</li>
+                <li><span className="text-amber-400">Стрелки</span> — движение</li>
                 <li><span className="text-amber-400">ПКМ / СКМ + тянуть</span> — сдвиг карты</li>
                 <li><span className="text-amber-400">Колесо</span> — зум</li>
                 <li><span className="text-amber-400">Край экрана</span> — прокрутка (ПК)</li>
@@ -160,7 +161,8 @@ export default function GameOverlays({
                 <li><span className="text-amber-400">Тянуть ЛКМ</span> — рамка выделения нескольких башен</li>
                 <li><span className="text-amber-400">Ctrl + клик</span> — добавить башню в выделение или убрать</li>
                 <li><span className="text-amber-400">Наведение</span> — предпросмотр выбранной башни</li>
-                <li><span className="text-amber-400">1–3</span> — тип башни, <span className="text-amber-400">4 / Esc</span> — снять выбор</li>
+                <li><span className="text-amber-400">Q / W / E</span> — тип башни, повторно или <span className="text-amber-400">Esc</span> — снять выбор</li>
+                <li><span className="text-amber-400">1 / 2 / 3</span> — карта улучшения, когда закрылась шкала опыта</li>
                 <li><span className="text-amber-400">U</span> — улучшить выбранные, <span className="text-amber-400">АВТО</span> в панели — рост башен без кликов</li>
                 <li><span className="text-amber-400">×2 / ×3</span> — ускорить бой, кнопка справа от панели</li>
                 <li><span className="text-amber-400">‖</span> — пауза там же, <span className="text-amber-400">i</span> — состав и характеристики волны</li>
@@ -229,7 +231,7 @@ export default function GameOverlays({
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 p-3">
           <div className="w-full max-w-2xl border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208] to-[#0f0a05] p-4 shadow-[0_0_30px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(74,55,35,0.25)] sm:p-5">
             <h3 className="text-center text-sm font-black uppercase tracking-[0.18em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]">Уровень {game.level}: выбери улучшение</h3>
-            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — каждая из трёх карт усилит свою башню</p>
+            <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">Шкала опыта заполнена — клавиши 1–3 выбирают карту по порядку</p>
             <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
               {(['S', 'A', 'B', 'C'] as UpgradeRarity[]).map((rarity) => (
                 <span key={rarity} className={`text-[9px] font-black uppercase tracking-[0.12em] ${RARITY_STYLE[rarity].accent}`}>
@@ -238,12 +240,15 @@ export default function GameOverlays({
               ))}
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
-              {upgradeCards.map((card) => {
+              {upgradeCards.map((card, index) => {
                 const style = RARITY_STYLE[card.rarity]
                 return (
-                  <button key={card.id} onClick={() => onPickUpgrade(card)} title={RARITY_NAME[card.rarity]} className={`group flex min-h-[132px] flex-col gap-2 border-2 p-3 text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${style.card}`}>
+                  <button key={card.id} onClick={() => onPickUpgrade(card)} title={`${RARITY_NAME[card.rarity]} · клавиша ${index + 1}`} className={`group flex min-h-[132px] flex-col gap-2 border-2 p-3 text-left transition-all hover:-translate-y-0.5 active:translate-y-0 ${style.card}`}>
                     <span className="flex items-center justify-between gap-2">
-                      <span className="w-fit border border-[#5c2d0e] bg-[#0f0a05]/60 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">{TOWER_TYPES[card.type].name}</span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <KeyChip label={String(index + 1)} />
+                        <span className="w-fit truncate border border-[#5c2d0e] bg-[#0f0a05]/60 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] text-amber-400">{TOWER_TYPES[card.type].name}</span>
+                      </span>
                       <span className={`border px-1.5 py-0.5 text-[10px] font-black leading-none ${style.badge}`}>{card.rarity}</span>
                     </span>
                     <span className="text-[11px] font-black uppercase tracking-[0.08em] text-amber-100">{card.name}</span>
@@ -294,6 +299,9 @@ export default function GameOverlays({
               burn={game.selection.stats.burn}
               chain={game.selection.stats.chain}
               execute={game.selection.stats.execute}
+              targets={game.selection.stats.targets}
+              slowFactor={game.selection.stats.slowFactor}
+              burnPercent={game.selection.stats.burnPercent}
               upgradeCost={game.selection.upgradeable > 0 ? game.selection.upgradeCost : null}
               sellValue={game.selection.sellValue}
               gold={game.gold}

@@ -205,6 +205,8 @@ export class MainScene extends Phaser.Scene {
 				pointer.rightButtonDown() ||
 				pointer.middleButtonDown(),
 			blockEdgePan: () => this.selectionBoxOpen,
+			// W в бою выбирает башню, поэтому вертикаль остаётся на стрелках.
+			wasdPan: false,
 		})
 
 		this.state.pathCells = drawBoard(
@@ -317,14 +319,9 @@ export class MainScene extends Phaser.Scene {
 				y: view.y,
 				cooldown: 0,
 				body: view.body,
-				icon: view.icon,
-				levelText: view.levelText,
+				rank: view.rank,
 			})
 			for (const cell of towerFootprintCells(position)) state.towerCells.add(cell)
-
-			if (tower.level > 1) {
-				view.levelText.setText(String(tower.level)).setVisible(true)
-			}
 		}
 
 		// Врагов возвращаем на те же места, чтобы волна не завершилась мгновенно.
@@ -435,6 +432,9 @@ export class MainScene extends Phaser.Scene {
 					0,
 					this.state.pendingUpgrades - 1,
 				)
+				// Карточка могла сдвинуть радиус: зоны выбранных башен
+				// перерисовываем сразу — сцена стоит на паузе и кадров не ждёт.
+				this.towers.refreshSelectionVisuals()
 				this.context.setStatus(`${upgradeCardTitle(card)} — ${card.description}.`)
 				// Форсируем отправку: сцена на паузе, а React ждёт снимок сразу.
 				this.hud.publish(true)

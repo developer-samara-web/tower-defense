@@ -32,6 +32,7 @@ import {
 	SPAWNER_BUILD_CLEARANCE,
 	summarizeTowerSelection,
 	towerFootprintCells,
+	towerLevelPerk,
 	towerSellValue,
 	towerSpriteSize,
 	towerStats,
@@ -298,6 +299,9 @@ test('improves tower stats with each level', () => {
 		burnDuration: BURN_DURATION,
 		chain: 0,
 		execute: 0,
+		targets: 1,
+		slowFactor: 0.5,
+		burnPercent: 0,
 	})
 
 	const levelThree = towerStats('ice', 3)
@@ -307,6 +311,58 @@ test('improves tower stats with each level', () => {
 
 	// Уровень выше максимума не должен давать бесконечный рост.
 	assert.deepEqual(towerStats('ice', MAX_TOWER_LEVEL + 5), towerStats('ice', MAX_TOWER_LEVEL))
+})
+
+test('gives towers level perks on top of stats', () => {
+	const types: TowerType[] = ['earth', 'ice', 'fire']
+
+	// Залп: одна цель на 1 уровне, две — со 2-го, три — на максимальном.
+	for (const type of types) {
+		assert.equal(towerStats(type, 1).targets, 1)
+		assert.equal(towerStats(type, 2).targets, 2)
+		assert.equal(towerStats(type, 4).targets, 2)
+		assert.equal(towerStats(type, MAX_TOWER_LEVEL).targets, 3)
+	}
+
+	// Лёд тормозит на 50% всегда, а на 3–4 уровнях добавляет по 10%.
+	// На 5-м замедление не слабеет: его наградой стала третья цель.
+	assert.equal(towerStats('ice', 1).slowFactor, 0.5)
+	assert.equal(towerStats('ice', 2).slowFactor, 0.5)
+	assert.equal(towerStats('ice', 3).slowFactor, 0.4)
+	assert.equal(towerStats('ice', 4).slowFactor, 0.3)
+	assert.equal(towerStats('ice', MAX_TOWER_LEVEL).slowFactor, 0.3)
+	assert.equal(towerStats('earth', MAX_TOWER_LEVEL).slowFactor, 1)
+	assert.equal(towerStats('fire', MAX_TOWER_LEVEL).slowFactor, 1)
+
+	// Огонь с 3-го уровня выжигает 10% максимального здоровья в секунду.
+	assert.equal(towerStats('fire', 2).burnPercent, 0)
+	assert.equal(towerStats('fire', 3).burnPercent, 0.1)
+	assert.equal(towerStats('fire', MAX_TOWER_LEVEL).burnPercent, 0.1)
+	assert.equal(towerStats('ice', MAX_TOWER_LEVEL).burnPercent, 0)
+
+	// Перки не убывают с уровнем: улучшение не должно ничего отнимать.
+	for (const type of types) {
+		for (let level = 2; level <= MAX_TOWER_LEVEL; level++) {
+			const prev = towerStats(type, level - 1)
+			const now = towerStats(type, level)
+			assert.ok(now.targets >= prev.targets)
+			assert.ok(now.slowFactor <= prev.slowFactor)
+			assert.ok(now.burnPercent >= prev.burnPercent)
+		}
+	}
+})
+
+test('announces only the perk a level actually brings', () => {
+	assert.equal(towerLevelPerk('earth', 1), null)
+	assert.equal(towerLevelPerk('earth', 2), 'Залп по 2 целям')
+	// У земли на 3–4 уровнях новых свойств нет — растут только статы.
+	assert.equal(towerLevelPerk('earth', 3), null)
+	assert.equal(towerLevelPerk('ice', 3), 'Замедление усилено до −60%')
+	assert.equal(towerLevelPerk('ice', 4), 'Замедление усилено до −70%')
+	assert.equal(towerLevelPerk('fire', 3), 'Поджог 10% здоровья в секунду')
+	// На максимальном уровне объявляем новую цель, а не сохранившийся бонус.
+	assert.equal(towerLevelPerk('ice', MAX_TOWER_LEVEL), 'Залп по 3 целям')
+	assert.equal(towerLevelPerk('fire', MAX_TOWER_LEVEL), 'Залп по 3 целям')
 })
 
 test('charges more for each next upgrade and stops at max level', () => {

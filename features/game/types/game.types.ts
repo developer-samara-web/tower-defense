@@ -14,8 +14,8 @@ export type Tower = {
   y: number
   cooldown: number
   body: Phaser.GameObjects.Image
-  icon: Phaser.GameObjects.Container
-  levelText: Phaser.GameObjects.Text
+  // Пластина ранга у подножия: ромбы по числу уровней башни.
+  rank: Phaser.GameObjects.Graphics
 }
 
 // Прямоугольник выделения в мировых координатах: его игрок тянет мышью.
@@ -45,6 +45,9 @@ export type Enemy = {
   body: Phaser.GameObjects.Image
   healthBar: Phaser.GameObjects.Graphics
   slowTimer: number
+  // Множитель скорости во время замедления: 0.5 = −50%. Силу задаёт башня
+  // (у льда она растёт с уровнем), поэтому держим её на самом враге.
+  slowFactor: number
   // Поджог от карточек: урон в секунду и оставшееся время горения.
   burnDamage: number
   burnTimer: number
