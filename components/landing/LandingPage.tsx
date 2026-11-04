@@ -14,7 +14,11 @@ const NAV = [
 	{ href: '#maps', label: 'Карты' },
 	{ href: '#rating', label: 'Рейтинг' },
 	{ href: '#controls', label: 'Управление' },
+	{ href: '/updates', label: 'Обновления' },
 ]
+
+const NAV_LINK =
+	'text-[10px] font-black uppercase tracking-[0.16em] text-[#b5a17b] transition-colors hover:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400'
 
 const HEADING = 'font-black uppercase tracking-[0.14em] text-amber-300 drop-shadow-[0_2px_0_#5c2d0e]'
 const PANEL =
@@ -64,7 +68,7 @@ const FEATURES: Array<{
 		icon: 'battle',
 		title: 'Обычная игра',
 		tag: 'свободный забег',
-		text: 'Случайная карта по сиду или своя из библиотеки. Играй в своё удовольствие: результат попадёт только в личный топ карты.',
+		text: 'Случайная карта по сиду или своя из библиотеки. Играй в своё удовольствие: результат попадёт в личную статистику, а не в общий рейтинг.',
 	},
 	{
 		icon: 'rating',
@@ -283,15 +287,17 @@ export default function LandingPage() {
 					</a>
 
 					<nav aria-label="Разделы лендинга" className="hidden items-center gap-4 lg:flex">
-						{NAV.map((item) => (
-							<a
-								key={item.href}
-								href={item.href}
-								className="text-[10px] font-black uppercase tracking-[0.16em] text-[#b5a17b] transition-colors hover:text-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-							>
-								{item.label}
-							</a>
-						))}
+						{NAV.map((item) =>
+							item.href.startsWith('#') ? (
+								<a key={item.href} href={item.href} className={NAV_LINK}>
+									{item.label}
+								</a>
+							) : (
+								<Link key={item.href} href={item.href} className={NAV_LINK}>
+									{item.label}
+								</Link>
+							),
+						)}
 					</nav>
 
 					<LandingPlayButton className="shrink-0 border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_2px_0_#100904] transition-colors hover:from-[#628e33] hover:to-[#3d6022] active:translate-y-[1px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400">
@@ -812,6 +818,9 @@ export default function LandingPage() {
 								<a href="#top" className="transition-colors hover:text-amber-300">
 									Наверх ↑
 								</a>
+								<Link href="/updates" className="transition-colors hover:text-amber-300">
+									Обновления
+								</Link>
 								<Link href="/leaderboard" className="transition-colors hover:text-amber-300">
 									Топ
 								</Link>
