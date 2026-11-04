@@ -35,6 +35,7 @@ export default function MapsPage() {
     return (
       <MapBoardPanel
         token={token}
+        user={user}
         map={openMap}
         onBack={() => setOpenMap(null)}
         onPlay={play}

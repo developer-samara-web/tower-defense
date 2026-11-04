@@ -28,6 +28,7 @@ export default function RatedMapsPage() {
     return (
       <MapBoardPanel
         token={token}
+        user={user}
         map={openMap}
         onBack={() => setOpenMap(null)}
         onPlay={play}

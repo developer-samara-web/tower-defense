@@ -8,6 +8,7 @@ type Props = {
 	onAdventures: () => void
 	onProfile: () => void
 	onLeaderboard: () => void
+	onForum: () => void
 	onLogout: () => void
 }
 
@@ -19,6 +20,7 @@ export default function MainMenu({
 	onAdventures,
 	onProfile,
 	onLeaderboard,
+	onForum,
 	onLogout,
 }: Props) {
 	return (
@@ -32,6 +34,7 @@ export default function MainMenu({
 				Приключения
 			</MenuButton>
 			<MenuButton onClick={onLeaderboard}>Таблица лидеров</MenuButton>
+			<MenuButton onClick={onForum}>Форум</MenuButton>
 			<MenuButton onClick={onProfile}>Статистика</MenuButton>
 			<MenuButton variant="danger" onClick={onLogout}>
 				Выйти

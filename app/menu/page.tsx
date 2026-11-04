@@ -15,6 +15,7 @@ export default function MenuPage() {
 
   const goProfile = () => router.push('/profile')
   const goLeaderboard = () => router.push('/leaderboard')
+  const goForum = () => router.push('/forum')
   const goAdventures = () => router.push('/adventures')
   const handleLogout = () => {
     logout()
@@ -40,6 +41,7 @@ export default function MenuPage() {
         onAdventures={goAdventures}
         onProfile={goProfile}
         onLeaderboard={goLeaderboard}
+        onForum={goForum}
         onLogout={handleLogout}
       />
       {showRatedIntro ? (

@@ -125,6 +125,58 @@ export type MapLeaderboard = {
   my: (MapBoardRow & { rank: number }) | null
 }
 
+// Раздел мини-форума: журнал обновлений, разговоры об игре и о картах.
+export type ForumCategory = 'updates' | 'game' | 'maps'
+
+// Автор сообщения в форуме или комментарии к карте. Поля внешности
+// совпадают с профилем, чтобы список выглядел как топ игроков.
+export type ForumAuthor = {
+  id: string
+  login: string
+  avatar: string
+  avatarFrame: string
+  title: string
+  role: 'user' | 'admin'
+}
+
+// Карта, к которой привязана тема форума.
+export type ForumMapRef = {
+  id: string
+  name: string
+}
+
+export type ForumThreadSummary = {
+  id: string
+  category: ForumCategory
+  title: string
+  body: string
+  author: ForumAuthor
+  map: ForumMapRef | null
+  pinned: boolean
+  postCount: number
+  createdAt: string
+  lastPostAt: string
+}
+
+export type ForumPostView = {
+  id: string
+  body: string
+  author: ForumAuthor
+  createdAt: string
+}
+
+export type ForumThreadDetail = ForumThreadSummary & {
+  posts: ForumPostView[]
+}
+
+// Комментарий под картой в библиотеке.
+export type MapCommentView = {
+  id: string
+  body: string
+  author: ForumAuthor
+  createdAt: string
+}
+
 // Ответ сервера на запись забега: очки, место в топе карты и новый рейтинг.
 export type MapRunScore = {
   mapId: string

@@ -41,10 +41,10 @@ export default function UpdatesPage() {
 
 					<div className="flex shrink-0 items-center gap-2">
 						<Link
-							href="/"
+							href="/forum"
 							className="hidden border-2 border-[#79502b] bg-[#21150c] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200 transition-colors hover:border-amber-400 hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 sm:inline-flex"
 						>
-							На главную
+							Форум
 						</Link>
 						<LandingPlayButton className="border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65,0_2px_0_#100904] transition-colors hover:from-[#628e33] hover:to-[#3d6022] active:translate-y-[1px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400">
 							Играть
@@ -134,6 +134,9 @@ export default function UpdatesPage() {
 					<span className="flex items-center gap-3">
 						<Link href="/" className="transition-colors hover:text-amber-300">
 							На главную
+						</Link>
+						<Link href="/forum" className="transition-colors hover:text-amber-300">
+							Форум
 						</Link>
 						<Link href="/leaderboard" className="transition-colors hover:text-amber-300">
 							Топ

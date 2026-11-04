@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import MapComments from '@/components/menu/MapComments'
 import PlayerAvatar from '@/components/ui/PlayerAvatar'
 import PlayerTitle from '@/components/ui/PlayerTitle'
 import { NO_TITLE } from '@/lib/account/title-options'
 import { fetchMapBoard } from '@/lib/services/map-service'
+import type { PlayerProfile } from '@/features/account/types'
 import type { MapLeaderboard, MapSummary } from '@/types'
 
 type Props = {
 	token: string | null
+	user: PlayerProfile | null
 	map: MapSummary
 	onBack: () => void
 	onPlay: (map: MapSummary) => void
@@ -27,7 +30,7 @@ function playsForm(plays: number): string {
 
 // Карточка карты с её личным топом — как страница битмапа в osu!: звёзды
 // сложности, рекорды игроков и собственное место рядом с ними.
-export default function MapBoardPanel({ token, map, onBack, onPlay }: Props) {
+export default function MapBoardPanel({ token, user, map, onBack, onPlay }: Props) {
 	const [board, setBoard] = useState<MapLeaderboard | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
@@ -160,6 +163,12 @@ export default function MapBoardPanel({ token, map, onBack, onPlay }: Props) {
 						) : null}
 					</div>
 				</div>
+
+				{/* Отзывы есть только у опубликованной карты: у черновика
+					нет ни топа, ни публичной страницы. */}
+				{map.board ? (
+					<MapComments token={token} user={user} mapId={map.id} mapName={map.name} />
+				) : null}
 			</div>
 		</main>
 	)

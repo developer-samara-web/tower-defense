@@ -17,6 +17,7 @@ const NAV = [
 	{ href: '#rating', label: 'Рейтинг' },
 	{ href: '#controls', label: 'Управление' },
 	{ href: '/updates', label: 'Обновления' },
+	{ href: '/forum', label: 'Форум' },
 ]
 
 const NAV_LINK =
@@ -883,6 +884,9 @@ export default function LandingPage() {
 								</a>
 								<Link href="/updates" className="transition-colors hover:text-amber-300">
 									Обновления
+								</Link>
+								<Link href="/forum" className="transition-colors hover:text-amber-300">
+									Форум
 								</Link>
 								<Link href="/leaderboard" className="transition-colors hover:text-amber-300">
 									Топ
