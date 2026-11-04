@@ -5,9 +5,15 @@ type LeaderboardScreenProps = {
 	scores: PlayerScore[]
 	currentUserId?: string
 	onBack: () => void
+	backLabel?: string
 }
 
-export default function LeaderboardScreen({ scores, currentUserId, onBack }: LeaderboardScreenProps) {
+export default function LeaderboardScreen({
+	scores,
+	currentUserId,
+	onBack,
+	backLabel = 'Главное меню',
+}: LeaderboardScreenProps) {
 	return (
 		<main className="relative h-[100dvh] w-full overflow-y-auto bg-[url(/ui/background.png)] bg-cover bg-center px-3 py-4 font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100 sm:px-4">
 			<div className="fixed inset-0 bg-[#05080a]/85" />
@@ -19,7 +25,7 @@ export default function LeaderboardScreen({ scores, currentUserId, onBack }: Lea
 					className="mb-3 inline-flex items-center gap-2 rounded-none border-2 border-[#79502b] bg-[#21150c] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] transition-colors hover:border-amber-400 hover:text-amber-50 active:translate-y-[2px] active:shadow-[0_1px_0_#100904] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
 				>
 					<span className="text-[14px] leading-none">←</span>
-					Главное меню
+					{backLabel}
 				</button>
 
 				<div className="rounded-none border-2 border-[#3a2a1a] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 shadow-[0_0_30px_rgba(0,0,0,0.9)]">

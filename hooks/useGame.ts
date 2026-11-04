@@ -142,8 +142,8 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
   const autosaveStoppedRef = useRef(false)
 
   // Игра без аккаунта не играется: забег некуда сохранять и некому засчитать.
-  // Обучение открыто и без токена — оно ничего не пишет и не сохраняет.
-  const authorized = Boolean(token) || tutorial
+  // Обучение тоже требует входа — гостю нечего подтверждать на сервере.
+  const authorized = Boolean(token && user)
   // Экран входа включается только после проверки токена: до неё первая
   // клиентская отрисовка совпадает с серверной, и гидратация не ломается.
   const needsLogin = checked && !authorized

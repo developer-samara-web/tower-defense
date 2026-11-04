@@ -2,15 +2,20 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import AuthRequiredScreen from '@/components/auth/AuthRequiredScreen'
 import PlayMenu from '@/components/menu/PlayMenu'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function PlayPageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useAuth()
+  const { user, checked } = useAuth()
   const modeParam = searchParams.get('mode')
   const initialMode = modeParam === 'solo' || modeParam === 'coop' ? modeParam : 'root'
+
+  if (!checked) return <LoadingScreen message="Проверяем сессию…" />
+  if (!user) return <AuthRequiredScreen />
 
   return (
     <PlayMenu

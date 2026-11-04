@@ -3,12 +3,14 @@
 import { useRouter } from 'next/navigation'
 import MainMenu from '@/components/menu/MainMenu'
 import RatedInfoPopup from '@/components/menu/RatedInfoPopup'
+import AuthRequiredScreen from '@/components/auth/AuthRequiredScreen'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import { useProgress } from '@/hooks/useProgress'
 
 export default function MenuPage() {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user, checked, logout } = useAuth()
   const { flags, mark } = useProgress()
 
   const goProfile = () => router.push('/profile')
@@ -24,6 +26,11 @@ export default function MenuPage() {
   // подсказка не вернётся после смены браузера.
   const showRatedIntro = Boolean(flags?.tutorialCompleted && !flags.ratedIntroShown)
   const closeRatedIntro = () => mark({ ratedIntroShown: true })
+
+  // Гость не должен видеть меню: играть, профиль и приключения ему всё
+  // равно недоступны, а кнопки вели бы в закрытые разделы.
+  if (!checked) return <LoadingScreen message="Проверяем сессию…" />
+  if (!user) return <AuthRequiredScreen />
 
   return (
     <>

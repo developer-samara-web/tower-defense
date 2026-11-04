@@ -10,5 +10,14 @@ export default function LeaderboardPage() {
   const { user } = useAuth()
   const { scores } = useLeaderboard(50)
 
-  return <LeaderboardScreen scores={scores} currentUserId={user?.id} onBack={() => router.push('/menu')} />
+  // Гость пришёл из лендинга: ему некуда возвращаться в меню, поэтому
+  // кнопка ведёт на главную, а не в закрытый раздел.
+  return (
+    <LeaderboardScreen
+      scores={scores}
+      currentUserId={user?.id}
+      onBack={() => router.push(user ? '/menu' : '/')}
+      backLabel={user ? 'Главное меню' : 'На главную'}
+    />
+  )
 }

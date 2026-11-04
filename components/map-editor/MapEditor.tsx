@@ -7,6 +7,8 @@ import MapEditorCanvas from '@/components/map-editor/MapEditorCanvas'
 import CastleDialog from '@/components/map-editor/CastleDialog'
 import SpawnerDialog from '@/components/map-editor/SpawnerDialog'
 import WavesDialog from '@/components/map-editor/WavesDialog'
+import AuthRequiredScreen from '@/components/auth/AuthRequiredScreen'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import { BOARD_SIZE_STEP, clampBoardSize } from '@/features/game/config/game.config'
 import type { EditorCell, EditorTool } from '@/features/game/editor/types'
@@ -620,6 +622,14 @@ export default function MapEditor({ mapId: initialMapId }: Props) {
 		: notice || issue
 			? 'text-amber-500'
 			: 'text-lime-300'
+
+	// Редактор сохраняет карту на сервере, поэтому гостю здесь делать нечего.
+	if (!checked) {
+		return <LoadingScreen message="Проверяем сессию…" />
+	}
+	if (!token) {
+		return <AuthRequiredScreen />
+	}
 
 	if (loading || !draft) {
 		return (

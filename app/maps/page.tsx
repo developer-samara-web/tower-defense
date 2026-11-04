@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 
 import MapsMenu from '@/components/menu/MapsMenu'
 import MapBoardPanel from '@/components/menu/MapBoardPanel'
+import AuthRequiredScreen from '@/components/auth/AuthRequiredScreen'
+import LoadingScreen from '@/components/ui/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import type { MapSummary } from '@/types'
 
 export default function MapsPage() {
   const router = useRouter()
-  const { token, user } = useAuth()
+  const { token, user, checked } = useAuth()
   // Открытая карта — своя страница с её личным топом.
   const [openMap, setOpenMap] = useState<MapSummary | null>(null)
 
@@ -23,6 +25,11 @@ export default function MapsPage() {
   const edit = (map: MapSummary) => {
     router.push(`/maps/editor?id=${encodeURIComponent(map.id)}`)
   }
+
+  // Библиотека строится по аккаунту: без входа список и топы не к чему
+  // привязать, поэтому гостя отправляем на экран входа.
+  if (!checked) return <LoadingScreen message="Проверяем сессию…" />
+  if (!user) return <AuthRequiredScreen />
 
   if (openMap) {
     return (

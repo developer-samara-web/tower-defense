@@ -29,7 +29,7 @@ export default function GamePageClient() {
   // Оно не грузится с сервера, не сохраняется и не попадает в рекорды.
   const tutorial = searchParams.get('tutorial') === '1'
   const {
-    game, user, checkingSession, resuming, upgradeCards, topScores, mapTopRows, mapBoard, hasMapBoard,
+    game, user, authorized, checkingSession, resuming, upgradeCards, topScores, mapTopRows, mapBoard, hasMapBoard,
     mapSeed, speed, paused,
     mapDraft, mapLoading, mapError, waveLimit,
     needsLogin, accessError,
@@ -43,8 +43,10 @@ export default function GamePageClient() {
   // Сцену на пользовательской карте создаём только после загрузки черновика.
   // Карта без черновика (старая библиотека по сиду) готова сразу: поле строит
   // движок, но id карты всё равно привязывает забег к её топу.
-  // У обучения черновик лежит в коде, поэтому оно готово с первого кадра.
+  // Обучение собирается из кода, но всё равно ждёт проверку аккаунта:
+  // иначе гость успевает увидеть поле до заглушки входа.
   const sceneReady =
+    authorized &&
     !checkingSession &&
     !resuming &&
     (tutorial || (!mapParam || (!mapLoading && !mapError)))
@@ -92,7 +94,7 @@ export default function GamePageClient() {
   )
 
   // Без аккаунта забег некому сохранять и некому засчитать, поэтому сцену
-  // не поднимаем вовсе. Обучение работает и без входа: оно ничего не пишет.
+  // не поднимаем вовсе — даже для обучения: оно тоже часть игры.
   if (needsLogin || accessError) {
     return (
       <AccessScreen
@@ -100,7 +102,7 @@ export default function GamePageClient() {
         message={accessError ?? NOT_AUTHORIZED}
         actions={[
           { label: 'Войти', onClick: () => router.push('/auth') },
-          { label: 'Обучение', onClick: () => router.push('/game?tutorial=1') },
+          { label: 'На главную', onClick: () => router.push('/') },
         ]}
       />
     )
