@@ -276,11 +276,12 @@ export default function LandingPage() {
 		<main className="relative w-full overflow-x-clip bg-[url(/ui/background.png)] bg-cover bg-center bg-fixed font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
 			<div className="fixed inset-0 z-0 bg-gradient-to-b from-[#05080a]/88 via-[#0a0e12]/82 to-[#05080a]/92" />
 
-			{/* Верхняя навигация: якоря по экранам и та же кнопка входа, что в герое. */}
-			<header className="sticky top-0 z-50 border-b border-[#3a2a1a]/80 bg-[#05080a]/85 backdrop-blur-md">
+			{/* Верхняя навигация: якоря по экранам и та же кнопка входа, что в герое.
+			    Фон не заливаем: мини-логотип и ссылки должны лежать прямо на фоне. */}
+			<header className="sticky top-0 z-50">
 				<div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4">
 					<a href="#top" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
-						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-auto object-contain" />
+						<Image src="/ui/logo-mini.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 object-contain" />
 						<span className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
 							TowerForce
 						</span>
