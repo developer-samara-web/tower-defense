@@ -33,7 +33,7 @@ export default function UpdatesPage() {
 						href="/"
 						className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
 					>
-						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-11 object-contain" />
+						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-auto object-contain" />
 						<span className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
 							TowerForce
 						</span>

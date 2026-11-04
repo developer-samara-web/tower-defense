@@ -280,7 +280,7 @@ export default function LandingPage() {
 			<header className="sticky top-0 z-50 border-b border-[#3a2a1a]/80 bg-[#05080a]/85 backdrop-blur-md">
 				<div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4">
 					<a href="#top" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
-						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-11 object-contain" />
+						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-auto object-contain" />
 						<span className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
 							TowerForce
 						</span>
