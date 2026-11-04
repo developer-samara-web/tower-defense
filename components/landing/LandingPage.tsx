@@ -2,12 +2,14 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import KeyChip from '@/components/ui/KeyChip'
+import LandingLeaderboard from './LandingLeaderboard'
 import LandingPlayButton from './LandingPlayButton'
 
 // Лендинг собран из полноэкранных секций: каждая отвечает за одну часть игры,
 // а не за маркетинговый блок. Порядок повторяет путь игрока — от первого боя
 // до рейтинга, библиотеки карт и редактора.
 const NAV = [
+	{ href: '#leaders', label: 'Лидеры' },
 	{ href: '#about', label: 'Игра' },
 	{ href: '#towers', label: 'Башни' },
 	{ href: '#waves', label: 'Волны' },
@@ -242,6 +244,13 @@ const HUD_BUTTONS = [
 	'Продажа — вернуть 30% вложенного золота',
 ]
 
+// Короткая памятка рядом с таблицей лидеров: как вообще попасть в топ.
+const RATING_STEPS = [
+	'Выбери одну из десяти рейтинговых карт.',
+	'Дойди как можно дальше и сохрани жизни замка.',
+	'Очки за волны, целость замка и сложность карты поднимут тебя в топе.',
+]
+
 function FeatureIcon({ name }: { name: IconName }) {
 	return (
 		<svg
@@ -375,11 +384,64 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 2 — что это за игра и все режимы. */}
+				{/* Экран 2 — таблица лидеров. */}
+				<section id="leaders" className={`${SECTION} flex min-h-[100dvh] items-center`}>
+					<div className="mx-auto w-full max-w-6xl">
+						<SectionHead
+							index="01 · Лидеры"
+							title="Кто держит оборону лучше всех"
+							lead="Общий топ считается по очкам рейтинга: их приносят только рейтинговые карты. Сложность карты и целость замка важнее числа волн."
+						/>
+
+						<div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+							<div className={`${PANEL} overflow-hidden`}>
+								<div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#3a2a1a] px-3 py-2.5">
+									<h3 className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-300">
+										Топ игроков
+									</h3>
+									<span className="text-[8px] font-bold uppercase tracking-[0.14em] text-[#8a7340]">
+										По очкам рейтинга
+									</span>
+								</div>
+								<LandingLeaderboard limit={6} />
+							</div>
+
+							<div className={`${PANEL} flex flex-col gap-4 p-5`}>
+								<span className="flex items-center gap-2 text-amber-300">
+									<FeatureIcon name="top" />
+									<span className="text-[11px] font-black uppercase tracking-[0.14em]">
+										Как попасть в топ
+									</span>
+								</span>
+								<ol className="space-y-2">
+									{RATING_STEPS.map((step, index) => (
+										<li
+											key={step}
+											className="flex gap-2 text-[10px] font-bold leading-snug text-[#b5a17b]"
+										>
+											<span className="flex h-5 w-5 shrink-0 items-center justify-center border border-[#6b4c1f] bg-[#2a1d0a] text-[9px] font-black text-amber-300">
+												{index + 1}
+											</span>
+											{step}
+										</li>
+									))}
+								</ol>
+								<Link
+									href="/leaderboard"
+									className="mt-auto inline-flex items-center justify-center border-2 border-[#79502b] bg-[#21150c] px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200 transition-colors hover:border-amber-400 hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+								>
+									Вся таблица
+								</Link>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				{/* Экран 3 — что это за игра и все режимы. */}
 				<section id="about" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="01 · Игра"
+							index="02 · Игра"
 							title="Оборона, которая начинается с одной башни"
 							lead="Дороги ведут к замку, враги идут волнами, золото капает за убийства и удержанные волны, а опыт открывает карты улучшений. Проигрыш — когда у замка не осталось жизней."
 						/>
@@ -446,11 +508,11 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 3 — башни и уровни. */}
+				{/* Экран 4 — башни и уровни. */}
 				<section id="towers" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="02 · Башни"
+							index="03 · Башни"
 							title="Три стихии, пять уровней, разные роли"
 							lead="Башни не заменяют друг друга: земля держит поток, лёд растягивает его во времени, огонь снимает толпу. Прокачка растит статы и добавляет свойства, которые остаются с башней навсегда."
 						/>
@@ -521,11 +583,11 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 4 — враги, волны и карточки улучшений. */}
+				{/* Экран 5 — враги, волны и карточки улучшений. */}
 				<section id="waves" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="03 · Волны"
+							index="04 · Волны"
 							title="Волны, которых хватает на длинный забег"
 							lead="Здоровье врагов растёт с каждой волной, скорость — медленнее и с потолком, поэтому поздние волны не превращаются в гонку за пикселями. Каждую пятую волну замыкает босс."
 						/>
@@ -605,11 +667,11 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 5 — карты, редактор и приключения. */}
+				{/* Экран 6 — карты, редактор и приключения. */}
 				<section id="maps" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="04 · Карты"
+							index="05 · Карты"
 							title="Рейтинговые карты, своя библиотека и редактор"
 							lead="У каждой карты есть сид, размер поля и превью. Рейтинговые поля собраны по каталогу, обычные генерируются по сиду, а своё поле можно нарисовать в редакторе и отправить на проверку из библиотеки."
 						/>
@@ -692,11 +754,11 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 6 — рейтинг, профиль и топ. */}
+				{/* Экран 7 — рейтинг, профиль и топ. */}
 				<section id="rating" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="05 · Рейтинг"
+							index="06 · Рейтинг"
 							title="Очки считает карта, а не обещания"
 							lead="У рейтинговой карты есть звёзды сложности. Очки забега зависят от удержанных волн и целости замка, а общий рейтинг — взвешенная сумма лучших результатов по разным картам."
 						/>
@@ -745,11 +807,11 @@ export default function LandingPage() {
 					</div>
 				</section>
 
-				{/* Экран 7 — управление и финальный призыв. */}
+				{/* Экран 8 — управление и финальный призыв. */}
 				<section id="controls" className={`${SECTION} flex min-h-[100dvh] items-center`}>
 					<div className="mx-auto w-full max-w-6xl">
 						<SectionHead
-							index="06 · Управление"
+							index="07 · Управление"
 							title="Всё делается с клавиатуры и мыши"
 							lead="Башни выбираются буквами, цифры отданы карточкам улучшения, а камера ездит стрелками. Подсказки с клавишами есть прямо на кнопках интерфейса."
 						/>
