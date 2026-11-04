@@ -48,14 +48,14 @@ export default function AuthScreen({
 				<div className="mb-5 flex flex-col items-center gap-3">
 					<Image
 						src="/ui/logo.png"
-						alt="Legends of Prigranica"
+						alt="TowerForce"
 						width={330}
 						height={180}
 						priority
 						className="drop-shadow-[0_4px_8px_rgba(212,160,60,0.25)]"
 					/>
 					<h1 className="text-center text-2xl font-black uppercase tracking-[0.2em] text-amber-300 drop-shadow-[0_3px_0_#5c2d0e]">
-						Врата Замка
+						TowerForce
 					</h1>
 				</div>
 

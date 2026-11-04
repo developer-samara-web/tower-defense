@@ -278,7 +278,7 @@ export default function LandingPage() {
 					<a href="#top" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
 						<Image src="/ui/logo.png" alt="" width={44} height={24} className="h-6 w-11 object-contain" />
 						<span className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-amber-300">
-							Врата Замка
+							TowerForce
 						</span>
 					</a>
 
@@ -309,7 +309,7 @@ export default function LandingPage() {
 					<div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
 						<Image
 							src="/ui/logo.png"
-							alt="Legends of Prigranica"
+							alt="TowerForce"
 							width={330}
 							height={180}
 							priority
@@ -321,11 +321,8 @@ export default function LandingPage() {
 						</span>
 
 						<h1 className="mt-4 text-4xl font-black uppercase tracking-[0.12em] text-amber-300 drop-shadow-[0_4px_0_#5c2d0e] sm:text-6xl">
-							Врата Замка
+							TowerForce
 						</h1>
-						<p className="mt-2 text-[11px] font-black uppercase tracking-[0.4em] text-[#b5a17b]">
-							Легенды Приграничья
-						</p>
 
 						<p className="mt-5 max-w-xl text-[13px] font-bold leading-relaxed text-[#c9b491] sm:text-sm">
 							Строй башни трёх стихий, держи волны врагов и защити замок.
@@ -810,7 +807,7 @@ export default function LandingPage() {
 						</div>
 
 						<footer className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-[#3a2a1a]/80 pt-4 text-[9px] font-black uppercase tracking-[0.18em] text-[#8a7340] sm:flex-row">
-							<span>Врата Замка · Легенды Приграничья</span>
+							<span>© TowerForce</span>
 							<span className="flex items-center gap-3">
 								<a href="#top" className="transition-colors hover:text-amber-300">
 									Наверх ↑

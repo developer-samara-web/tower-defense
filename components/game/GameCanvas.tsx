@@ -90,7 +90,7 @@ export default function GameCanvas({
 		<div
 			ref={containerRef}
 			role="application"
-			aria-label="Игровое поле Tower Defense"
+			aria-label="Игровое поле TowerForce"
 			className="game-viewport relative h-full w-full overflow-hidden"
 		/>
 	)

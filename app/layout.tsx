@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "Tower Defense",
+	title: "TowerForce",
 	description: "Браузерная стратегия в жанре tower defense.",
 };
 

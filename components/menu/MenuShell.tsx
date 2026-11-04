@@ -25,7 +25,7 @@ export default function MenuShell({
 				<div className={`w-full ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
 					<Image
 						src="/ui/logo.png"
-						alt="Legends of Prigranica"
+						alt="TowerForce"
 						width={330}
 						height={180}
 						priority
