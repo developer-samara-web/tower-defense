@@ -278,7 +278,7 @@ export default function LandingPage() {
 
 			{/* Верхняя навигация: якоря по экранам и та же кнопка входа, что в герое.
 			    Фон не заливаем: мини-логотип и ссылки должны лежать прямо на фоне. */}
-			<header className="sticky top-0 z-50">
+			<header className="sticky top-0 z-50 bg-gradient-to-b from-black/90 via-black/45 to-transparent">
 				<div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4">
 					<a href="#top" className="flex min-w-0 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
 						<Image src="/ui/logo-mini.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0 object-contain" />
@@ -788,11 +788,11 @@ export default function LandingPage() {
 
 						<div className={`${PANEL} mt-6 flex flex-col items-center gap-4 p-6 text-center sm:p-8`}>
 							<Image
-								src="/game/buildings/gate-top.png"
+								src="/game/buildings/castle.png"
 								alt=""
 								width={160}
-								height={160}
-								className="h-24 w-24 object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.65)] [image-rendering:pixelated]"
+								height={140}
+								className="h-24 w-auto object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.65)] [image-rendering:pixelated]"
 							/>
 							<h2 className={`text-xl sm:text-2xl ${HEADING}`}>Замок ждёт защитника</h2>
 							<p className="max-w-xl text-[12px] font-bold leading-relaxed text-[#b5a17b]">

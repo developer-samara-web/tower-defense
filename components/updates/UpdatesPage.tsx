@@ -27,7 +27,7 @@ export default function UpdatesPage() {
 		<main className="relative w-full overflow-x-clip bg-[url(/ui/background.png)] bg-cover bg-center bg-fixed font-mono text-[#e2c8a0] selection:bg-amber-900 selection:text-amber-100">
 			<div className="fixed inset-0 z-0 bg-gradient-to-b from-[#05080a]/88 via-[#0a0e12]/82 to-[#05080a]/92" />
 
-			<header className="sticky top-0 z-50">
+			<header className="sticky top-0 z-50 bg-gradient-to-b from-black/90 via-black/45 to-transparent">
 				<div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between gap-3 px-4">
 					<Link
 						href="/"
