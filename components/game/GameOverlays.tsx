@@ -75,6 +75,17 @@ type Props = {
   onDeselect: () => void
   showInfo: boolean
   onCloseInfo: () => void
+  // Этаж башни: результат прохождения и ошибка начисления награды
+  towerFloor?: number
+  towerResult?: {
+    maxFloor: number
+    coins: number
+    reward: number
+    alreadyCompleted: boolean
+  } | null
+  towerError?: string
+  onRetryTowerComplete?: () => void
+  onNextTowerFloor?: () => void
 }
 
 export default function GameOverlays({
@@ -83,6 +94,7 @@ export default function GameOverlays({
   onRestart, confirmRestart, onConfirmRestart, onCancelRestart,
   onBackToMenu, onPickUpgrade, onRerollUpgrade, onUpgrade, onToggleAutoUpgrade, onSell,
   onDeselect, showInfo, onCloseInfo,
+  towerFloor, towerResult, towerError, onRetryTowerComplete, onNextTowerFloor,
 }: Props) {
   const rerollCost = upgradeRerollCost(game.gold)
 
@@ -182,6 +194,11 @@ export default function GameOverlays({
         <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
           <div className="relative w-full max-w-md rounded-none border-2 border-[#5c2d0e] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-6 shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_30px_rgba(74,55,35,0.25)]">
             <h2 className="text-center text-xl font-black uppercase tracking-[0.2em] text-red-300 drop-shadow-[0_2px_0_#5c2d0e]">Поражение</h2>
+            {towerFloor && towerFloor > 0 ? (
+              <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.14em] text-amber-400">
+                Этаж {towerFloor} не пройден
+              </p>
+            ) : null}
             <div className="mt-4 space-y-3 text-[10px] font-bold leading-snug text-amber-100">
               <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1"><span>Волна</span><span className="text-yellow-300">{game.wave}</span></div>
               <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1"><span>Убито монстров</span><span className="text-yellow-300">{game.stats?.monstersKilled ?? 0}</span></div>
@@ -189,9 +206,90 @@ export default function GameOverlays({
               <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1"><span>Потрачено золота</span><span className="text-yellow-300">{game.stats?.moneySpent ?? 0}</span></div>
             </div>
             <div className="mt-5 flex gap-3">
-              <button onClick={onBackToMenu} className="flex-1 rounded-none border-2 border-[#79502b] bg-gradient-to-b from-[#2a1d0a] to-[#171109] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100 shadow-[0_3px_0_#100904] hover:border-amber-500 hover:from-[#3a2a12] hover:text-amber-50">Главное меню</button>
+              <button onClick={onBackToMenu} className="flex-1 rounded-none border-2 border-[#79502b] bg-gradient-to-b from-[#2a1d0a] to-[#171109] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100 shadow-[0_3px_0_#100904] hover:border-amber-500 hover:from-[#3a2a12] hover:text-amber-50">{towerFloor && towerFloor > 0 ? 'К башне' : 'Главное меню'}</button>
               <button onClick={onRestart} className="flex-1 rounded-none border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65] hover:from-[#628e33] hover:to-[#3d6022]">Заново</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Оверлей результата этажа башни: победа, награда, следующий этаж */}
+      {towerFloor && towerFloor > 0 && (towerResult || towerError) && (
+        <div className="absolute inset-0 z-[95] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-none border-2 border-[#8a6a1f] bg-gradient-to-b from-[#1a1208]/95 to-[#0f0a05]/95 p-5 shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+            {towerError ? (
+              <>
+                <h2 className="text-center text-lg font-black uppercase tracking-[0.2em] text-red-300">Ошибка</h2>
+                <p className="mt-3 text-center text-[10px] font-bold leading-snug text-[#b5a17b]">
+                  {towerError}
+                </p>
+                <p className="mt-1 text-center text-[9px] font-bold uppercase tracking-[0.12em] text-[#8a7340]">
+                  Этаж {towerFloor} пройден, но награда не начислена
+                </p>
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={onRetryTowerComplete}
+                    className="flex-1 rounded-none border-2 border-[#8a6a1f] bg-gradient-to-b from-[#6b4a1f] to-[#3a2a12] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100 shadow-[inset_0_1px_0_#c9a24a] hover:from-[#7d5827] hover:to-[#4a3618]"
+                  >
+                    Повторить попытку
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onBackToMenu}
+                    className="flex-1 rounded-none border-2 border-[#79502b] bg-[#21150c] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] hover:border-amber-400 hover:text-amber-50"
+                  >
+                    К башне
+                  </button>
+                </div>
+              </>
+            ) : towerResult ? (
+              <>
+                <h2 className="text-center text-lg font-black uppercase tracking-[0.2em] text-lime-300 drop-shadow-[0_2px_0_#5c2d0e]">
+                  Этаж {towerFloor} пройден!
+                </h2>
+                <div className="mt-4 space-y-2 text-[10px] font-bold leading-snug text-amber-100">
+                  <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1">
+                    <span>Награда</span>
+                    <span className="text-yellow-300">+{towerResult.reward} 🪙</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1">
+                    <span>Валюта</span>
+                    <span className="text-yellow-300">{towerResult.coins} 🪙</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#3a2a1a]/60 pb-1">
+                    <span>Открыт этаж</span>
+                    <span className="text-lime-300">{towerResult.maxFloor}</span>
+                  </div>
+                </div>
+                <div className="mt-5 flex gap-3">
+                  {towerResult.maxFloor > towerFloor ? (
+                    <button
+                      type="button"
+                      onClick={onNextTowerFloor}
+                      className="flex-1 rounded-none border-2 border-[#6b8e32] bg-gradient-to-b from-[#527c28] to-[#304d19] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-lime-100 shadow-[inset_0_1px_0_#a3cf65] hover:from-[#628e33] hover:to-[#3d6022]"
+                    >
+                      Этаж {towerFloor + 1}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onBackToMenu}
+                      className="flex-1 rounded-none border-2 border-[#8a6a1f] bg-gradient-to-b from-[#6b4a1f] to-[#3a2a12] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-100 shadow-[inset_0_1px_0_#c9a24a] hover:from-[#7d5827] hover:to-[#4a3618]"
+                    >
+                      К башне
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onBackToMenu}
+                    className="flex-1 rounded-none border-2 border-[#79502b] bg-[#21150c] px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-200 shadow-[0_3px_0_#100904] hover:border-amber-400 hover:text-amber-50"
+                  >
+                    К этажам
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       )}

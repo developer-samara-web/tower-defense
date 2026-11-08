@@ -25,20 +25,24 @@ export default function GamePageClient() {
   const seedParam = searchParams.get('seed')?.trim() ?? ''
   const initialSeed = seedParam ? seedParam.slice(0, 128) : undefined
   const mapParam = searchParams.get('map')?.trim() ?? ''
+  // Бесконечная башня: номер этажа из URL. Игра до 15-й волны с боссами.
+  const towerFloor = Number(searchParams.get('tower') ?? 0)
   // Обучение — фиксированная карта из кода с подсказками и пятью волнами.
   // Оно не грузится с сервера, не сохраняется и не попадает в рекорды.
   const tutorial = searchParams.get('tutorial') === '1'
   const {
     game, user, authorized, checkingSession, resuming, upgradeCards, topScores, mapTopRows, mapBoard, hasMapBoard,
     mapSeed, speed, paused,
-    mapDraft, mapLoading, mapError, waveLimit,
+    mapDraft, mapLoading, mapError,
+    towerMode, towerResult, towerError, retryTowerComplete,
+    waveLimit,
     needsLogin, accessError,
     restartGame, resumeGame, startNew, leaveGame, refreshScores, markTutorialDone,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
     rerollUpgrades,
     toggleAutoUpgrade, cycleSpeed, togglePause,
     waveButtonDisabled,
-  } = useGame(initialSeed, mapParam || undefined, tutorial)
+  } = useGame(initialSeed, mapParam || undefined, tutorial, towerFloor)
 
   // Сцену на пользовательской карте создаём только после загрузки черновика.
   // Карта без черновика (старая библиотека по сиду) готова сразу: поле строит
@@ -49,7 +53,10 @@ export default function GamePageClient() {
     authorized &&
     !checkingSession &&
     !resuming &&
-    (tutorial || (!mapParam || (!mapLoading && !mapError)))
+    (tutorial ||
+      (towerMode
+        ? !mapLoading && !mapError && Boolean(mapDraft)
+        : !mapParam || (!mapLoading && !mapError)))
 
   // Кнопка рестарта сверху спрашивает подтверждение: партия сбрасывается
   // без возможности вернуться к прежнему состоянию.
@@ -138,7 +145,7 @@ export default function GamePageClient() {
         {/* Сцену не создаём, пока не решено, продолжать сохранение или нет. */}
         {sceneReady && (
           <GameCanvas
-            key={`${mapParam}:${mapSeed}`}
+            key={`${towerFloor ? `tower-${towerFloor}` : mapParam}:${mapSeed}`}
             mapSeed={mapSeed}
             customDraft={mapDraft}
             waveLimit={waveLimit}
@@ -154,10 +161,10 @@ export default function GamePageClient() {
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-red-300">{mapError}</p>
             <button
               type="button"
-              onClick={() => router.push('/maps')}
+              onClick={() => router.push(towerMode ? '/tower' : '/maps')}
               className="border-2 border-[#79502b] bg-[#21150c] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200 transition-colors hover:border-amber-400 hover:text-amber-50"
             >
-              К списку карт
+              {towerMode ? 'К башне' : 'К списку карт'}
             </button>
           </div>
         )}
@@ -177,6 +184,11 @@ export default function GamePageClient() {
         gameOver={game.gameOver}
         resuming={resuming}
         upgradeCards={upgradeCards}
+        towerFloor={towerMode ? towerFloor : undefined}
+        towerResult={towerResult}
+        towerError={towerError}
+        onRetryTowerComplete={retryTowerComplete}
+        onNextTowerFloor={() => router.push(`/game?tower=${towerFloor + 1}`)}
         game={{
           wave: game.wave,
           gold: game.gold,
@@ -196,7 +208,13 @@ export default function GamePageClient() {
         confirmRestart={confirmRestart}
         onConfirmRestart={() => { setConfirmRestart(false); restartGame() }}
         onCancelRestart={() => setConfirmRestart(false)}
-        onBackToMenu={() => { restartGame(); router.push('/menu') }}
+        onBackToMenu={() => {
+          // Этаж башни — не обычный забег: после победы и поражения игрок
+          // возвращается к списку этажей, а не в главное меню.
+          if (towerMode) { router.push('/tower'); return }
+          restartGame()
+          router.push('/menu')
+        }}
         onPickUpgrade={pickUpgrade}
         onRerollUpgrade={rerollUpgrades}
         onUpgrade={upgradeTower}

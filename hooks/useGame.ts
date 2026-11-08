@@ -27,6 +27,12 @@ import { fetchMap, fetchMapBoard } from '@/lib/services/map-service'
 import { fetchTopScores, updateUserScore } from '@/lib/services/score-service'
 import { markProgress } from '@/lib/services/progress-service'
 import { recordGame } from '@/lib/services/game-service'
+import {
+  completeTowerFloor,
+  fetchTowerFloor,
+  type TowerCompletion,
+} from '@/lib/services/tower-service'
+import { TOWER_FLOOR_WAVES, towerFloorSeed } from '@/features/game/tower/tower-rules'
 import { ApiError, isUnauthorized } from '@/lib/services/api-error'
 import { NOT_AUTHORIZED } from '@/lib/access-messages'
 
@@ -86,21 +92,35 @@ async function loadTopScores(): Promise<PlayerScore[] | null> {
 // смотрит в карточке карты.
 const BOARD_ROWS = 8
 
-export function useGame(initialSeed?: string, initialMapId?: string, tutorial = false) {
+export function useGame(
+  initialSeed?: string,
+  initialMapId?: string,
+  tutorial = false,
+  towerFloor = 0,
+) {
   const { token, user, checked } = useAuth()
   // Сид из URL означает, что игрок выбрал конкретную сохранённую карту.
   // Для такой игры не показываем предложение продолжить старый забег.
   const explicitSeed = initialSeed?.trim() || null
   // id карты из редактора: черновик загружается с сервера до создания сцены.
   const explicitMap = initialMapId?.trim() || null
+  // Этаж башни: карта общая, загружается с сервера и играется до 15-й волны.
+  const towerMode = !tutorial && Number.isInteger(towerFloor) && towerFloor > 0
+  const towerFloorNumber = towerMode ? towerFloor : 0
   const [game, setGame] = useState<GameState>(initialState)
   // Черновик обучения лежит в коде: он не грузится с сервера и не сохраняется,
   // поэтому готов до первого кадра сцены.
   const [mapDraft, setMapDraft] = useState<MapDraft | null>(() =>
     tutorial ? buildTutorialDraft() : null,
   )
-  const [mapLoading, setMapLoading] = useState(Boolean(explicitMap) && !tutorial)
+  const [mapLoading, setMapLoading] = useState(
+    Boolean(explicitMap || towerMode) && !tutorial,
+  )
   const [mapError, setMapError] = useState<string | null>(null)
+  // Итог прохождения этажа: награда и открытый следующий этаж. Ошибка
+  // начисления показывается отдельно — забег всё равно уже выигран.
+  const [towerResult, setTowerResult] = useState<TowerCompletion | null>(null)
+  const [towerError, setTowerError] = useState('')
   // 401 из игровых запросов: забег продолжаться не может, показываем вход.
   const [accessError, setAccessError] = useState<string | null>(null)
   const [upgradeCards, setUpgradeCards] = useState<UpgradeCard[]>([])
@@ -131,6 +151,9 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
   const lastSavedRef = useRef('')
   // Одна завершённая игра должна попасть в историю ровно один раз.
   const gameRecordedRef = useRef(false)
+  // Прохождение этажа отправляется на сервер один раз за забег: повторный
+  // вызов не должен начислить валюту дважды.
+  const towerCompletedRef = useRef(false)
   // После выхода в меню сессия закрыта: автосейв больше не имеет права её
   // пересоздать, иначе удалённое сохранение вернётся.
   const sessionClosedRef = useRef(false)
@@ -150,7 +173,13 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
 
   // Обучение идёт вне аккаунта: сохранений инициализации не имеет смысла искать.
   const checkingSession =
-    mounted && Boolean(token) && !tutorial && !explicitSeed && !explicitMap && checkedToken !== token
+    mounted &&
+    Boolean(token) &&
+    !tutorial &&
+    !towerMode &&
+    !explicitSeed &&
+    !explicitMap &&
+    checkedToken !== token
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -201,6 +230,49 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     }
   }, [explicitMap, token, checked, tutorial])
 
+  // Этаж башни загружается до первого кадра: черновик общий и приходит
+  // с сервера, а не собирается на клиенте. Сид фиксирован номером этажа,
+  // поэтому рестарт пересоздаёт ту же карту.
+  useEffect(() => {
+    if (!towerMode || !checked) return
+
+    let cancelled = false
+
+    const load = async () => {
+      if (!token) {
+        setMapLoading(false)
+        setMapError(NOT_AUTHORIZED)
+        return
+      }
+
+      setMapLoading(true)
+      setMapError(null)
+
+      try {
+        const data = await fetchTowerFloor(token, towerFloorNumber)
+        if (cancelled) return
+
+        setMapSeed(towerFloorSeed(towerFloorNumber))
+        setMapDraft(data.draft)
+      } catch (loadError) {
+        if (cancelled) return
+        setMapError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Не удалось загрузить этаж',
+        )
+      } finally {
+        if (!cancelled) setMapLoading(false)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [towerMode, towerFloorNumber, token, checked])
+
   // Таблица рекордов конкретной карты: у каждой карты свой топ, как у
   // битмапа в osu!. Автогенерируемая игра карты не имеет, поэтому и доски нет.
   const reloadMapBoard = useCallback(async () => {
@@ -238,7 +310,7 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
       moneySpent?: number
       damageDealt?: number
     }) => {
-      if (tutorial || !token || gameRecordedRef.current) return
+      if (tutorial || towerMode || !token || gameRecordedRef.current) return
       gameRecordedRef.current = true
 
       void recordGame(token, {
@@ -261,14 +333,14 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
         .then(() => refreshScores())
         .catch(() => {})
     },
-    [explicitMap, refreshScores, reloadMapBoard, token, tutorial],
+    [explicitMap, refreshScores, reloadMapBoard, token, tutorial, towerMode],
   )
 
   // Закрывает прерванный забег: игрок выбрал новую игру вместо продолжения.
   const recordAbandonedGame = useCallback(
     (payload: SessionPayload | null) => {
       const saved = payload?.gameState
-      if (tutorial || !token || !saved || !hasSessionProgress(saved)) return
+      if (tutorial || towerMode || !token || !saved || !hasSessionProgress(saved)) return
 
       const stats = saved.stats ?? payload.stats
 
@@ -285,7 +357,7 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
         damageDealt: stats?.damageDealt ?? 0,
       }).catch(() => {})
     },
-    [explicitMap, token, tutorial],
+    [explicitMap, token, tutorial, towerMode],
   )
 
   useEffect(() => {
@@ -340,16 +412,17 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
   // Живая строка сравнивается с серверными местами, поэтому топ загружается
   // сразу при входе в бой, а не только когда игрок откроет панель рекордов.
   useEffect(() => {
+    if (towerMode) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refreshScores()
-  }, [refreshScores])
+  }, [refreshScores, towerMode])
 
   // Ищем сохранение до того, как автосейв получит право писать на сервер.
   // Для выбранной карты сохранение не подгружаем: игрок хочет начать её заново.
   // Обучение не имеет права трогать чужие забеги — иначе выход из урока
   // подсовывает игроку продолжение реальной партии.
   useEffect(() => {
-    if (!token || tutorial || explicitSeed || explicitMap) return
+    if (!token || tutorial || towerMode || explicitSeed || explicitMap) return
 
     let cancelled = false
 
@@ -383,11 +456,11 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     return () => {
       cancelled = true
     }
-  }, [token, explicitSeed, explicitMap, tutorial])
+  }, [token, explicitSeed, explicitMap, tutorial, towerMode])
 
   // Интервал не зависит от кадров игры: снимок читается из ref.
   useEffect(() => {
-    if (!token || tutorial || explicitMap || checkingSession || resuming) return
+    if (!token || tutorial || towerMode || explicitMap || checkingSession || resuming) return
 
     const interval = setInterval(() => {
       if (sessionClosedRef.current || autosaveStoppedRef.current) return
@@ -417,10 +490,10 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [token, tutorial, explicitMap, checkingSession, resuming])
+  }, [token, tutorial, towerMode, explicitMap, checkingSession, resuming])
 
   const resumeGame = useCallback(async () => {
-    if (tutorial || !sessionId || !token) return false
+    if (tutorial || towerMode || !sessionId || !token) return false
 
     try {
       const data = await loadSession(token, sessionId)
@@ -471,7 +544,37 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
       )
       return false
     }
-  }, [token, sessionId, tutorial])
+  }, [token, sessionId, tutorial, towerMode])
+
+  // Победа на этаже: сервер открывает следующий этаж и начисляет валюту.
+  // Ошибку показываем отдельно — карта уже пройдена, терять результат нельзя.
+  const completeTower = useCallback(async () => {
+    if (!towerMode || !token) return
+
+    setTowerError('')
+
+    try {
+      setTowerResult(await completeTowerFloor(token, towerFloorNumber))
+    } catch (error) {
+      setTowerError(
+        error instanceof Error
+          ? error.message
+          : 'Не удалось начислить награду за этаж',
+      )
+    }
+  }, [towerMode, token, towerFloorNumber])
+
+  useEffect(() => {
+    if (!towerMode || !game.victory || towerCompletedRef.current) return
+    towerCompletedRef.current = true
+    void completeTower()
+  }, [game.victory, towerMode, completeTower])
+
+  const retryTowerComplete = useCallback(() => {
+    if (!towerMode || !token) return
+    towerCompletedRef.current = true
+    void completeTower()
+  }, [towerMode, token, completeTower])
 
   const restartGame = useCallback(() => {
     latestSnapshotRef.current = null
@@ -481,17 +584,20 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     setUpgradeCards([])
     cardsShownRef.current = false
     gameRecordedRef.current = false
+    towerCompletedRef.current = false
+    setTowerResult(null)
+    setTowerError('')
     setGame({ ...initialState, stats: initialState.stats })
     // Сцена после рестарта сама просит возобновить бой, поэтому и ручная
     // пауза не должна переживать перезапуск.
     setPaused(false)
-    // Выбранную карту и урок перезапускаем на том же сиде: у урока поле
+    // Выбранную карту, урок и этаж перезапускаем на том же сиде: у них поле
     // задаёт черновик, а новый сид только пересоздал бы сцену.
     setMapSeed((current) =>
-      explicitSeed ?? (explicitMap || tutorial ? current : createMapSeed()),
+      explicitSeed ?? (explicitMap || tutorial || towerMode ? current : createMapSeed()),
     )
     window.dispatchEvent(new CustomEvent('td:restart'))
-  }, [explicitSeed, explicitMap, tutorial])
+  }, [explicitSeed, explicitMap, tutorial, towerMode])
 
   const startNew = useCallback(() => {
     recordAbandonedGame(savedSessionRef.current)
@@ -500,17 +606,17 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     sessionClosedRef.current = false
     setResuming(false)
     setSessionId(null)
-    // Урок ничего не сохраняет, поэтому и удалять ему нечего: сохранение
-    // реального забега игрока остаётся в силе.
-    if (!tutorial && token) void deleteSession(token).catch(() => {})
+    // Урок и этаж башни ничего не сохраняют, поэтому и удалять им нечего:
+    // сохранение реального забега игрока остаётся в силе.
+    if (!tutorial && !towerMode && token) void deleteSession(token).catch(() => {})
     restartGame()
-  }, [token, tutorial, restartGame, recordAbandonedGame])
+  }, [token, tutorial, towerMode, restartGame, recordAbandonedGame])
 
   // Выход в главное меню: забег завершён здесь и сейчас, а не тогда, когда
   // у игрока закончатся жизни. Сессия закрывается, результат уходит в топ.
   // Обучение не забег: оно не пишет рекорд и не трогает чужое сохранение.
   const leaveGame = useCallback(() => {
-    if (tutorial) return
+    if (tutorial || towerMode) return
     sessionClosedRef.current = true
     const snapshot = latestSnapshotRef.current
     if (!snapshot || !hasSessionProgress(snapshot)) return
@@ -527,7 +633,7 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
       moneySpent: snapshot.stats.moneySpent,
       damageDealt: snapshot.stats.damageDealt,
     })
-  }, [finishRun, token, tutorial])
+  }, [finishRun, token, tutorial, towerMode])
 
   // Прохождение обучения — единственное, что оно оставляет в аккаунте:
   // флаг включает рассказ про рейтинг в главном меню. Ошибку гасим: без
@@ -682,7 +788,10 @@ export function useGame(initialSeed?: string, initialMapId?: string, tutorial = 
     mapDraft, mapLoading, mapError,
     authorized, needsLogin, accessError,
     // Урок обрывается на пятой волне: движок берёт лимит из этих данных.
-    waveLimit: tutorial ? TUTORIAL_WAVES : 0,
+    // Башня играется до пятнадцати волн: движок тоже знает этот лимит.
+    waveLimit: tutorial ? TUTORIAL_WAVES : towerMode ? TOWER_FLOOR_WAVES : 0,
+    // Этаж башни: текущий номер, результат прохождения и ошибка начисления.
+    towerMode, towerFloor: towerMode ? towerFloor : 0, towerResult, towerError, completeTower, retryTowerComplete,
     restartGame, resumeGame, startNew, leaveGame,
     markTutorialDone,
     selectTower, startWave, upgradeTower, sellTower, deselectTower, pickUpgrade,
