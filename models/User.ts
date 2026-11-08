@@ -27,6 +27,10 @@ export interface IUser {
 	tutorialCompleted: boolean
 	// Рассказ про рейтинг уже показан: второй раз игрока не отвлекаем.
 	ratedIntroShown: boolean
+	// Бесконечная башня: самый высокий открытый этаж (1 — первый доступен)
+	// и валюта, которую игрок получает за первое прохождение этажа.
+	towerMaxFloor: number
+	towerCoins: number
 	createdAt: Date
 }
 
@@ -43,6 +47,8 @@ const UserSchema = new mongoose.Schema<IUser>({
 	title: { type: String, default: NO_TITLE },
 	tutorialCompleted: { type: Boolean, default: false },
 	ratedIntroShown: { type: Boolean, default: false },
+	towerMaxFloor: { type: Number, default: 1 },
+	towerCoins: { type: Number, default: 0 },
 	createdAt: { type: Date, default: Date.now },
 })
 

@@ -12,7 +12,7 @@
     "reset-ratings": "node --env-file=.env scripts/reset-ratings.mjs",
     "rated-maps:report": "node --experimental-strip-types scripts/rated-maps-report.ts",
     "rated-maps:publish": "node --env-file=.env --experimental-strip-types lib/rated-maps/publish.ts",
-    "test": "node --test features/game/domain/game-rules.test.ts features/game/domain/session-state.test.ts features/game/domain/upgrade-cards.test.ts features/game/engine/map/game-map.test.ts features/game/engine/map/custom-map.test.ts features/game/engine/map/custom-waves.test.ts features/game/engine/map/map-preview.test.ts features/game/engine/wave-preview.test.ts lib/api-auth.test.ts lib/auth.test.ts lib/forum.test.ts lib/compendium/adventure-rules.test.ts lib/map-points.test.ts lib/rated-maps/rated-maps.test.ts lib/services/api-error.test.ts lib/tutorial/tutorial-map.test.ts"
+    "test": "node --test features/game/domain/game-rules.test.ts features/game/domain/session-state.test.ts features/game/domain/upgrade-cards.test.ts features/game/engine/map/game-map.test.ts features/game/engine/map/custom-map.test.ts features/game/engine/map/custom-waves.test.ts features/game/engine/map/map-preview.test.ts features/game/engine/wave-preview.test.ts features/game/tower/tower-floor.test.ts lib/api-auth.test.ts lib/auth.test.ts lib/forum.test.ts lib/map-points.test.ts lib/rated-maps/rated-maps.test.ts lib/services/api-error.test.ts lib/tutorial/tutorial-map.test.ts"
   },
   "engines": {
     "node": ">=22.18.0"
