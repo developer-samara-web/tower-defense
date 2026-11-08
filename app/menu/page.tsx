@@ -16,7 +16,7 @@ export default function MenuPage() {
   const goProfile = () => router.push('/profile')
   const goLeaderboard = () => router.push('/leaderboard')
   const goForum = () => router.push('/forum')
-  const goAdventures = () => router.push('/adventures')
+  const goTower = () => router.push('/tower')
   const handleLogout = () => {
     logout()
     router.push('/auth')
@@ -28,7 +28,7 @@ export default function MenuPage() {
   const showRatedIntro = Boolean(flags?.tutorialCompleted && !flags.ratedIntroShown)
   const closeRatedIntro = () => mark({ ratedIntroShown: true })
 
-  // Гость не должен видеть меню: играть, профиль и приключения ему всё
+  // Гость не должен видеть меню: играть, профиль и башня ему всё
   // равно недоступны, а кнопки вели бы в закрытые разделы.
   if (!checked) return <LoadingScreen message="Проверяем сессию…" />
   if (!user) return <AuthRequiredScreen />
@@ -38,7 +38,7 @@ export default function MenuPage() {
       <MainMenu
         user={user}
         onPlay={() => router.push('/play')}
-        onAdventures={goAdventures}
+        onTower={goTower}
         onProfile={goProfile}
         onLeaderboard={goLeaderboard}
         onForum={goForum}
@@ -47,9 +47,9 @@ export default function MenuPage() {
       {showRatedIntro ? (
         <RatedInfoPopup
           onClose={closeRatedIntro}
-          onAdventures={() => {
+          onTower={() => {
             closeRatedIntro()
-            goAdventures()
+            goTower()
           }}
         />
       ) : null}

@@ -4,12 +4,12 @@ type Props = {
 	children: ReactNode
 	onClick?: () => void
 	disabled?: boolean
-	variant?: 'primary' | 'default' | 'danger' | 'adventure'
+	variant?: 'primary' | 'default' | 'danger' | 'tower'
 	badge?: string
 }
 
 // Кнопка главного меню: зелёная для основного действия, красная для выхода,
-// сине-фиолетовая для приключений и тёмная для остальных пунктов.
+// каменно-золотая для башни и тёмная для остальных пунктов.
 export default function MenuButton({
 	children,
 	onClick,
@@ -45,16 +45,16 @@ export default function MenuButton({
 		)
 	}
 
-	if (variant === 'adventure') {
+	if (variant === 'tower') {
 		return (
 			<button
 				type="button"
 				onClick={onClick}
 				disabled={disabled}
-				className={`${base} border-[#4a3d8f] bg-gradient-to-b from-[#5b3fa8] to-[#2a2f74] text-indigo-100 shadow-[inset_0_1px_0_#8f7ad6,0_4px_0_#1a1440] hover:from-[#6d4fc0] hover:to-[#35398c] hover:text-white active:translate-y-[2px] active:shadow-[0_2px_0_#1a1440] focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:from-[#2a2350] disabled:to-[#171636] disabled:text-indigo-200/50 disabled:shadow-[0_3px_0_#1a1440]`}
+				className={`${base} border-[#8a6a1f] bg-gradient-to-b from-[#6b4a1f] to-[#3a2a12] text-amber-100 shadow-[inset_0_1px_0_#c9a24a,0_4px_0_#1a1006] hover:from-[#7d5827] hover:to-[#4a3618] hover:text-amber-50 active:translate-y-[2px] active:shadow-[0_2px_0_#1a1006] focus-visible:ring-amber-400 disabled:cursor-not-allowed disabled:from-[#2a2114] disabled:to-[#171109] disabled:text-amber-200/50 disabled:shadow-[0_3px_0_#1a1006]`}
 			>
 				{content}
-				<span className="text-[14px] leading-none text-indigo-300">✦</span>
+				<span className="text-[15px] leading-none text-amber-300">♜</span>
 			</button>
 		)
 	}

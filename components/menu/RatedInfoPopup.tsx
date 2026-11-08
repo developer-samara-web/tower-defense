@@ -7,7 +7,7 @@ import {
 
 type Props = {
 	onClose: () => void
-	onAdventures: () => void
+	onTower: () => void
 }
 
 const PCT = (value: number) => `${Math.round(value * 100)}%`
@@ -15,11 +15,11 @@ const PCT = (value: number) => `${Math.round(value * 100)}%`
 // Рассказ про рейтинг показываем один раз — сразу после обучения. Числа
 // берутся из lib/map-points: текст не должен разойтись с формулой, когда
 // баланс поправят.
-export default function RatedInfoPopup({ onClose, onAdventures }: Props) {
+export default function RatedInfoPopup({ onClose, onTower }: Props) {
 	return (
 		<div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#05080a]/85 px-4 font-mono">
-			<section className="w-[min(560px,94vw)] border-2 border-[#4a3d8f] bg-gradient-to-b from-[#1a1240]/95 to-[#0f0a05]/95 px-4 py-4 shadow-[0_10px_28px_rgba(0,0,0,0.8)]">
-				<h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-indigo-300">
+			<section className="w-[min(560px,94vw)] border-2 border-[#8a6a1f] bg-gradient-to-b from-[#2a1d0a]/95 to-[#0f0a05]/95 px-4 py-4 shadow-[0_10px_28px_rgba(0,0,0,0.8)]">
+				<h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-amber-300">
 					Как устроен рейтинг
 				</h2>
 				<p className="mt-1 text-[10px] font-bold leading-snug text-amber-100">
@@ -30,7 +30,7 @@ export default function RatedInfoPopup({ onClose, onAdventures }: Props) {
 				<ul className="mt-3 space-y-2">
 					{FACTS.map((fact) => (
 						<li key={fact.title} className="flex gap-2">
-							<span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center border border-[#4a3d8f] bg-[#2a2f74] text-[9px] font-black text-indigo-100">
+							<span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center border border-[#8a6a1f] bg-[#3a2a12] text-[9px] font-black text-amber-100">
 								{fact.mark}
 							</span>
 							<span className="min-w-0">
@@ -48,10 +48,10 @@ export default function RatedInfoPopup({ onClose, onAdventures }: Props) {
 				<div className="mt-4 flex flex-wrap items-center justify-end gap-2">
 					<button
 						type="button"
-						onClick={onAdventures}
-						className="border-2 border-[#4a3d8f] bg-gradient-to-b from-[#5b3fa8] to-[#2a2f74] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-indigo-50 transition-colors hover:from-[#6d4fc0] hover:to-[#35398c]"
+						onClick={onTower}
+						className="border-2 border-[#8a6a1f] bg-gradient-to-b from-[#6b4a1f] to-[#3a2a12] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-50 transition-colors hover:from-[#7d5827] hover:to-[#4a3618]"
 					>
-						Открыть приключения
+						Открыть башню
 					</button>
 					<button
 						type="button"
