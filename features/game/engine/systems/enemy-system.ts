@@ -147,9 +147,14 @@ export function createEnemySystem(
 		if (!route || !start) return
 
 		// Спрайт казармы приподнят над клеткой, поэтому враг выходит
-		// из центра здания, а не из центра клетки под ним.
+		// из центра здания, а не из центра клетки под ним. Окно башни
+		// стоит ровно на клетке, поэтому там сдвиг не нужен.
+		const windowSpawn = (ctx.map.wallCells?.length ?? 0) > 0
 		const spawnPoint = spawners[routeIndex]
-			? { x: start.x, y: start.y - SPAWNER_VISUAL_OFFSET_Y }
+			? {
+					x: start.x,
+					y: windowSpawn ? start.y : start.y - SPAWNER_VISUAL_OFFSET_Y,
+				}
 			: start
 
 		// Создаём тело врага и полоску здоровья.

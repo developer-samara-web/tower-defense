@@ -43,6 +43,9 @@ export type MapDraft = {
 	spawners: MapSpawner[]
 	waterCells: string[]
 	forestCells: string[]
+	// Каменные стены этажа башни: не застраиваются и не пропускают врагов.
+	// У обычных карт поля нет, поэтому массив необязателен.
+	wallCells?: string[]
 	// Клетки дороги, нарисованные вручную. Если они есть, монстры идут
 	// только по ним: игрок сам решает, где пройдёт путь к замку.
 	roadCells: string[]
@@ -132,6 +135,7 @@ export function createEmptyMapDraft(): MapDraft {
 		spawners: [],
 		waterCells: [],
 		forestCells: [],
+		wallCells: [],
 		roadCells: [],
 		waves: { useCommon: true, waves: [] },
 	}
@@ -180,20 +184,42 @@ export function resizeMapDraft(draft: MapDraft, cols: number, rows: number) {
 		castle = { ...castle, x, y }
 	}
 	const castleKeys = new Set(castle ? castleCellKeys(castle) : [])
+	const spawnerKeys = new Set(spawners.map((spawner) => cellKey(spawner.x, spawner.y)))
 
-	const waterCells = keep(draft.waterCells).filter((key) => !castleKeys.has(key))
-	const forestCells = keep(draft.forestCells).filter((key) => !castleKeys.has(key))
-	const occupied = new Set([...castleKeys, ...waterCells, ...forestCells])
+	// Стены этажа идут отдельным слоем: они не должны оказаться под
+	// казармой-окном или замком, иначе проход закроется.
+	const wallCells = keep(draft.wallCells ?? []).filter(
+		(key) => !castleKeys.has(key) && !spawnerKeys.has(key),
+	)
+	const wallSet = new Set(wallCells)
+
+	const waterCells = keep(draft.waterCells).filter(
+		(key) => !castleKeys.has(key) && !wallSet.has(key),
+	)
+	const forestCells = keep(draft.forestCells).filter(
+		(key) => !castleKeys.has(key) && !wallSet.has(key),
+	)
+	const occupied = new Set([...castleKeys, ...wallCells, ...waterCells, ...forestCells])
 	const roadCells = keep(draft.roadCells).filter((key) => !occupied.has(key))
 
 	const removed =
 		draft.spawners.length - spawners.length +
 		draft.waterCells.length - waterCells.length +
 		draft.forestCells.length - forestCells.length +
+		(draft.wallCells?.length ?? 0) - wallCells.length +
 		draft.roadCells.length - roadCells.length
 
 	return {
-		draft: { ...draft, ...size, castle, spawners, waterCells, forestCells, roadCells },
+		draft: {
+			...draft,
+			...size,
+			castle,
+			spawners,
+			waterCells,
+			forestCells,
+			wallCells,
+			roadCells,
+		},
 		removed,
 	}
 }
@@ -353,6 +379,7 @@ export function spawnerRoads(draft: MapDraft): SpawnerRoad[] {
 
 	const blocked = new Set<string>(draft.waterCells)
 	for (const key of draft.forestCells) blocked.add(key)
+	for (const key of draft.wallCells ?? []) blocked.add(key)
 	for (const key of castleCellKeys(castle)) blocked.add(key)
 	for (const spawner of draft.spawners) blocked.add(cellKey(spawner.x, spawner.y))
 
@@ -485,6 +512,7 @@ export function createCustomGameMap(draft: MapDraft): GameMap {
 		...(manual ? { routes: mappedRoutes } : {}),
 		waterCells: [...draft.waterCells],
 		forestCells: [...draft.forestCells],
+		wallCells: [...(draft.wallCells ?? [])],
 		castle,
 		spawners,
 		waves: draft.waves,
@@ -508,6 +536,11 @@ export function normalizeMapDraft(value: unknown): MapDraft | null {
 		for (const key of castleCellKeys(castle)) occupied.add(key)
 	}
 
+	// Стены читаем раньше воды и леса: клетка стены не должна достаться
+	// ещё и дереву. Окна казарм уже заняты, поэтому в стены не попадут.
+	const wallCells = readTerrainCells(raw.wallCells, occupied, size)
+	for (const key of wallCells) occupied.add(key)
+
 	const waterCells = readTerrainCells(raw.waterCells, occupied, size)
 	const forestCells = readTerrainCells(raw.forestCells, occupied, size)
 	const terrain = new Set([...occupied, ...waterCells, ...forestCells])
@@ -520,6 +553,7 @@ export function normalizeMapDraft(value: unknown): MapDraft | null {
 		spawners,
 		waterCells,
 		forestCells,
+		wallCells,
 		roadCells: readTerrainCells(
 			raw.roadCells,
 			terrain,
@@ -582,6 +616,7 @@ function readWaves(value: unknown): MapWaves {
 			health: clampWavePercent(wave.health),
 			speed: clampWavePercent(wave.speed),
 			count: clampWavePercent(wave.count),
+			...(wave.boss === true ? { boss: true } : {}),
 		})
 	}
 

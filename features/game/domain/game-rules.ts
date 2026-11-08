@@ -154,6 +154,7 @@ type BuildCellSets = {
 	pathCells: ReadonlySet<string>
 	waterCells: ReadonlySet<string>
 	forestCells: ReadonlySet<string>
+	wallCells?: ReadonlySet<string>
 	spawnerCells: ReadonlySet<string>
 	castleCells: ReadonlySet<string>
 	towerCells: ReadonlySet<string>
@@ -177,6 +178,7 @@ function buildBlockReason(position: BoardPosition, cells: BuildCellSets) {
 		if (cells.pathCells.has(key)) return 'path' as const
 		if (cells.waterCells.has(key)) return 'water' as const
 		if (cells.forestCells.has(key)) return 'forest' as const
+		if (cells.wallCells?.has(key)) return 'wall' as const
 		if (cells.spawnerCells.has(key)) return 'spawner' as const
 		if (cells.towerCells.has(key)) return 'occupied' as const
 		if (cells.queuedCells?.has(key)) return 'queued' as const

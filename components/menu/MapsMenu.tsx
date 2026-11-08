@@ -9,6 +9,7 @@ import {
 	TERRAIN_FOREST,
 	TERRAIN_GRASS,
 	TERRAIN_ROAD,
+	TERRAIN_WALL,
 	TERRAIN_WATER,
 	type MapPreview,
 } from '@/features/game/engine/map/map-preview'
@@ -81,6 +82,7 @@ const TERRAIN_FILLS: Record<number, string> = {
 	[TERRAIN_FOREST]: '#33501c',
 	[TERRAIN_WATER]: '#3d7f9c',
 	[TERRAIN_ROAD]: '#cdb178',
+	[TERRAIN_WALL]: '#6b5a44',
 }
 
 type TerrainRun = { key: string; x: number; y: number; width: number; fill: string }

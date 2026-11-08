@@ -81,6 +81,9 @@ export function createTowerSystem(
 	// Лес лежит в карте, а не в снимке состояния: тысячи клеток не нужно
 	// гонять через HUD и автосохранение.
 	const forestCells = new Set(ctx.map.forestCells)
+	// Каменные стены этажа башни: сквозь них не ходят враги и на них
+	// не ставят башни.
+	const wallCells = new Set(ctx.map.wallCells ?? [])
 	// Застройка вокруг казарм запрещена, чтобы монстров не расстреливали
 	// у самого выхода. У сид-карт казарм нет, поэтому зона пустая.
 	const spawnerCells = spawnerBuildCells(ctx.map.spawners)
@@ -129,6 +132,8 @@ export function createTowerSystem(
 				return 'На воде строить нельзя.'
 			case 'forest':
 				return 'В лесу строить нельзя — расчистите место у дороги.'
+			case 'wall':
+				return 'На каменной стене строить нельзя.'
 			case 'spawner':
 				return 'Вокруг казармы строить нельзя.'
 			case 'occupied':
@@ -200,6 +205,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
 			forestCells,
+			wallCells,
 			spawnerCells,
 			castleCells,
 			towerCells: state.towerCells,
@@ -449,6 +455,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
 			forestCells,
+			wallCells,
 			spawnerCells,
 			castleCells,
 			towerCells: state.towerCells,
@@ -557,6 +564,7 @@ export function createTowerSystem(
 			pathCells: state.pathCells,
 			waterCells: state.waterCells,
 			forestCells,
+			wallCells,
 			spawnerCells,
 			castleCells,
 			towerCells: state.towerCells,

@@ -1,4 +1,5 @@
 import {
+	ENEMY_TYPES,
 	WAVE_HP_GROWTH,
 	WAVE_SPEED_GROWTH,
 	WAVE_SPEED_GROWTH_CAP,
@@ -71,6 +72,18 @@ function planModifiers(plan: MapWaves | undefined, safeWave: number): WaveModifi
 	}
 }
 
+// Сколько прочности замка снимает прорвавшийся босс.
+const BOSS_STRENGTH = 5
+
+// Волна с боссом: флаг ставится в плане волн карты. Список повторяет
+// последнюю настройку после своего конца, как и множители.
+function isBossWave(plan: MapWaves | undefined, wave: number) {
+	if (!plan || plan.useCommon || plan.waves.length === 0) return false
+
+	const entry = plan.waves[Math.min(wave, plan.waves.length) - 1]
+	return entry?.boss === true
+}
+
 // Очередь появления монстров на волне: казармы выпускают своих
 // монстров по очереди, виды внутри казармы чередуются.
 const UNIT_CACHE = new WeakMap<WaveSourceMap, Map<number, WaveSpawnUnit[]>>()
@@ -120,6 +133,22 @@ export function waveSpawnUnits(map: WaveSourceMap, wave: number): WaveSpawnUnit[
 
 			units.push({ spawnerIndex, troop })
 		}
+	}
+
+	// Босс идёт последним: он выходит из первой казармы, а его здоровье
+	// растёт по тем же множителям волны и этажа, что и у остальных.
+	if (isBossWave(map.waves, safeWave) && map.spawners.length > 0) {
+		const boss = ENEMY_TYPES.boss
+		units.push({
+			spawnerIndex: 0,
+			troop: {
+				type: 'boss',
+				count: 1,
+				speed: boss.baseSpeed,
+				strength: BOSS_STRENGTH,
+				health: boss.baseHp,
+			},
+		})
 	}
 
 	cached.set(safeWave, units)

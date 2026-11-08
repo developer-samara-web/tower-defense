@@ -4,14 +4,24 @@ import { cellKey, draftSize, spawnerRoads, type MapDraft } from './custom-map.ts
 // карту списка, и даже для поля 150×150 это остаётся пара сотен байт.
 export const MAP_PREVIEW_MAX = 48
 
-// Индекс — приоритет клетки при уменьшении: дорога важнее воды,
-// вода важнее леса. Символы попадают в RLE-строку preview.
-const TERRAIN_CODES = ['g', 'f', 'w', 'r']
+// Индекс — код клетки в RLE-строке preview. Отдельный приоритет решает,
+// какой тип показать, если при уменьшении в один блок попали разные клетки:
+// дорога важнее стены, стена важнее воды, вода важнее леса.
+const TERRAIN_CODES = ['g', 'f', 'w', 'r', 's']
 
 export const TERRAIN_GRASS = 0
 export const TERRAIN_FOREST = 1
 export const TERRAIN_WATER = 2
 export const TERRAIN_ROAD = 3
+export const TERRAIN_WALL = 4
+
+const TERRAIN_PRIORITY: Record<number, number> = {
+	[TERRAIN_GRASS]: 0,
+	[TERRAIN_FOREST]: 1,
+	[TERRAIN_WATER]: 2,
+	[TERRAIN_WALL]: 3,
+	[TERRAIN_ROAD]: 4,
+}
 
 export type MapPreview = {
 	cols: number
@@ -27,6 +37,7 @@ export function buildMapPreview(draft: MapDraft): MapPreview {
 
 	const water = new Set(draft.waterCells)
 	const forest = new Set(draft.forestCells)
+	const wall = new Set(draft.wallCells ?? [])
 	const road = new Set(draft.roadCells)
 	if (road.size === 0) {
 		for (const entry of spawnerRoads(draft)) {
@@ -37,6 +48,7 @@ export function buildMapPreview(draft: MapDraft): MapPreview {
 	const terrainAt = (x: number, y: number) => {
 		const key = cellKey(x, y)
 		if (road.has(key)) return TERRAIN_ROAD
+		if (wall.has(key)) return TERRAIN_WALL
 		if (water.has(key)) return TERRAIN_WATER
 		if (forest.has(key)) return TERRAIN_FOREST
 		return TERRAIN_GRASS
@@ -61,14 +73,20 @@ export function buildMapPreview(draft: MapDraft): MapPreview {
 			const x0 = Math.floor((px * cols) / previewCols)
 			const x1 = Math.max(x0, Math.floor(((px + 1) * cols) / previewCols) - 1)
 
-			// Тонкая река или дорога не должны пропасть при уменьшении:
-			// берём самый заметный тип клеток блока.
+			// Тонкая река, стена или дорога не должны пропасть при
+			// уменьшении: берём самый заметный тип клеток блока.
 			let value = TERRAIN_GRASS
-			for (let y = y0; y <= y1 && value < TERRAIN_ROAD; y++) {
+			let priority = TERRAIN_PRIORITY[TERRAIN_GRASS] ?? 0
+
+			for (let y = y0; y <= y1 && priority < 4; y++) {
 				for (let x = x0; x <= x1; x++) {
 					const terrain = terrainAt(x, y)
-					if (terrain > value) value = terrain
-					if (value === TERRAIN_ROAD) break
+					const next = TERRAIN_PRIORITY[terrain] ?? 0
+					if (next <= priority) continue
+
+					value = terrain
+					priority = next
+					if (priority === 4) break
 				}
 			}
 

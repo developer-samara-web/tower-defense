@@ -38,15 +38,17 @@ export function drawBoard(
 	seed = 1,
 ): Set<string> {
 	drawStaticBoard(scene)
+	drawWallLayer(scene, map.wallCells, seed)
 	drawForestLayer(scene, map.forestCells, seed)
 	drawRiverLayer(scene, map.waterCells, seed)
 
 	const pathCells = drawPath(scene, map, seed)
 
-	// Декор не рисуем ни на дороге, ни на воде, ни под деревьями.
+	// Декор не рисуем ни на дороге, ни на воде, ни под деревьями, ни на стенах.
 	const occupiedCells = new Set(pathCells)
 	for (const cell of map.waterCells) occupiedCells.add(cell)
 	for (const cell of map.forestCells) occupiedCells.add(cell)
+	for (const cell of map.wallCells ?? []) occupiedCells.add(cell)
 
 	drawTerrainDetails(scene, occupiedCells, seed)
 	scatterPackDecor(scene, occupiedCells, seed)
@@ -66,6 +68,43 @@ export function drawStaticBoard(scene: Phaser.Scene) {
 	drawGrass(scene)
 	drawGrid(scene)
 	drawEdgeShade(scene)
+}
+
+// Каменная стена этажа: сплошной пояс по краю поля. Клетки рисуем
+// одной графикой, чтобы швы между прямоугольниками не складывались
+// в сетку; кирпичная расшивка и случайный оттенок дают фактуру.
+export function drawWallLayer(
+	scene: Phaser.Scene,
+	wallCells: string[] | undefined,
+	seed: number,
+) {
+	if (!wallCells || wallCells.length === 0) return
+
+	const random = createSeededRandom(seed ^ 0x2f6b1a3d)
+	const graphics = scene.add.graphics().setDepth(0.55)
+
+	for (const key of wallCells) {
+		const [x = 0, y = 0] = key.split(',').map(Number)
+		const left = x * CELL_SIZE
+		const top = y * CELL_SIZE
+
+		const shade = random() < 0.5 ? PIXEL_COLORS.stone : PIXEL_COLORS.stoneDark
+		graphics.fillStyle(shade, 1)
+		graphics.fillRect(left, top, CELL_SIZE, CELL_SIZE)
+
+		// Верхняя грань светлее: стена читается объёмной даже без спрайтов.
+		graphics.fillStyle(PIXEL_COLORS.stoneLight, 0.22)
+		graphics.fillRect(left, top, CELL_SIZE, 3)
+
+		graphics.lineStyle(1, PIXEL_COLORS.stoneDark, 0.55)
+		graphics.lineBetween(left, top + CELL_SIZE / 2, left + CELL_SIZE, top + CELL_SIZE / 2)
+		graphics.lineBetween(left + CELL_SIZE / 2, top, left + CELL_SIZE / 2, top + CELL_SIZE / 2)
+		graphics.lineBetween(left, top + CELL_SIZE / 2, left + CELL_SIZE / 2, top + CELL_SIZE)
+		graphics.lineBetween(left + CELL_SIZE / 2, top + CELL_SIZE / 2, left + CELL_SIZE, top + CELL_SIZE)
+
+		graphics.lineStyle(1, PIXEL_COLORS.stoneBorder, 0.28)
+		graphics.strokeRect(left + 0.5, top + 0.5, CELL_SIZE - 1, CELL_SIZE - 1)
+	}
 }
 
 export function drawForestLayer(
@@ -1703,8 +1742,15 @@ export const SPAWNER_VISUAL_OFFSET_Y = CELL_SIZE * 0.7
 // там, куда его поставили в редакторе.
 function drawPathEndpoints(scene: Phaser.Scene, map: GameMap) {
 	if (map.spawners.length > 0) {
+		// На этажах башни казармы заменены окнами в каменной стене.
+		const windows = (map.wallCells?.length ?? 0) > 0
+
 		for (const spawner of map.spawners) {
-			drawSpawnerAt(scene, spawner.x, spawner.y)
+			if (windows) {
+				drawWindowAt(scene, spawner.x, spawner.y)
+			} else {
+				drawSpawnerAt(scene, spawner.x, spawner.y)
+			}
 		}
 		drawCastleAt(scene, map.castle.x, map.castle.y)
 		return
@@ -1769,5 +1815,31 @@ export function drawSpawnerAt(scene: Phaser.Scene, cellX: number, cellY: number)
 		.image(center.x, center.y - SPAWNER_VISUAL_OFFSET_Y, key)
 		.setDisplaySize(width, width * ratio)
 		.setDepth(2)
+}
+
+// Окно в каменной стене этажа: тёмный проём в каменной рамке с тёплым
+// отсветом. Из него выходят волны, поэтому окно стоит на клетке казармы.
+export function drawWindowAt(scene: Phaser.Scene, cellX: number, cellY: number) {
+	const center = cellCenter(cellX, cellY)
+	const half = CELL_SIZE / 2
+	const left = center.x - half
+	const top = center.y - half
+	const graphics = scene.add.graphics().setDepth(2)
+
+	graphics.fillStyle(PIXEL_COLORS.stoneBorder, 1)
+	graphics.fillRect(left - 3, top - 3, CELL_SIZE + 6, CELL_SIZE + 6)
+
+	graphics.fillStyle(PIXEL_COLORS.stoneDark, 1)
+	graphics.fillRect(left, top, CELL_SIZE, CELL_SIZE)
+
+	// Проём: почти чёрный, с золотистым отсветом у нижней кромки.
+	graphics.fillStyle(0x120d08, 1)
+	graphics.fillRect(left + 4, top + 4, CELL_SIZE - 8, CELL_SIZE - 8)
+
+	graphics.fillStyle(PIXEL_COLORS.gold, 0.16)
+	graphics.fillRect(left + 6, top + CELL_SIZE - 11, CELL_SIZE - 12, 5)
+
+	graphics.lineStyle(2, PIXEL_COLORS.stoneLight, 0.7)
+	graphics.strokeRect(left + 3.5, top + 3.5, CELL_SIZE - 7, CELL_SIZE - 7)
 }
 
