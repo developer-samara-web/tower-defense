@@ -47,3 +47,35 @@ body {
 .td-loading-bar {
 	animation: td-loading-run 1.4s linear infinite;
 }
+
+/* Скролл в стиле игры: тёмное каменное поле, золотая рамка и
+   коричневый ползунок. Правило глобальное — так оформлены все
+   прокручиваемые списки сайта, от форума до этажей башни. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: #8a6a1f #120d07;
+}
+
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+	background: #120d07;
+	border: 1px solid #3a2a1a;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #6b4a1f, #3a2a12);
+	border: 1px solid #8a6a1f;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(180deg, #8a5f27, #4a3618);
+	border-color: #c9a24a;
+}
+
+*::-webkit-scrollbar-corner {
+	background: #120d07;
+}
